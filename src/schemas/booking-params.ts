@@ -1,0 +1,40 @@
+import {
+  createSearchParamsCache,
+  parseAsString,
+  parseAsStringEnum
+} from "nuqs/server";
+
+export const tripTypeValues = ["one-way", "round-trip"] as const;
+export type TripType = (typeof tripTypeValues)[number];
+
+export const getTodayDateString = () => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+export const bookingSearchParamsParsers = {
+  tripType: parseAsStringEnum<TripType>(["one-way", "round-trip"]).withDefault("one-way"),
+  from: parseAsString.withDefault("Malé Ferry Terminal"),
+  to: parseAsString.withDefault("Maafushi Jetty"),
+  departureDate: parseAsString.withDefault(getTodayDateString()),
+  returnDate: parseAsString.withDefault(""),
+  passengers: parseAsString.withDefault("1 Passenger"),
+  adults: parseAsString.withDefault("1"),
+  children: parseAsString.withDefault("0"),
+  bookingRef: parseAsString.withDefault("")
+};
+
+export const bookingSearchParamsCache = createSearchParamsCache(bookingSearchParamsParsers);
+
+/**
+ * Helper to reliably parse numeric passenger count from strings like "1 Passenger", "2 Passengers", "4"
+ */
+export function extractPassengerCount(passengersStr: string | null | undefined): number {
+  if (!passengersStr) return 1;
+  const match = passengersStr.match(/\d+/);
+  const count = match ? parseInt(match[0], 10) : 1;
+  return isNaN(count) || count < 1 ? 1 : count;
+}
