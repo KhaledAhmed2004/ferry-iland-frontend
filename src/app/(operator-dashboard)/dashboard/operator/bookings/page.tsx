@@ -26,10 +26,11 @@ import {
   useOperatorCheckInMutation
 } from "@/hooks";
 import type { IOperatorBookingItem } from "@/types";
-import { Badge, Button, Card, CardContent } from "@/ui";
+import { Badge, Button } from "@/ui";
 import {
   BookingDetailsModal,
   DashboardTableCard,
+  StatCard,
   StatusBadge,
   TablePagination,
   TableToolbar,
@@ -364,65 +365,40 @@ export default function OperatorBookingsPage() {
 
       {/* KPI Metric Summary Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="border-border/80 bg-card shadow-xs">
-          <CardContent className="p-5 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase">Total Bookings</p>
-              <p className="text-2xl font-black text-foreground mt-1">
-                {totalCount}
-              </p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Assigned to fleet</p>
-            </div>
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-              <CalendarCheck className="h-5 w-5" />
-            </div>
-          </CardContent>
-        </Card>
+        <StatCard
+          title="Total Bookings"
+          value={totalCount}
+          description="Assigned to fleet"
+          icon={CalendarCheck}
+          variant="emerald"
+        />
 
-        <Card className="border-border/80 bg-card shadow-xs">
-          <CardContent className="p-5 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase">Confirmed</p>
-              <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">
-                {confirmedCount} Ready
-              </p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Awaiting check-in</p>
-            </div>
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-              <CheckCircle2 className="h-5 w-5" />
-            </div>
-          </CardContent>
-        </Card>
+        <StatCard
+          title="Confirmed"
+          value={`${confirmedCount} Ready`}
+          description="Awaiting check-in"
+          icon={CheckCircle2}
+          variant="emerald"
+          colorValue
+        />
 
-        <Card className="border-border/80 bg-card shadow-xs">
-          <CardContent className="p-5 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase">Checked In</p>
-              <p className="text-2xl font-black text-blue-600 dark:text-blue-400 mt-1">
-                {checkedInCount} Boarded
-              </p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Passes verified</p>
-            </div>
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
-              <Ticket className="h-5 w-5" />
-            </div>
-          </CardContent>
-        </Card>
+        <StatCard
+          title="Checked In"
+          value={`${checkedInCount} Boarded`}
+          description="Passes verified"
+          icon={Ticket}
+          variant="blue"
+          colorValue
+        />
 
-        <Card className="border-border/80 bg-card shadow-xs">
-          <CardContent className="p-5 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase">Cancelled</p>
-              <p className="text-2xl font-black text-rose-600 dark:text-rose-400 mt-1">
-                {cancelledCount} Cancelled
-              </p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Seats restored</p>
-            </div>
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400">
-              <AlertCircle className="h-5 w-5" />
-            </div>
-          </CardContent>
-        </Card>
+        <StatCard
+          title="Cancelled"
+          value={`${cancelledCount} Cancelled`}
+          description="Seats restored"
+          icon={AlertCircle}
+          variant="rose"
+          colorValue
+        />
       </div>
 
       {/* Reusable Toolbar: Search Input on left + Filter Tabs on right */}

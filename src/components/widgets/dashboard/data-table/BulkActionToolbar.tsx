@@ -30,6 +30,7 @@ export interface BulkActionToolbarProps {
   isDeleting?: boolean;
   position?: "top" | "bottom";
   className?: string;
+  badgeColor?: "emerald" | "blue";
 }
 
 export function BulkActionToolbar({
@@ -47,7 +48,8 @@ export function BulkActionToolbar({
   deleteLabel = "Delete",
   isDeleting = false,
   position = "top",
-  className
+  className,
+  badgeColor = "emerald"
 }: BulkActionToolbarProps) {
   if (selectedCount === 0) return null;
 
@@ -56,16 +58,24 @@ export function BulkActionToolbar({
       ? "sticky top-4 z-30"
       : "fixed bottom-6 left-1/2 -translate-x-1/2 z-50 max-w-[95vw]";
 
+  const isBlue = badgeColor === "blue";
+
   return (
     <div
       className={cn(
-        "bg-card/95 dark:bg-card/90 animate-in fade-in slide-in-from-top-2 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-500/30 p-3 shadow-lg backdrop-blur-md transition-all duration-200",
+        "bg-card/95 dark:bg-card/90 animate-in fade-in slide-in-from-top-2 flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3 shadow-lg backdrop-blur-md transition-all duration-200",
+        isBlue ? "border-blue-500/30" : "border-emerald-500/30",
         positionClasses,
         className
       )}
     >
       <div className="flex flex-wrap items-center gap-2.5">
-        <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-emerald-600 px-2 text-xs font-bold text-white shadow-2xs">
+        <span
+          className={cn(
+            "flex h-6 min-w-6 items-center justify-center rounded-full px-2 text-xs font-bold text-white shadow-2xs",
+            isBlue ? "bg-blue-600" : "bg-emerald-600"
+          )}
+        >
           {selectedCount}
         </span>
         <span className="text-foreground text-xs font-semibold whitespace-nowrap">
@@ -81,7 +91,10 @@ export function BulkActionToolbar({
             <button
               type="button"
               onClick={onSelectAllAcrossPages}
-              className="ml-2 cursor-pointer text-xs font-semibold text-emerald-600 underline-offset-4 hover:underline dark:text-emerald-400 whitespace-nowrap"
+              className={cn(
+                "ml-2 cursor-pointer text-xs font-semibold underline-offset-4 hover:underline whitespace-nowrap",
+                isBlue ? "text-blue-600 dark:text-blue-400" : "text-emerald-600 dark:text-emerald-400"
+              )}
             >
               Select all {totalCount} {itemLabel} across all pages
             </button>

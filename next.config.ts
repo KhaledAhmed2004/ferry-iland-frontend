@@ -40,6 +40,15 @@ const nextConfig: NextConfig = {
     if (fileLoaderRule) fileLoaderRule.exclude = /\.svg$/i;
     config.module.rules.push({ test: /\.svg$/i, issuer: /\.[jt]sx?$/, use: ["@svgr/webpack"] });
     return config;
+  },
+  async redirects() {
+    return [
+      {
+        source: "/admin",
+        destination: "/dashboard/admin",
+        permanent: false
+      }
+    ];
   }
 };
 

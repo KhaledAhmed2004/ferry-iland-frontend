@@ -1,10 +1,11 @@
 "use client";
 
 import * as React from "react";
+
 import {
   AlertCircle,
-  Ban,
   AlertTriangle,
+  Ban,
   Check,
   CheckCircle2,
   Download,
@@ -15,36 +16,35 @@ import {
   RefreshCw,
   UserCheck,
   Users,
-  X,
   XCircle
 } from "lucide-react";
 import { toast } from "sonner";
 
-import { useUpdateUserStatusMutation, useUsersQuery } from "@/hooks/use-users";
 import { useDebounce } from "@/hooks/use-debounce";
+import { useTableSelection } from "@/hooks/use-table-selection";
+import { useUpdateUserStatusMutation, useUsersQuery } from "@/hooks/use-users";
+
 import {
-  Button,
-  Card,
-  CardContent,
-  Checkbox,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  Tabs,
-  TabsList,
-  TabsTrigger
-} from "@/ui";
-import {
+  BulkActionToolbar,
   DashboardTableCard,
+  PageHeader,
+  StatCard,
   StatusBadge,
   TablePagination,
   TableToolbar,
   UserDetailsModal,
   type TableColumn
 } from "@/widgets";
+import {
+  Button,
+  Checkbox,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from "@/ui";
 import type { IAdminUserItem } from "@/types";
 
 export default function AdminPassengersPage() {
@@ -140,8 +140,23 @@ export default function AdminPassengersPage() {
   const activeCount = passengers.filter((u) => u.status === "ACTIVE").length;
   const suspendedCount = passengers.filter((u) => u.status === "SUSPENDED").length;
 
-  // Bulk selection & action states
-  const [selectedPassengerIds, setSelectedPassengerIds] = React.useState<Set<string>>(new Set());
+  // Headless Bulk Selection Hook
+  const {
+    selectedIds: selectedPassengerIds,
+    selectedCount,
+    isAllCurrentPageSelected,
+    isSomeCurrentPageSelected,
+    toggleRow: toggleSelectRow,
+    toggleSelectAllCurrentPage,
+    toggleSelectAllAcrossPages,
+    clearSelection,
+    selectedItems
+  } = useTableSelection<IAdminUserItem>({
+    items: displayedPassengers,
+    allPageItems: passengers,
+    idKey: "id"
+  });
+
   const [isBulkOperating, setIsBulkOperating] = React.useState(false);
   const [bulkActionType, setBulkActionType] = React.useState<"activate" | "suspend" | null>(null);
 
@@ -149,53 +164,12 @@ export default function AdminPassengersPage() {
 
   // Reset selection on page, tab, or search change
   React.useEffect(() => {
-    setSelectedPassengerIds(new Set());
-  }, [page, statusTab, debouncedSearch]);
-
-  const selectedCount = selectedPassengerIds.size;
-  const currentPageIds = React.useMemo(
-    () => displayedPassengers.map((p) => p.id),
-    [displayedPassengers]
-  );
-
-  const isAllCurrentPageSelected =
-    currentPageIds.length > 0 &&
-    currentPageIds.every((id) => selectedPassengerIds.has(id));
-
-  const isSomeCurrentPageSelected =
-    currentPageIds.some((id) => selectedPassengerIds.has(id)) &&
-    !isAllCurrentPageSelected;
-
-  const toggleSelectRow = (id: string) => {
-    setSelectedPassengerIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const toggleSelectAllCurrentPage = () => {
-    if (isAllCurrentPageSelected) {
-      setSelectedPassengerIds((prev) => {
-        const next = new Set(prev);
-        currentPageIds.forEach((id) => next.delete(id));
-        return next;
-      });
-    } else {
-      setSelectedPassengerIds((prev) => {
-        const next = new Set(prev);
-        currentPageIds.forEach((id) => next.add(id));
-        return next;
-      });
-    }
-  };
-
-  const clearSelection = () => setSelectedPassengerIds(new Set());
+    clearSelection();
+  }, [page, statusTab, debouncedSearch, clearSelection]);
 
   // Bulk Status Update Handler
   const handleBulkStatusChange = async (targetStatus: "ACTIVE" | "SUSPENDED") => {
-    if (selectedPassengerIds.size === 0 || isBulkOperating) return;
+    if (selectedCount === 0 || isBulkOperating) return;
     setIsBulkOperating(true);
     setBulkActionType(targetStatus === "ACTIVE" ? "activate" : "suspend");
 
@@ -237,10 +211,16 @@ export default function AdminPassengersPage() {
 
   // Bulk CSV Export Handler
   const handleBulkExportCSV = () => {
-    const selectedItems = passengers.filter((p) => selectedPassengerIds.has(p.id));
     if (selectedItems.length === 0) return;
 
-    const headers = ["Passenger Name", "Email", "Phone", "Status", "Email Verified", "Registered Date"];
+    const headers = [
+      "Passenger Name",
+      "Email",
+      "Phone",
+      "Status",
+      "Email Verified",
+      "Registered Date"
+    ];
     const rows = selectedItems.map((p) => [
       `"${(p.name || "").replace(/"/g, '""')}"`,
       `"${(p.email || "").replace(/"/g, '""')}"`,
@@ -250,11 +230,16 @@ export default function AdminPassengersPage() {
       `"${new Date(p.createdAt).toLocaleDateString()}"`
     ]);
 
-    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const csvContent =
+      "data:text/csv;charset=utf-8," +
+      [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `passengers_export_${new Date().toISOString().split("T")[0]}.csv`);
+    link.setAttribute(
+      "download",
+      `passengers_export_${new Date().toISOString().split("T")[0]}.csv`
+    );
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -272,11 +257,7 @@ export default function AdminPassengersPage() {
         <div className="flex items-center justify-center">
           <Checkbox
             checked={
-              isAllCurrentPageSelected
-                ? true
-                : isSomeCurrentPageSelected
-                  ? "indeterminate"
-                  : false
+              isAllCurrentPageSelected ? true : isSomeCurrentPageSelected ? "indeterminate" : false
             }
             onCheckedChange={toggleSelectAllCurrentPage}
             aria-label="Select all passengers on current page"
@@ -289,10 +270,7 @@ export default function AdminPassengersPage() {
       cell: (item) => {
         const isChecked = selectedPassengerIds.has(item.id);
         return (
-          <div
-            className="flex items-center justify-center"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
             <Checkbox
               checked={isChecked}
               onCheckedChange={() => toggleSelectRow(item.id)}
@@ -305,19 +283,21 @@ export default function AdminPassengersPage() {
     {
       header: "PASSENGER",
       cell: (item) => {
-        const initials = item.name ? item.name.charAt(0).toUpperCase() : item.email.charAt(0).toUpperCase();
+        const initials = item.name
+          ? item.name.charAt(0).toUpperCase()
+          : item.email.charAt(0).toUpperCase();
         return (
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold text-sm">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-500/10 text-sm font-bold text-blue-600 dark:text-blue-400">
               {initials}
             </div>
             <div className="overflow-hidden">
               <div className="flex items-center gap-2">
-                <span className="font-bold text-foreground text-xs sm:text-sm truncate">
+                <span className="text-foreground truncate text-xs font-bold sm:text-sm">
                   {item.name || "Unnamed Passenger"}
                 </span>
               </div>
-              <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-0.5 truncate">
+              <div className="text-muted-foreground mt-0.5 flex items-center gap-1.5 truncate text-[11px]">
                 <Mail className="h-3 w-3 shrink-0" />
                 <span className="truncate">{item.email}</span>
               </div>
@@ -331,7 +311,7 @@ export default function AdminPassengersPage() {
       cell: (item) => {
         const phone = item.phoneNumber || item.phone;
         return (
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-mono">
+          <div className="text-muted-foreground flex items-center gap-1.5 font-mono text-xs">
             {phone ? (
               <>
                 <Phone className="h-3.5 w-3.5 shrink-0 text-slate-400" />
@@ -378,7 +358,7 @@ export default function AdminPassengersPage() {
     {
       header: "REGISTERED",
       cell: (item) => (
-        <span className="font-mono text-xs text-muted-foreground">
+        <span className="text-muted-foreground font-mono text-xs">
           {new Date(item.createdAt).toLocaleDateString()}
         </span>
       )
@@ -393,7 +373,7 @@ export default function AdminPassengersPage() {
             variant="ghost"
             size="sm"
             onClick={() => handleOpenDetails(item)}
-            className="h-8 gap-1.5 px-2.5 rounded-lg text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/20 transition-colors cursor-pointer"
+            className="bg-primary/10 text-primary hover:bg-primary/20 h-8 cursor-pointer gap-1.5 rounded-lg px-2.5 text-xs font-semibold transition-colors"
           >
             <Eye className="h-3.5 w-3.5" />
             <span>Details</span>
@@ -410,7 +390,7 @@ export default function AdminPassengersPage() {
                   targetStatus: "SUSPENDED"
                 });
               }}
-              className="h-8 gap-1 px-2.5 rounded-lg text-xs font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-500/10 transition-colors cursor-pointer"
+              className="h-8 cursor-pointer gap-1 rounded-lg px-2.5 text-xs font-semibold text-rose-600 transition-colors hover:bg-rose-500/10 hover:text-rose-700"
               title="Suspend Passenger"
             >
               <Ban className="h-3.5 w-3.5" />
@@ -427,7 +407,7 @@ export default function AdminPassengersPage() {
                   targetStatus: "ACTIVE"
                 });
               }}
-              className="h-8 gap-1 px-2.5 rounded-lg text-xs font-semibold text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10 transition-colors cursor-pointer"
+              className="h-8 cursor-pointer gap-1 rounded-lg px-2.5 text-xs font-semibold text-emerald-600 transition-colors hover:bg-emerald-500/10 hover:text-emerald-700"
               title="Activate Passenger"
             >
               <CheckCircle2 className="h-3.5 w-3.5" />
@@ -442,61 +422,36 @@ export default function AdminPassengersPage() {
   return (
     <div className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8">
       {/* Page Header */}
-      <div className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-          Passenger Management
-        </h1>
-        <p className="text-muted-foreground text-xs sm:text-sm">
-          Directory of registered travelers, ticket buyers, and passenger accounts.
-        </p>
-      </div>
+      <PageHeader
+        title="Passenger Management"
+        description="Directory of registered travelers, ticket buyers, and passenger accounts."
+      />
 
       {/* Metric Stat Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Card className="border-border/80 bg-card shadow-xs">
-          <CardContent className="p-5 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase">Total Passengers</p>
-              <p className="text-2xl font-extrabold text-foreground mt-1">
-                {totalCount} {totalCount === 1 ? "Passenger" : "Passengers"}
-              </p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Registered traveler accounts</p>
-            </div>
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
-              <Users className="h-5 w-5" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border/80 bg-card shadow-xs">
-          <CardContent className="p-5 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase">Active Travelers</p>
-              <p className="text-2xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-1">
-                {activeCount} {activeCount === 1 ? "Active" : "Active"}
-              </p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Verified & active to travel</p>
-            </div>
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-              <UserCheck className="h-5 w-5" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border/80 bg-card shadow-xs">
-          <CardContent className="p-5 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase">Suspended Accounts</p>
-              <p className="text-2xl font-extrabold text-rose-600 dark:text-rose-400 mt-1">
-                {suspendedCount} {suspendedCount === 1 ? "Account" : "Accounts"}
-              </p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Restricted from booking</p>
-            </div>
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400">
-              <XCircle className="h-5 w-5" />
-            </div>
-          </CardContent>
-        </Card>
+        <StatCard
+          label="Total Passengers"
+          value={`${totalCount} ${totalCount === 1 ? "Passenger" : "Passengers"}`}
+          description="Registered traveler accounts"
+          icon={Users}
+          variant="blue"
+        />
+        <StatCard
+          label="Active Travelers"
+          value={`${activeCount} ${activeCount === 1 ? "Active" : "Active"}`}
+          description="Verified & active to travel"
+          icon={UserCheck}
+          variant="emerald"
+          colorValue
+        />
+        <StatCard
+          label="Suspended Accounts"
+          value={`${suspendedCount} ${suspendedCount === 1 ? "Account" : "Accounts"}`}
+          description="Restricted from booking"
+          icon={XCircle}
+          variant="rose"
+          colorValue
+        />
       </div>
 
       {/* Reusable Search & Status Toolbar */}
@@ -515,10 +470,10 @@ export default function AdminPassengersPage() {
 
       {/* Error State */}
       {isError && (
-        <div className="rounded-xl border border-destructive/20 bg-destructive/10 p-6 text-center space-y-3">
-          <AlertCircle className="mx-auto h-8 w-8 text-destructive" />
-          <h2 className="text-base font-bold text-foreground">Failed to Load Passengers</h2>
-          <p className="text-xs text-muted-foreground max-w-md mx-auto">
+        <div className="border-destructive/20 bg-destructive/10 space-y-3 rounded-xl border p-6 text-center">
+          <AlertCircle className="text-destructive mx-auto h-8 w-8" />
+          <h2 className="text-foreground text-base font-bold">Failed to Load Passengers</h2>
+          <p className="text-muted-foreground mx-auto max-w-md text-xs">
             {error?.message || "Could not retrieve passenger directory from the server."}
           </p>
           <div className="flex items-center justify-center gap-2 pt-2">
@@ -541,103 +496,54 @@ export default function AdminPassengersPage() {
 
       {/* Loading Skeleton */}
       {isLoading ? (
-        <div className="space-y-3 rounded-xl border border-border/80 bg-card p-6 shadow-xs animate-pulse">
-          <div className="h-5 w-48 rounded bg-muted mb-4" />
-          <div className="h-12 w-full rounded-lg bg-muted/60" />
-          <div className="h-12 w-full rounded-lg bg-muted/40" />
-          <div className="h-12 w-full rounded-lg bg-muted/60" />
-          <div className="h-12 w-full rounded-lg bg-muted/40" />
+        <div className="border-border/80 bg-card animate-pulse space-y-3 rounded-xl border p-6 shadow-xs">
+          <div className="bg-muted mb-4 h-5 w-48 rounded" />
+          <div className="bg-muted/60 h-12 w-full rounded-lg" />
+          <div className="bg-muted/40 h-12 w-full rounded-lg" />
+          <div className="bg-muted/60 h-12 w-full rounded-lg" />
+          <div className="bg-muted/40 h-12 w-full rounded-lg" />
         </div>
       ) : (
         /* Passengers Table Card */
         <div className="space-y-3">
-          {/* Bulk Action Sticky / Floating Toolbar */}
-          {selectedCount > 0 && (
-            <div className="bg-card/95 dark:bg-card/90 border-blue-500/30 sticky top-4 z-20 flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3 shadow-lg backdrop-blur-md transition-all animate-in fade-in slide-in-from-top-2 duration-200">
-              <div className="flex flex-wrap items-center gap-2.5">
-                <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-blue-600 px-2 text-xs font-bold text-white shadow-2xs">
-                  {selectedCount}
-                </span>
-                <span className="text-foreground text-xs font-semibold">
-                  {selectedCount === 1 ? "passenger selected" : "passengers selected"}
-                </span>
-
-                {displayedPassengers.length > 0 &&
-                  isAllCurrentPageSelected &&
-                  totalCount > displayedPassengers.length &&
-                  selectedCount < totalCount && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedPassengerIds(new Set(passengers.map((p) => p.id)));
-                      }}
-                      className="ml-2 cursor-pointer text-xs font-semibold text-blue-600 underline-offset-4 hover:underline dark:text-blue-400"
-                    >
-                      Select all {totalCount} passengers in current dataset
-                    </button>
-                  )}
-              </div>
-
-              {/* Bulk Action Buttons */}
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={isBulkOperating}
-                  onClick={() => handleBulkStatusChange("ACTIVE")}
-                  className="h-8 cursor-pointer gap-1.5 border-emerald-200 bg-emerald-50/50 text-xs font-semibold text-emerald-700 shadow-2xs hover:bg-emerald-100 hover:text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/60"
-                  title="Activate selected passengers"
-                >
-                  {isBulkOperating && bulkActionType === "activate" ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Check className="h-3.5 w-3.5 stroke-[2.5]" />
-                  )}
-                  <span>Activate</span>
-                </Button>
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={isBulkOperating}
-                  onClick={() => handleBulkStatusChange("SUSPENDED")}
-                  className="h-8 cursor-pointer gap-1.5 border-amber-200 bg-amber-50/50 text-xs font-semibold text-amber-700 shadow-2xs hover:bg-amber-100 hover:text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-900/60"
-                  title="Suspend selected passengers"
-                >
-                  {isBulkOperating && bulkActionType === "suspend" ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <AlertTriangle className="h-3.5 w-3.5" />
-                  )}
-                  <span>Suspend</span>
-                </Button>
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={isBulkOperating}
-                  onClick={handleBulkExportCSV}
-                  className="h-8 cursor-pointer gap-1.5 border-blue-200 bg-blue-50/50 text-xs font-semibold text-blue-700 shadow-2xs hover:bg-blue-100 hover:text-blue-800 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300 dark:hover:bg-blue-900/60"
-                  title="Export selected passengers as CSV"
-                >
-                  <Download className="h-3.5 w-3.5" />
-                  <span>Export CSV</span>
-                </Button>
-
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  disabled={isBulkOperating}
-                  onClick={clearSelection}
-                  className="h-8 cursor-pointer gap-1 text-xs text-muted-foreground hover:text-foreground"
-                  title="Deselect all passengers"
-                >
-                  <X className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Deselect</span>
-                </Button>
-              </div>
-            </div>
-          )}
+          {/* Standard Bulk Action Floating Toolbar */}
+          <BulkActionToolbar
+            selectedCount={selectedCount}
+            totalCount={totalCount}
+            displayedCount={displayedPassengers.length}
+            itemLabel="passengers"
+            badgeColor="blue"
+            isOperating={isBulkOperating}
+            operatingLabel={bulkActionType === "activate" ? "Activating..." : "Suspending..."}
+            onClearSelection={clearSelection}
+            onSelectAllAcrossPages={toggleSelectAllAcrossPages}
+            isAllAcrossPagesSelected={selectedCount === totalCount && totalCount > 0}
+            actions={[
+              {
+                label: "Activate",
+                icon: <Check className="h-3.5 w-3.5 stroke-[2.5]" />,
+                onClick: () => handleBulkStatusChange("ACTIVE"),
+                isLoading: isBulkOperating && bulkActionType === "activate",
+                className:
+                  "border-emerald-200 bg-emerald-50/50 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/60"
+              },
+              {
+                label: "Suspend",
+                icon: <AlertTriangle className="h-3.5 w-3.5" />,
+                onClick: () => handleBulkStatusChange("SUSPENDED"),
+                isLoading: isBulkOperating && bulkActionType === "suspend",
+                className:
+                  "border-amber-200 bg-amber-50/50 text-amber-700 hover:bg-amber-100 hover:text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-900/60"
+              },
+              {
+                label: "Export CSV",
+                icon: <Download className="h-3.5 w-3.5" />,
+                onClick: handleBulkExportCSV,
+                className:
+                  "border-blue-200 bg-blue-50/50 text-blue-700 hover:bg-blue-100 hover:text-blue-800 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300 dark:hover:bg-blue-900/60"
+              }
+            ]}
+          />
 
           <DashboardTableCard
             title={
@@ -705,7 +611,7 @@ export default function AdminPassengersPage() {
                 )}
               </div>
               <div>
-                <DialogTitle className="text-base font-bold text-foreground">
+                <DialogTitle className="text-foreground text-base font-bold">
                   {passengerForStatusChange?.targetStatus === "SUSPENDED"
                     ? "Suspend Passenger Account"
                     : "Activate Passenger Account"}
@@ -719,7 +625,7 @@ export default function AdminPassengersPage() {
             </div>
           </DialogHeader>
 
-          <div className="space-y-3 py-2 text-xs text-muted-foreground">
+          <div className="text-muted-foreground space-y-3 py-2 text-xs">
             <p>
               Are you sure you want to{" "}
               <strong className="text-foreground">
@@ -727,17 +633,20 @@ export default function AdminPassengersPage() {
               </strong>{" "}
               the account for{" "}
               <strong className="text-foreground">
-                {passengerForStatusChange?.passenger.name || passengerForStatusChange?.passenger.email}
+                {passengerForStatusChange?.passenger.name ||
+                  passengerForStatusChange?.passenger.email}
               </strong>
               ?
             </p>
             {passengerForStatusChange?.targetStatus === "SUSPENDED" ? (
               <div className="rounded-xl border border-rose-200/60 bg-rose-50/50 p-3 text-rose-700 dark:border-rose-900/40 dark:bg-rose-950/20 dark:text-rose-300">
-                The traveler will no longer be able to log in, search available ferries, or purchase digital boarding passes until reactivated by an administrator.
+                The traveler will no longer be able to log in, search available ferries, or purchase
+                digital boarding passes until reactivated by an administrator.
               </div>
             ) : (
               <div className="rounded-xl border border-emerald-200/60 bg-emerald-50/50 p-3 text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-300">
-                The traveler will regain access to search routes, purchase tickets, and view reservation history.
+                The traveler will regain access to search routes, purchase tickets, and view
+                reservation history.
               </div>
             )}
           </div>
@@ -748,18 +657,20 @@ export default function AdminPassengersPage() {
               size="sm"
               disabled={isUpdatingSingleStatus}
               onClick={() => setPassengerForStatusChange(null)}
-              className="text-xs font-semibold cursor-pointer"
+              className="cursor-pointer text-xs font-semibold"
             >
               Cancel
             </Button>
             <Button
-              variant={passengerForStatusChange?.targetStatus === "SUSPENDED" ? "destructive" : "default"}
+              variant={
+                passengerForStatusChange?.targetStatus === "SUSPENDED" ? "destructive" : "default"
+              }
               size="sm"
               disabled={isUpdatingSingleStatus}
               onClick={handleConfirmSingleStatusChange}
-              className={`text-xs font-semibold cursor-pointer ${
+              className={`cursor-pointer text-xs font-semibold ${
                 passengerForStatusChange?.targetStatus === "ACTIVE"
-                  ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                  ? "bg-emerald-600 text-white hover:bg-emerald-700"
                   : ""
               }`}
             >

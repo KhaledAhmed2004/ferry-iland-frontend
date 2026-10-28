@@ -18,38 +18,14 @@ export function AdminHeader({
   const pathname = usePathname();
 
   const getPageTitle = () => {
-    if (
-      pathname === "/dashboard/admin" ||
-      pathname === "/dashboard/admin/overview" ||
-      pathname === "/admin" ||
-      pathname === "/admin/dashboard"
-    ) {
-      return "Overview";
-    }
-    if (
-      pathname.startsWith("/dashboard/admin/passengers") ||
-      pathname.startsWith("/admin/passengers") ||
-      pathname.startsWith("/dashboard/admin/users") ||
-      pathname.startsWith("/admin/users")
-    )
-      return "Passengers";
-    if (
-      pathname.startsWith("/dashboard/admin/operators") ||
-      pathname.startsWith("/admin/operators") ||
-      pathname.startsWith("/dashboard/admin/providers") ||
-      pathname.startsWith("/admin/providers")
-    )
-      return "Operators Management";
-    if (pathname.startsWith("/dashboard/admin/ports") || pathname.startsWith("/admin/ports"))
-      return "Ports Management";
-    if (pathname.startsWith("/dashboard/admin/bookings") || pathname.startsWith("/admin/bookings"))
-      return "Bookings Management";
-    if (pathname.startsWith("/dashboard/admin/payments") || pathname.startsWith("/admin/payments"))
-      return "Payments & Commissions";
-    if (pathname.startsWith("/dashboard/admin/faqs") || pathname.startsWith("/admin/faqs"))
-      return "FAQ Management";
-    if (pathname.startsWith("/dashboard/admin/settings") || pathname.startsWith("/admin/settings"))
-      return "Settings";
+    if (pathname === "/dashboard/admin") return "Overview";
+    if (pathname.startsWith("/dashboard/admin/passengers")) return "Passengers";
+    if (pathname.startsWith("/dashboard/admin/operators")) return "Operators Management";
+    if (pathname.startsWith("/dashboard/admin/ports")) return "Ports Management";
+    if (pathname.startsWith("/dashboard/admin/bookings")) return "Bookings Management";
+    if (pathname.startsWith("/dashboard/admin/payments")) return "Payments & Commissions";
+    if (pathname.startsWith("/dashboard/admin/faqs")) return "FAQ Management";
+    if (pathname.startsWith("/dashboard/admin/settings")) return "Settings";
     return "Admin Portal";
   };
 

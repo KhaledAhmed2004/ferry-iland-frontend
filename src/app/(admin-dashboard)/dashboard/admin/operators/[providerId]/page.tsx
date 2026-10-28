@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { ProviderDetailsView } from "@/widgets";
+import { ProviderDetailsView } from "./_components/ProviderDetailsView";
 
 interface OperatorDetailPageProps {
   params: Promise<{

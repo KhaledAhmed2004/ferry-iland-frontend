@@ -80,40 +80,8 @@ export function AdminSidebar({ onItemClick, className }: AdminSidebarProps) {
   const { user, logout } = useAuth();
 
   const isItemActive = (item: AdminNavItem) => {
-    if (item.name === "Overview") {
-      return (
-        pathname === "/dashboard/admin" ||
-        pathname === "/dashboard/admin/overview" ||
-        pathname === "/admin"
-      );
-    }
-    if (item.name === "Passengers" || item.name === "Users") {
-      return (
-        pathname.startsWith("/dashboard/admin/passengers") ||
-        pathname.startsWith("/admin/passengers") ||
-        pathname.startsWith("/dashboard/admin/users") ||
-        pathname.startsWith("/admin/users")
-      );
-    }
-    if (item.name === "Operators" || item.name === "Providers") {
-      return (
-        pathname.startsWith("/dashboard/admin/operators") ||
-        pathname.startsWith("/admin/operators") ||
-        pathname.startsWith("/dashboard/admin/providers") ||
-        pathname.startsWith("/admin/providers")
-      );
-    }
-    if (item.name === "Ports") {
-      return (
-        pathname.startsWith("/dashboard/admin/ports") ||
-        pathname.startsWith("/admin/ports")
-      );
-    }
-    if (item.name === "FAQ Management") {
-      return (
-        pathname.startsWith("/dashboard/admin/faqs") ||
-        pathname.startsWith("/admin/faqs")
-      );
+    if (item.href === "/dashboard/admin") {
+      return pathname === "/dashboard/admin";
     }
     return pathname.startsWith(item.href);
   };

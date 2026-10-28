@@ -23,7 +23,7 @@ import {
 } from "@/hooks";
 import type { IRoute } from "@/types";
 import { Button, Input, Tabs, TabsList, TabsTrigger } from "@/ui";
-import { DashboardTableCard, OperatorStatCard, TablePagination } from "@/widgets";
+import { DashboardTableCard, StatCard, TablePagination } from "@/widgets";
 
 import { RouteBulkToolbar } from "./_components/RouteBulkToolbar";
 import { RouteDeleteDialogs } from "./_components/RouteDeleteDialogs";
@@ -324,7 +324,7 @@ export default function OperatorRoutesPage() {
 
       {/* Operational Stat Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <OperatorStatCard
+        <StatCard
           title="Total Routes"
           value={`${totalRoutesCount} ${totalRoutesCount === 1 ? "Route" : "Routes"}`}
           description="Active port-to-port connections"
@@ -332,7 +332,7 @@ export default function OperatorRoutesPage() {
           variant="emerald"
         />
 
-        <OperatorStatCard
+        <StatCard
           title="Active Routes"
           value={`${activeRoutesCount} ${activeRoutesCount === 1 ? "Route" : "Routes"}`}
           description="Available for passenger sailings"
@@ -341,7 +341,7 @@ export default function OperatorRoutesPage() {
           colorValue
         />
 
-        <OperatorStatCard
+        <StatCard
           title="Inactive Routes"
           value={`${inactiveRoutesCount} ${inactiveRoutesCount === 1 ? "Route" : "Routes"}`}
           description="Seasonal or service suspended"

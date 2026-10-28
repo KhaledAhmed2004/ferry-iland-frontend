@@ -7,33 +7,29 @@ import {
   AlertTriangle,
   Building2,
   Check,
-  CheckCircle2,
   Download,
   Eye,
-  Loader2,
   Mail,
   Navigation,
   RefreshCw,
   Ship,
   UserCheck,
-  Users,
-  X
+  Users
 } from "lucide-react";
 import { toast } from "sonner";
 
 import { useAdminProvidersQuery, useUpdateProviderStatusMutation } from "@/hooks/use-admin";
 import { useDebounce } from "@/hooks/use-debounce";
+import { useTableSelection } from "@/hooks/use-table-selection";
 import {
   Button,
-  Card,
-  CardContent,
-  Checkbox,
-  Tabs,
-  TabsList,
-  TabsTrigger
+  Checkbox
 } from "@/ui";
 import {
+  BulkActionToolbar,
   DashboardTableCard,
+  PageHeader,
+  StatCard,
   StatusBadge,
   TablePagination,
   TableToolbar,
@@ -97,8 +93,23 @@ export default function AdminOperatorsPage() {
   const suspendedCount = providers.filter((p) => p.user?.status === "SUSPENDED").length;
   const totalFleetsCount = providers.reduce((acc, p) => acc + (p.ferriesCount ?? 0), 0);
 
-  // Bulk selection & action states
-  const [selectedOperatorIds, setSelectedOperatorIds] = React.useState<Set<string>>(new Set());
+  // Headless Bulk Selection Hook
+  const {
+    selectedIds: selectedOperatorIds,
+    selectedCount,
+    isAllCurrentPageSelected,
+    isSomeCurrentPageSelected,
+    toggleRow: toggleSelectRow,
+    toggleSelectAllCurrentPage,
+    toggleSelectAllAcrossPages,
+    clearSelection,
+    selectedItems
+  } = useTableSelection<IAdminProviderItem>({
+    items: displayedProviders,
+    allPageItems: providers,
+    idKey: "id"
+  });
+
   const [isBulkOperating, setIsBulkOperating] = React.useState(false);
   const [bulkActionType, setBulkActionType] = React.useState<"activate" | "suspend" | null>(null);
 
@@ -106,53 +117,12 @@ export default function AdminOperatorsPage() {
 
   // Reset selection on page, tab, or search change
   React.useEffect(() => {
-    setSelectedOperatorIds(new Set());
-  }, [page, activeTab, debouncedSearch]);
-
-  const selectedCount = selectedOperatorIds.size;
-  const currentPageIds = React.useMemo(
-    () => displayedProviders.map((p) => p.id),
-    [displayedProviders]
-  );
-
-  const isAllCurrentPageSelected =
-    currentPageIds.length > 0 &&
-    currentPageIds.every((id) => selectedOperatorIds.has(id));
-
-  const isSomeCurrentPageSelected =
-    currentPageIds.some((id) => selectedOperatorIds.has(id)) &&
-    !isAllCurrentPageSelected;
-
-  const toggleSelectRow = (id: string) => {
-    setSelectedOperatorIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const toggleSelectAllCurrentPage = () => {
-    if (isAllCurrentPageSelected) {
-      setSelectedOperatorIds((prev) => {
-        const next = new Set(prev);
-        currentPageIds.forEach((id) => next.delete(id));
-        return next;
-      });
-    } else {
-      setSelectedOperatorIds((prev) => {
-        const next = new Set(prev);
-        currentPageIds.forEach((id) => next.add(id));
-        return next;
-      });
-    }
-  };
-
-  const clearSelection = () => setSelectedOperatorIds(new Set());
+    clearSelection();
+  }, [page, activeTab, debouncedSearch, clearSelection]);
 
   // Bulk Status Update Handler
   const handleBulkStatusChange = async (targetStatus: "ACTIVE" | "SUSPENDED") => {
-    if (selectedOperatorIds.size === 0 || isBulkOperating) return;
+    if (selectedCount === 0 || isBulkOperating) return;
     setIsBulkOperating(true);
     setBulkActionType(targetStatus === "ACTIVE" ? "activate" : "suspend");
 
@@ -194,7 +164,6 @@ export default function AdminOperatorsPage() {
 
   // Bulk CSV Export Handler
   const handleBulkExportCSV = () => {
-    const selectedItems = providers.filter((p) => selectedOperatorIds.has(p.id));
     if (selectedItems.length === 0) return;
 
     const headers = ["Company Name", "Contact Person", "Email", "Status", "Ferries", "Routes", "Registered Date"];
@@ -338,76 +307,43 @@ export default function AdminOperatorsPage() {
   return (
     <div className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8">
       {/* Page Header */}
-      <div className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-          Ferry Operators Directory
-        </h1>
-        <p className="text-muted-foreground text-xs sm:text-sm">
-          Comprehensive roster of licensed ferry providers, vessel fleets, and sea transfer networks.
-        </p>
-      </div>
+      <PageHeader
+        title="Ferry Operators Directory"
+        description="Comprehensive roster of licensed ferry providers, vessel fleets, and sea transfer networks."
+      />
 
       {/* Metric Stat Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="border-border/80 bg-card shadow-xs">
-          <CardContent className="p-5 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase">Total Operators</p>
-              <p className="text-2xl font-extrabold text-foreground mt-1">
-                {totalCount} {totalCount === 1 ? "Company" : "Companies"}
-              </p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Licensed marine providers</p>
-            </div>
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
-              <Building2 className="h-5 w-5" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border/80 bg-card shadow-xs">
-          <CardContent className="p-5 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase">Active Operators</p>
-              <p className="text-2xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-1">
-                {activeCount} {activeCount === 1 ? "Active" : "Active"}
-              </p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Operational in good standing</p>
-            </div>
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-              <UserCheck className="h-5 w-5" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border/80 bg-card shadow-xs">
-          <CardContent className="p-5 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase">Suspended</p>
-              <p className="text-2xl font-extrabold text-rose-600 dark:text-rose-400 mt-1">
-                {suspendedCount} {suspendedCount === 1 ? "Operator" : "Operators"}
-              </p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Restricted or under review</p>
-            </div>
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400">
-              <Users className="h-5 w-5" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border/80 bg-card shadow-xs">
-          <CardContent className="p-5 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase">Total Registered Fleet</p>
-              <p className="text-2xl font-extrabold text-foreground mt-1">
-                {totalFleetsCount} {totalFleetsCount === 1 ? "Vessel" : "Vessels"}
-              </p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Active transport crafts</p>
-            </div>
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-              <Ship className="h-5 w-5" />
-            </div>
-          </CardContent>
-        </Card>
+        <StatCard
+          label="Total Operators"
+          value={`${totalCount} ${totalCount === 1 ? "Company" : "Companies"}`}
+          description="Licensed marine providers"
+          icon={Building2}
+          variant="blue"
+        />
+        <StatCard
+          label="Active Operators"
+          value={`${activeCount} ${activeCount === 1 ? "Active" : "Active"}`}
+          description="Operational in good standing"
+          icon={UserCheck}
+          variant="emerald"
+          colorValue
+        />
+        <StatCard
+          label="Suspended"
+          value={`${suspendedCount} ${suspendedCount === 1 ? "Operator" : "Operators"}`}
+          description="Restricted or under review"
+          icon={Users}
+          variant="rose"
+          colorValue
+        />
+        <StatCard
+          label="Total Registered Fleet"
+          value={`${totalFleetsCount} ${totalFleetsCount === 1 ? "Vessel" : "Vessels"}`}
+          description="Active transport crafts"
+          icon={Ship}
+          variant="emerald"
+        />
       </div>
 
       {/* Reusable Search & Status Toolbar */}
@@ -462,93 +398,44 @@ export default function AdminOperatorsPage() {
       ) : (
         /* Providers Table Card */
         <div className="space-y-3">
-          {/* Bulk Action Sticky / Floating Toolbar */}
-          {selectedCount > 0 && (
-            <div className="bg-card/95 dark:bg-card/90 border-blue-500/30 sticky top-4 z-20 flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3 shadow-lg backdrop-blur-md transition-all animate-in fade-in slide-in-from-top-2 duration-200">
-              <div className="flex flex-wrap items-center gap-2.5">
-                <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-blue-600 px-2 text-xs font-bold text-white shadow-2xs">
-                  {selectedCount}
-                </span>
-                <span className="text-foreground text-xs font-semibold">
-                  {selectedCount === 1 ? "operator selected" : "operators selected"}
-                </span>
-
-                {displayedProviders.length > 0 &&
-                  isAllCurrentPageSelected &&
-                  totalCount > displayedProviders.length &&
-                  selectedCount < totalCount && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedOperatorIds(new Set(providers.map((p) => p.id)));
-                      }}
-                      className="ml-2 cursor-pointer text-xs font-semibold text-blue-600 underline-offset-4 hover:underline dark:text-blue-400"
-                    >
-                      Select all {totalCount} operators in current dataset
-                    </button>
-                  )}
-              </div>
-
-              {/* Bulk Action Buttons */}
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={isBulkOperating}
-                  onClick={() => handleBulkStatusChange("ACTIVE")}
-                  className="h-8 cursor-pointer gap-1.5 border-emerald-200 bg-emerald-50/50 text-xs font-semibold text-emerald-700 shadow-2xs hover:bg-emerald-100 hover:text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/60"
-                  title="Activate selected operators"
-                >
-                  {isBulkOperating && bulkActionType === "activate" ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Check className="h-3.5 w-3.5 stroke-[2.5]" />
-                  )}
-                  <span>Activate</span>
-                </Button>
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={isBulkOperating}
-                  onClick={() => handleBulkStatusChange("SUSPENDED")}
-                  className="h-8 cursor-pointer gap-1.5 border-amber-200 bg-amber-50/50 text-xs font-semibold text-amber-700 shadow-2xs hover:bg-amber-100 hover:text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-900/60"
-                  title="Suspend selected operators"
-                >
-                  {isBulkOperating && bulkActionType === "suspend" ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <AlertTriangle className="h-3.5 w-3.5" />
-                  )}
-                  <span>Suspend</span>
-                </Button>
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={isBulkOperating}
-                  onClick={handleBulkExportCSV}
-                  className="h-8 cursor-pointer gap-1.5 border-blue-200 bg-blue-50/50 text-xs font-semibold text-blue-700 shadow-2xs hover:bg-blue-100 hover:text-blue-800 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300 dark:hover:bg-blue-900/60"
-                  title="Export selected operators as CSV"
-                >
-                  <Download className="h-3.5 w-3.5" />
-                  <span>Export CSV</span>
-                </Button>
-
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  disabled={isBulkOperating}
-                  onClick={clearSelection}
-                  className="h-8 cursor-pointer gap-1 text-xs text-muted-foreground hover:text-foreground"
-                  title="Deselect all operators"
-                >
-                  <X className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Deselect</span>
-                </Button>
-              </div>
-            </div>
-          )}
+          {/* Standard Bulk Action Floating Toolbar */}
+          <BulkActionToolbar
+            selectedCount={selectedCount}
+            totalCount={totalCount}
+            displayedCount={displayedProviders.length}
+            itemLabel="operators"
+            badgeColor="blue"
+            isOperating={isBulkOperating}
+            operatingLabel={bulkActionType === "activate" ? "Activating..." : "Suspending..."}
+            onClearSelection={clearSelection}
+            onSelectAllAcrossPages={toggleSelectAllAcrossPages}
+            isAllAcrossPagesSelected={selectedCount === totalCount && totalCount > 0}
+            actions={[
+              {
+                label: "Activate",
+                icon: <Check className="h-3.5 w-3.5 stroke-[2.5]" />,
+                onClick: () => handleBulkStatusChange("ACTIVE"),
+                isLoading: isBulkOperating && bulkActionType === "activate",
+                className:
+                  "border-emerald-200 bg-emerald-50/50 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/60"
+              },
+              {
+                label: "Suspend",
+                icon: <AlertTriangle className="h-3.5 w-3.5" />,
+                onClick: () => handleBulkStatusChange("SUSPENDED"),
+                isLoading: isBulkOperating && bulkActionType === "suspend",
+                className:
+                  "border-amber-200 bg-amber-50/50 text-amber-700 hover:bg-amber-100 hover:text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-900/60"
+              },
+              {
+                label: "Export CSV",
+                icon: <Download className="h-3.5 w-3.5" />,
+                onClick: handleBulkExportCSV,
+                className:
+                  "border-blue-200 bg-blue-50/50 text-blue-700 hover:bg-blue-100 hover:text-blue-800 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300 dark:hover:bg-blue-900/60"
+              }
+            ]}
+          />
 
           <DashboardTableCard
             title="Registered Operators"

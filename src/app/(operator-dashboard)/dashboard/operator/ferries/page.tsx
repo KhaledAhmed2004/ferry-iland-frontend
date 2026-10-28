@@ -37,7 +37,7 @@ import {
 } from "@/ui";
 import {
   DashboardTableCard,
-  OperatorStatCard,
+  StatCard,
   TablePagination
 } from "@/widgets";
 
@@ -347,28 +347,28 @@ export default function OperatorFerriesPage() {
 
       {/* Aggregate Stats Cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
-        <OperatorStatCard
+        <StatCard
           title="Total Fleet"
           value={totalCount}
           description="Registered vessels"
           icon={Ship}
           variant="emerald"
         />
-        <OperatorStatCard
+        <StatCard
           title="In Service"
           value={inServiceCount}
           description="Active sailing vessels"
           icon={ShieldCheck}
           variant="emerald"
         />
-        <OperatorStatCard
+        <StatCard
           title="Maintenance"
           value={maintenanceCount}
           description="Under routine repairs"
           icon={Wrench}
           variant="amber"
         />
-        <OperatorStatCard
+        <StatCard
           title="Total Capacity"
           value={totalCapacity}
           description="Passenger seats"

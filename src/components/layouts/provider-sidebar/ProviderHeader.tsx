@@ -22,7 +22,6 @@ export function ProviderHeader({
   const getPageTitle = () => {
     if (
       pathname === "/dashboard/operator" ||
-      pathname === "/dashboard/operator/overview" ||
       pathname === "/dashboard" ||
       pathname === "/dashboard/overview"
     ) {

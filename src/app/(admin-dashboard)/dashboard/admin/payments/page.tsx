@@ -9,6 +9,7 @@ import {
 import { ADMIN_DASHBOARD_DATA, type RecentPaymentItem } from "@/data";
 import {
   DashboardTableCard,
+  PageHeader,
   PaymentDetailsModal,
   StatCard,
   StatusBadge,
@@ -68,14 +69,10 @@ export default function AdminPaymentsPage() {
   return (
     <div className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8">
       {/* Page Header */}
-      <div className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-          Payments & Commissions
-        </h1>
-        <p className="text-muted-foreground text-xs sm:text-sm">
-          Platform revenue splits, provider payouts, and commission processing.
-        </p>
-      </div>
+      <PageHeader
+        title="Payments & Commissions"
+        description="Platform revenue splits, provider payouts, and commission processing."
+      />
 
       {/* 3 Separate Individual Stat Cards for Revenue Breakdown */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -84,6 +81,7 @@ export default function AdminPaymentsPage() {
           label="Total Booking Value"
           value={`$${paymentOverview.totalBookingValue.toFixed(2)}`}
           icon={DollarSign}
+          variant="emerald"
           changePercent={15.3}
           trend="up"
           comparisonText="vs last month"
@@ -94,10 +92,10 @@ export default function AdminPaymentsPage() {
           label="FerryGo Commission (10%)"
           value={`$${paymentOverview.commission.toFixed(2)}`}
           icon={CircleDollarSign}
+          variant="blue"
           changePercent={15.3}
           trend="up"
           comparisonText="10% platform fee"
-          valueClassName="text-blue-600 dark:text-blue-500"
         />
 
         {/* Card 3: Provider Amount */}
@@ -105,6 +103,7 @@ export default function AdminPaymentsPage() {
           label="Provider Amount (90%)"
           value={`$${paymentOverview.providerAmount.toFixed(2)}`}
           icon={CreditCard}
+          variant="indigo"
           changePercent={15.3}
           trend="up"
           comparisonText="90% net payout"

@@ -1,48 +1,36 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
+
 import {
   AlertCircle,
-  Calendar,
-  CalendarCheck,
-  CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
-  Clock,
   Copy,
   Eye,
-  Filter,
   Loader2,
   Mail,
   MapPin,
   Phone,
   RefreshCw,
-  Search,
   Ship,
-  Ticket,
-  Users,
-  X
+  Ticket
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 
 import { useAdminBookingsQuery, useDebounce } from "@/hooks";
-import type { IAdminBookingItem } from "@/types";
-import {
-  Badge,
-  Button,
-  Card,
-  CardContent,
-} from "@/ui";
+
 import {
   BookingDetailsModal,
   DashboardTableCard,
+  PageHeader,
   StatusBadge,
   TablePagination,
   TableToolbar,
   type TableColumn
 } from "@/widgets";
+import { Badge, Button } from "@/ui";
+import type { IAdminBookingItem } from "@/types";
+import { BookingKpiGrid } from "./_components/BookingKpiGrid";
 
 const PAGE_SIZE_OPTIONS = [
   { value: "10", label: "10 per page" },
@@ -105,9 +93,7 @@ export default function AdminBookingsPage() {
           </div>
           <div>
             <div className="flex items-center gap-1.5">
-              <span className="font-mono text-xs font-bold text-foreground">
-                {item.reference}
-              </span>
+              <span className="text-foreground font-mono text-xs font-bold">{item.reference}</span>
               <button
                 type="button"
                 onClick={() => copyToClipboard(item.reference, "Reference")}
@@ -117,7 +103,7 @@ export default function AdminBookingsPage() {
                 <Copy className="h-3 w-3" />
               </button>
             </div>
-            <span className="text-[10px] text-muted-foreground font-mono">
+            <span className="text-muted-foreground font-mono text-[10px]">
               {item.createdAt ? format(new Date(item.createdAt), "MMM dd, yyyy") : "—"}
             </span>
           </div>
@@ -127,17 +113,15 @@ export default function AdminBookingsPage() {
     {
       header: "PASSENGER",
       cell: (item) => (
-        <div className="space-y-0.5 max-w-[180px]">
-          <div className="font-bold text-foreground text-xs truncate">
-            {item.leadPassengerName}
-          </div>
-          <div className="text-[11px] text-muted-foreground truncate font-mono flex items-center gap-1">
-            <Mail className="h-3 w-3 text-muted-foreground shrink-0" />
+        <div className="max-w-[180px] space-y-0.5">
+          <div className="text-foreground truncate text-xs font-bold">{item.leadPassengerName}</div>
+          <div className="text-muted-foreground flex items-center gap-1 truncate font-mono text-[11px]">
+            <Mail className="text-muted-foreground h-3 w-3 shrink-0" />
             <span className="truncate">{item.leadPassengerEmail}</span>
           </div>
           {item.leadPassengerPhone && (
-            <div className="text-[10px] text-muted-foreground/80 truncate font-mono flex items-center gap-1">
-              <Phone className="h-2.5 w-2.5 text-muted-foreground shrink-0" />
+            <div className="text-muted-foreground/80 flex items-center gap-1 truncate font-mono text-[10px]">
+              <Phone className="text-muted-foreground h-2.5 w-2.5 shrink-0" />
               <span>{item.leadPassengerPhone}</span>
             </div>
           )}
@@ -151,12 +135,12 @@ export default function AdminBookingsPage() {
         const dep = schedule?.route?.departurePort?.name || "Malé Terminal";
         const arr = schedule?.route?.destinationPort?.name || "Island Jetty";
         return (
-          <div className="space-y-0.5 max-w-[190px]">
-            <div className="font-medium text-xs text-foreground flex items-center gap-1">
-              <MapPin className="h-3 w-3 text-emerald-600 shrink-0" />
+          <div className="max-w-[190px] space-y-0.5">
+            <div className="text-foreground flex items-center gap-1 text-xs font-medium">
+              <MapPin className="h-3 w-3 shrink-0 text-emerald-600" />
               <span className="truncate">{dep}</span>
             </div>
-            <div className="text-muted-foreground text-[11px] flex items-center gap-1 pl-3.5">
+            <div className="text-muted-foreground flex items-center gap-1 pl-3.5 text-[11px]">
               <span>➔</span>
               <span className="truncate">{arr}</span>
             </div>
@@ -171,12 +155,10 @@ export default function AdminBookingsPage() {
         const opName = schedule?.route?.operator?.companyName || "Commercial Carrier";
         const ferryName = schedule?.ferry?.name || "Express Ferry";
         return (
-          <div className="space-y-0.5 max-w-[150px]">
-            <div className="font-semibold text-xs text-foreground truncate">
-              {opName}
-            </div>
-            <div className="text-[11px] text-muted-foreground truncate flex items-center gap-1">
-              <Ship className="h-3 w-3 text-muted-foreground shrink-0" />
+          <div className="max-w-[150px] space-y-0.5">
+            <div className="text-foreground truncate text-xs font-semibold">{opName}</div>
+            <div className="text-muted-foreground flex items-center gap-1 truncate text-[11px]">
+              <Ship className="text-muted-foreground h-3 w-3 shrink-0" />
               <span className="truncate">{ferryName}</span>
             </div>
           </div>
@@ -191,10 +173,10 @@ export default function AdminBookingsPage() {
         const dateObj = new Date(time);
         return (
           <div className="space-y-0.5">
-            <div className="text-xs font-semibold text-foreground">
+            <div className="text-foreground text-xs font-semibold">
               {format(dateObj, "MMM dd, yyyy")}
             </div>
-            <div className="text-[11px] text-muted-foreground font-mono">
+            <div className="text-muted-foreground font-mono text-[11px]">
               {format(dateObj, "hh:mm a")}
             </div>
           </div>
@@ -207,10 +189,10 @@ export default function AdminBookingsPage() {
       headerClassName: "text-center",
       cell: (item) => (
         <div className="flex flex-col items-center justify-center">
-          <span className="font-bold text-xs text-foreground">
+          <span className="text-foreground text-xs font-bold">
             {item.adultsCount + item.childrenCount}
           </span>
-          <span className="text-[10px] text-muted-foreground">
+          <span className="text-muted-foreground text-[10px]">
             {item.adultsCount}A{item.childrenCount > 0 ? ` + ${item.childrenCount}C` : ""}
           </span>
         </div>
@@ -219,9 +201,9 @@ export default function AdminBookingsPage() {
     {
       header: "AMOUNT",
       cell: (item) => (
-        <div className="font-black text-xs text-foreground">
+        <div className="text-foreground text-xs font-black">
           ${Number(item.totalAmount).toFixed(2)}
-          <span className="text-[10px] font-bold text-muted-foreground ml-0.5">
+          <span className="text-muted-foreground ml-0.5 text-[10px] font-bold">
             {item.currency || "USD"}
           </span>
         </div>
@@ -242,7 +224,7 @@ export default function AdminBookingsPage() {
             size="sm"
             variant="outline"
             onClick={() => setSelectedBooking(item)}
-            className="h-8 gap-1.5 px-3 text-xs font-semibold hover:bg-primary/10 hover:text-primary transition-colors cursor-pointer"
+            className="hover:bg-primary/10 hover:text-primary h-8 cursor-pointer gap-1.5 px-3 text-xs font-semibold transition-colors"
           >
             <Eye className="h-3.5 w-3.5" />
             <span>View</span>
@@ -255,84 +237,27 @@ export default function AdminBookingsPage() {
   return (
     <div className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8">
       {/* Top Page Header */}
-      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-              Platform Bookings
-            </h1>
-            <Badge variant="outline" className="font-mono text-xs font-bold text-primary border-primary/30 bg-primary/5">
-              {totalCount} Total
-            </Badge>
-          </div>
-          <p className="text-muted-foreground text-xs sm:text-sm">
-            Live centralized reservation manifest across all island transfer routes and operators.
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="Platform Bookings"
+        badge={
+          <Badge
+            variant="outline"
+            className="text-primary border-primary/30 bg-primary/5 font-mono text-xs font-bold"
+          >
+            {totalCount} Total
+          </Badge>
+        }
+        description="Live centralized reservation manifest across all island transfer routes and operators."
+      />
 
       {/* KPI Metric Summary Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="border-border/80 bg-card shadow-xs">
-          <CardContent className="p-5 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase">Total Bookings</p>
-              <p className="text-2xl font-black text-foreground mt-1">
-                {totalCount}
-              </p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Platform recorded</p>
-            </div>
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
-              <CalendarCheck className="h-5 w-5" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border/80 bg-card shadow-xs">
-          <CardContent className="p-5 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase">Confirmed</p>
-              <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">
-                {confirmedCount} Active
-              </p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Tickets confirmed</p>
-            </div>
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-              <CheckCircle2 className="h-5 w-5" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border/80 bg-card shadow-xs">
-          <CardContent className="p-5 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase">Checked In</p>
-              <p className="text-2xl font-black text-indigo-600 dark:text-indigo-400 mt-1">
-                {checkedInCount} Boarded
-              </p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Boarding passes scanned</p>
-            </div>
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
-              <Ticket className="h-5 w-5" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border/80 bg-card shadow-xs">
-          <CardContent className="p-5 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase">Cancelled</p>
-              <p className="text-2xl font-black text-rose-600 dark:text-rose-400 mt-1">
-                {cancelledCount} Cancelled
-              </p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Released seats</p>
-            </div>
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400">
-              <AlertCircle className="h-5 w-5" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <BookingKpiGrid
+        totalCount={totalCount}
+        confirmedCount={confirmedCount}
+        checkedInCount={checkedInCount}
+        cancelledCount={cancelledCount}
+        isLoading={isLoading}
+      />
 
       {/* Reusable Search & Status Toolbar */}
       <TableToolbar
@@ -352,54 +277,55 @@ export default function AdminBookingsPage() {
       />
 
       {/* Bookings Data Table Card */}
-        {isError ? (
-          <div className="rounded-2xl border border-destructive/20 bg-destructive/10 p-8 text-center space-y-4">
-            <AlertCircle className="mx-auto h-10 w-10 text-destructive" />
-            <h2 className="text-lg font-bold text-foreground">Failed to Load Platform Bookings</h2>
-            <p className="text-sm text-muted-foreground max-w-md mx-auto">
-              {error?.message || "Could not retrieve bookings from the live server. Please verify your connection."}
-            </p>
-            <Button onClick={() => refetch()} variant="outline" className="gap-2">
-              <RefreshCw className="h-4 w-4" /> Try Again
-            </Button>
-          </div>
-        ) : isLoading ? (
-          <div className="h-96 rounded-2xl border border-border/60 bg-muted/20 animate-pulse flex flex-col items-center justify-center gap-3">
-            <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-            <span className="text-xs font-medium text-muted-foreground">
-              Retrieving live platform bookings...
-            </span>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <DashboardTableCard
-              title="Platform Bookings Manifest"
-              columns={bookingColumns}
-              data={bookings}
-              keyExtractor={(item) => item.id}
-              emptyMessage={
-                searchTerm
-                  ? `No bookings matched your search query "${searchTerm}".`
-                  : activeTab !== "ALL"
+      {isError ? (
+        <div className="border-destructive/20 bg-destructive/10 space-y-4 rounded-2xl border p-8 text-center">
+          <AlertCircle className="text-destructive mx-auto h-10 w-10" />
+          <h2 className="text-foreground text-lg font-bold">Failed to Load Platform Bookings</h2>
+          <p className="text-muted-foreground mx-auto max-w-md text-sm">
+            {error?.message ||
+              "Could not retrieve bookings from the live server. Please verify your connection."}
+          </p>
+          <Button onClick={() => refetch()} variant="outline" className="gap-2">
+            <RefreshCw className="h-4 w-4" /> Try Again
+          </Button>
+        </div>
+      ) : isLoading ? (
+        <div className="border-border/60 bg-muted/20 flex h-96 animate-pulse flex-col items-center justify-center gap-3 rounded-2xl border">
+          <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+          <span className="text-muted-foreground text-xs font-medium">
+            Retrieving live platform bookings...
+          </span>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <DashboardTableCard
+            title="Platform Bookings Manifest"
+            columns={bookingColumns}
+            data={bookings}
+            keyExtractor={(item) => item.id}
+            emptyMessage={
+              searchTerm
+                ? `No bookings matched your search query "${searchTerm}".`
+                : activeTab !== "ALL"
                   ? `No ${activeTab.toLowerCase()} bookings found.`
                   : "No platform bookings have been recorded yet."
-              }
-            />
+            }
+          />
 
-            {/* Reusable Pagination Controls */}
-            <TablePagination
-              page={page}
-              totalPages={totalPages}
-              totalCount={totalCount}
-              pageSize={limit}
-              onPageChange={setPage}
-              onPageSizeChange={setLimit}
-              pageSizeOptions={PAGE_SIZE_OPTIONS}
-              itemName="bookings"
-              isLoading={isFetching}
-            />
-          </div>
-        )}
+          {/* Reusable Pagination Controls */}
+          <TablePagination
+            page={page}
+            totalPages={totalPages}
+            totalCount={totalCount}
+            pageSize={limit}
+            onPageChange={setPage}
+            onPageSizeChange={setLimit}
+            pageSizeOptions={PAGE_SIZE_OPTIONS}
+            itemName="bookings"
+            isLoading={isFetching}
+          />
+        </div>
+      )}
 
       {/* Booking Details Modal */}
       <BookingDetailsModal

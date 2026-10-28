@@ -40,7 +40,7 @@ import {
   StatusBadge,
   TablePagination,
   type TableColumn
-} from "../index";
+} from "@/widgets";
 
 export interface ProviderDetailsViewProps {
   providerId: string;
@@ -427,16 +427,14 @@ export function ProviderDetailsView({ providerId }: ProviderDetailsViewProps) {
           label="FLEET FERRIES"
           value={formattedFerries.length}
           icon={Ship}
-          changePercent={0}
-          trend="neutral"
+          variant="blue"
           comparisonText={`${formattedFerries.length} assigned`}
         />
         <StatCard
           label="OPERATING ROUTES"
           value={formattedRoutes.length}
           icon={MapPin}
-          changePercent={0}
-          trend="neutral"
+          variant="indigo"
           comparisonText="Active corridors"
         />
       </div>

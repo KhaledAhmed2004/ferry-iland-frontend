@@ -83,7 +83,6 @@ export function ProviderSidebar({ onItemClick, className }: ProviderSidebarProps
     if (item.name === "Overview") {
       return (
         pathname === "/dashboard/operator" ||
-        pathname === "/dashboard/operator/overview" ||
         pathname === "/dashboard"
       );
     }

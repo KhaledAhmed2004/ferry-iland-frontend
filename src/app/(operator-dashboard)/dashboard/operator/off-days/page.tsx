@@ -28,7 +28,7 @@ import {
 import { toast } from "sonner";
 import { format, parseISO, isSameDay, isAfter, isBefore, startOfDay, addDays } from "date-fns";
 import { cn } from "@/lib/utils";
-import { OperatorStatCard } from "@/widgets";
+import { StatCard } from "@/widgets";
 import type {
   ICreateOffDayPayload,
   IFerry,
@@ -797,7 +797,7 @@ export default function OperatorOffDaysPage() {
 
       {/* Operational Stat Cards (3 symmetric columns) */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <OperatorStatCard
+        <StatCard
           title="Off Today"
           value={`${activeTodayCount} ${activeTodayCount === 1 ? "Ferry" : "Ferries"}`}
           description="Currently inactive today"
@@ -806,7 +806,7 @@ export default function OperatorOffDaysPage() {
           colorValue
         />
 
-        <OperatorStatCard
+        <StatCard
           title="Upcoming Off-Days"
           value={`${upcomingCount} Scheduled`}
           description="Planned maintenance & holidays"
@@ -815,7 +815,7 @@ export default function OperatorOffDaysPage() {
           colorValue
         />
 
-        <OperatorStatCard
+        <StatCard
           title="Total Days This Year"
           value={`${totalYtdCount} Days`}
           description={`Scheduled in calendar year ${calendarDate.getFullYear()}`}

@@ -1,14 +1,9 @@
 import * as React from "react";
 import Link from "next/link";
+
 import { cn } from "@/lib/utils";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow
-} from "@/ui";
+
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/ui";
 
 export type StatusType =
   | "Confirmed"
@@ -28,9 +23,7 @@ export interface StatusBadgeProps extends React.HTMLAttributes<HTMLSpanElement> 
 export function StatusBadge({ status, className, ...props }: StatusBadgeProps) {
   const normalizedStatus = (status || "").toLowerCase().replace(/_/g, " ");
 
-
-  let colorClasses =
-    "bg-muted text-muted-foreground border-border/80";
+  let colorClasses = "bg-muted text-muted-foreground border-border/80";
 
   if (
     normalizedStatus === "confirmed" ||
@@ -88,7 +81,7 @@ export function StatusBadge({ status, className, ...props }: StatusBadgeProps) {
   return (
     <span
       className={cn(
-        "inline-flex items-center justify-center rounded-md border px-2.5 py-0.5 text-[11px] font-semibold leading-tight transition-colors whitespace-nowrap",
+        "inline-flex items-center justify-center rounded-md border px-2.5 py-0.5 text-[11px] leading-tight font-semibold whitespace-nowrap transition-colors",
         colorClasses,
         className
       )}
@@ -138,14 +131,14 @@ export function DashboardTableCard<T>({
   return (
     <div
       className={cn(
-        "bg-card text-card-foreground border-border/80 rounded-xl border shadow-xs transition-all overflow-hidden flex flex-col justify-between",
+        "bg-card text-card-foreground border-border/80 flex flex-col justify-between overflow-hidden rounded-xl border shadow-xs transition-all",
         className
       )}
     >
       {/* Header inside the Card with uniform height */}
-      <div className="flex items-center justify-between px-5 py-4 md:px-6 min-h-[58px] border-b border-border/40 gap-3">
+      <div className="border-border/40 flex min-h-[58px] items-center justify-between gap-3 border-b px-5 py-4 md:px-6">
         {typeof title === "string" ? (
-          <h3 className="text-base font-bold tracking-tight text-foreground">{title}</h3>
+          <h3 className="text-foreground text-base font-bold tracking-tight">{title}</h3>
         ) : (
           title
         )}
@@ -154,7 +147,7 @@ export function DashboardTableCard<T>({
         ) : viewAllHref ? (
           <Link
             href={viewAllHref}
-            className="text-primary hover:text-primary/80 hover:underline text-xs font-semibold transition-colors"
+            className="text-primary hover:text-primary/80 text-xs font-semibold transition-colors hover:underline"
           >
             {viewAllLabel}
           </Link>
@@ -162,7 +155,7 @@ export function DashboardTableCard<T>({
           <button
             type="button"
             onClick={onViewAll}
-            className="text-primary hover:text-primary/80 hover:underline cursor-pointer text-xs font-semibold transition-colors"
+            className="text-primary hover:text-primary/80 cursor-pointer text-xs font-semibold transition-colors hover:underline"
           >
             {viewAllLabel}
           </button>
@@ -170,15 +163,15 @@ export function DashboardTableCard<T>({
       </div>
 
       {/* Table with Header and Rows */}
-      <div className="overflow-x-auto flex-1">
+      <div className="flex-1 overflow-x-auto">
         <Table>
-          <TableHeader className="bg-muted/40 border-b border-border/80">
-            <TableRow className="hover:bg-transparent border-none h-10">
+          <TableHeader className="bg-muted/40 border-border/80 border-b">
+            <TableRow className="h-10 border-none hover:bg-transparent">
               {columns.map((col, idx) => (
                 <TableHead
                   key={idx}
                   className={cn(
-                    "text-muted-foreground h-10 px-4 md:px-6 text-[10px] md:text-[11px] font-extrabold tracking-wider uppercase whitespace-nowrap",
+                    "text-muted-foreground h-10 px-4 text-[10px] font-extrabold tracking-wider whitespace-nowrap uppercase md:px-6 md:text-[11px]",
                     col.align === "center" && "text-center",
                     col.align === "right" && "text-right",
                     col.headerClassName
@@ -207,7 +200,7 @@ export function DashboardTableCard<T>({
                   <TableRow
                     key={key}
                     className={cn(
-                      "border-border/60 hover:bg-muted/30 transition-colors h-[54px]",
+                      "border-border/60 hover:bg-muted/30 h-[54px] transition-colors",
                       rowClassName?.(item, rowIdx)
                     )}
                   >
@@ -215,7 +208,7 @@ export function DashboardTableCard<T>({
                       <TableCell
                         key={colIdx}
                         className={cn(
-                          "px-4 py-3 md:px-6 text-xs text-foreground align-middle font-normal whitespace-nowrap",
+                          "text-foreground px-4 py-3 align-middle text-xs font-normal whitespace-nowrap md:px-6",
                           col.align === "center" && "text-center",
                           col.align === "right" && "text-right",
                           col.className

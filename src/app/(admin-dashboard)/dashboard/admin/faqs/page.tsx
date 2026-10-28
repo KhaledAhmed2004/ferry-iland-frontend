@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { FaqManagementView } from "@/widgets";
+import { FaqManagementView } from "./_components/FaqManagementView";
 
 export const metadata: Metadata = {
   title: "FAQ Management | Admin Dashboard | IslandHop",

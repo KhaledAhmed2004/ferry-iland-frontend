@@ -2,18 +2,79 @@ import * as React from "react";
 import type { LucideIcon } from "lucide-react";
 import { TrendingDown, TrendingUp, Activity } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Card, CardContent } from "@/ui";
+
+export type StatCardVariant =
+  | "emerald"
+  | "blue"
+  | "amber"
+  | "rose"
+  | "purple"
+  | "indigo"
+  | "default";
 
 export interface StatCardProps extends React.HTMLAttributes<HTMLDivElement> {
-  label: string;
-  value: string | number;
-  icon?: LucideIcon;
+  // Title / Label
+  label?: string;
+  title?: string;
+  labelClassName?: string;
+
+  // Value
+  value: React.ReactNode;
+  valueClassName?: string;
+  colorValue?: boolean;
+
+  // Icon
+  icon?: LucideIcon | React.ElementType;
+  iconClassName?: string;
+  iconContainerClassName?: string;
+  iconColorClasses?: string;
+  variant?: StatCardVariant;
+
+  // Description / Subtitle / Custom Footer
+  description?: React.ReactNode;
+  footerNode?: React.ReactNode;
+
+  // Trend / Growth Analytics (Optional for Overview dashboards)
   changePercent?: number;
   trend?: "up" | "down" | "neutral";
   comparisonText?: string;
   showWave?: boolean;
-  valueClassName?: string;
-  labelClassName?: string;
 }
+
+const variantStyles: Record<
+  StatCardVariant,
+  { icon: string; value: string }
+> = {
+  emerald: {
+    icon: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+    value: "text-emerald-600 dark:text-emerald-400"
+  },
+  blue: {
+    icon: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+    value: "text-blue-600 dark:text-blue-400"
+  },
+  amber: {
+    icon: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+    value: "text-amber-600 dark:text-amber-400"
+  },
+  rose: {
+    icon: "bg-rose-500/10 text-rose-600 dark:text-rose-400",
+    value: "text-rose-600 dark:text-rose-400"
+  },
+  purple: {
+    icon: "bg-purple-500/10 text-purple-600 dark:text-purple-400",
+    value: "text-purple-600 dark:text-purple-400"
+  },
+  indigo: {
+    icon: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400",
+    value: "text-indigo-600 dark:text-indigo-400"
+  },
+  default: {
+    icon: "bg-primary/10 text-primary",
+    value: "text-foreground"
+  }
+};
 
 export function TrendSparklineWave({
   trend = "neutral",
@@ -27,7 +88,6 @@ export function TrendSparklineWave({
   const isUp = trend === "up";
   const isDown = trend === "down";
 
-  // Smooth bezier curves with gentle undulations
   const linePath = isUp
     ? "M0,24 C20,26 35,14 55,16 C75,18 85,6 100,4"
     : isDown
@@ -42,14 +102,10 @@ export function TrendSparklineWave({
       ? "stroke-rose-500"
       : "stroke-blue-500/70 dark:stroke-blue-400/70";
 
-  const stopColor = isUp
-    ? "#10b981"
-    : isDown
-      ? "#f43f5e"
-      : "#3b82f6";
+  const stopColor = isUp ? "#10b981" : isDown ? "#f43f5e" : "#3b82f6";
 
   return (
-    <div className={cn("relative h-9 w-24 overflow-hidden", className)}>
+    <div className={cn("relative h-8 w-20 overflow-hidden", className)}>
       <svg
         viewBox="0 0 100 32"
         fill="none"
@@ -66,7 +122,7 @@ export function TrendSparklineWave({
         <path
           d={linePath}
           fill="none"
-          strokeWidth="2.2"
+          strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
           className={strokeColor}
@@ -78,18 +134,45 @@ export function TrendSparklineWave({
 
 export function StatCard({
   label,
+  title,
+  labelClassName,
   value,
+  valueClassName,
+  colorValue = false,
   icon: Icon,
+  iconClassName,
+  iconContainerClassName,
+  iconColorClasses,
+  variant,
+  description,
+  footerNode,
   changePercent,
   trend,
   comparisonText,
   showWave = false,
   className,
-  valueClassName,
-  labelClassName,
   ...props
 }: StatCardProps) {
-  // Determine trend automatically if not explicitly provided
+  const displayTitle = title ?? label ?? "";
+
+  // Resolve automatic variant if not explicitly supplied
+  const effectiveVariant: StatCardVariant =
+    variant ??
+    (changePercent !== undefined && changePercent > 0
+      ? "emerald"
+      : changePercent !== undefined && changePercent < 0
+        ? "rose"
+        : "default");
+
+  const variantConfig = variantStyles[effectiveVariant] || variantStyles.default;
+
+  const resolvedValueClass =
+    valueClassName ?? (colorValue ? variantConfig.value : "text-foreground");
+
+  const resolvedIconColorClasses = iconColorClasses ?? variantConfig.icon;
+
+  // Trend computation
+  const hasTrend = changePercent !== undefined;
   const resolvedTrend: "up" | "down" | "neutral" =
     trend ||
     (changePercent === undefined || Math.abs(changePercent) < 0.001
@@ -101,7 +184,6 @@ export function StatCard({
   const isUp = resolvedTrend === "up";
   const isDown = resolvedTrend === "down";
 
-  // Prevent -0% display
   const formattedPercent =
     changePercent !== undefined
       ? Math.abs(changePercent) < 0.001
@@ -112,56 +194,49 @@ export function StatCard({
       : null;
 
   return (
-    <div
+    <Card
       className={cn(
-        "bg-card text-card-foreground border-border/80 relative flex flex-col justify-between overflow-hidden rounded-xl border p-5 shadow-xs transition-all md:p-6",
+        "border-border/80 bg-card shadow-xs transition-all duration-200 hover:shadow-sm",
         className
       )}
       {...props}
     >
-      {/* Top Header Row */}
-      <div className="flex items-center justify-between">
-        <span
-          className={cn(
-            "text-muted-foreground text-[11px] font-bold tracking-wider uppercase",
-            labelClassName
+      <CardContent className="flex items-center justify-between p-5">
+        <div className="min-w-0 flex-1 space-y-0.5">
+          {displayTitle && (
+            <p
+              className={cn(
+                "text-muted-foreground text-xs font-semibold uppercase tracking-wider truncate",
+                labelClassName
+              )}
+            >
+              {displayTitle}
+            </p>
           )}
-        >
-          {label}
-        </span>
-        {Icon && (
-          <div className="bg-primary/10 text-primary flex h-9 w-9 items-center justify-center rounded-lg shadow-2xs">
-            <Icon className="h-4.5 w-4.5" />
-          </div>
-        )}
-      </div>
 
-      {/* Main Value & Mini Wave Section */}
-      <div className="mt-4 flex items-end justify-between">
-        <div>
-          <div
+          <p
             className={cn(
-              "text-2xl font-extrabold tracking-tight text-foreground md:text-3xl",
-              valueClassName
+              "mt-1 text-2xl font-extrabold tracking-tight truncate",
+              resolvedValueClass
             )}
           >
             {value}
-          </div>
+          </p>
 
-          {/* Trend Indicator Badge & Comparison */}
+          {/* Analytics Mode: Trend Indicator & Comparison */}
           {(formattedPercent !== null || comparisonText) && (
-            <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs">
               {formattedPercent !== null && (
                 <span
                   className={cn(
-                    "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-bold",
+                    "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-bold border",
                     isUp &&
-                      "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/50",
+                      "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
                     isDown &&
-                      "bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-400 border border-rose-200/60 dark:border-rose-800/50",
+                      "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20",
                     !isUp &&
                       !isDown &&
-                      "bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400 border border-blue-200/60 dark:border-blue-800/50"
+                      "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20"
                   )}
                 >
                   {isUp && <TrendingUp className="h-3 w-3" />}
@@ -171,16 +246,45 @@ export function StatCard({
                 </span>
               )}
               {comparisonText && (
-                <span className="text-muted-foreground text-[11px] font-medium">
+                <span className="text-muted-foreground text-[11px] font-medium truncate">
                   {comparisonText}
                 </span>
               )}
             </div>
           )}
+
+          {/* Metric Mode: Subtitle description */}
+          {description && (
+            typeof description === "string" ? (
+              <p className="text-muted-foreground mt-0.5 text-[11px] truncate">
+                {description}
+              </p>
+            ) : (
+              description
+            )
+          )}
+
+          {footerNode}
         </div>
 
+        {/* Right side Icon & optional sparkline */}
+        <div className="ml-3 flex shrink-0 items-center gap-2">
+          {showWave && <TrendSparklineWave trend={resolvedTrend} />}
 
-      </div>
-    </div>
+          {Icon && (
+            <div
+              className={cn(
+                "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-colors",
+                resolvedIconColorClasses,
+                iconContainerClassName
+              )}
+            >
+              <Icon className={cn("h-5 w-5", iconClassName)} />
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
+

@@ -40,7 +40,7 @@ import {
 } from "@/ui";
 import {
   DashboardTableCard,
-  OperatorStatCard,
+  StatCard,
   TablePagination
 } from "@/widgets";
 
@@ -328,28 +328,28 @@ export default function OperatorSchedulesPage() {
 
       {/* Aggregate Stats Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <OperatorStatCard
+        <StatCard
           title="Total Trips"
           value={totalCount}
           description="Scheduled sailings"
           icon={Calendar}
           variant="emerald"
         />
-        <OperatorStatCard
+        <StatCard
           title="On Time"
           value={onTimeCount}
           description="Operating as planned"
           icon={CheckCircle2}
           variant="emerald"
         />
-        <OperatorStatCard
+        <StatCard
           title="Boarding Now"
           value={boardingCount}
           description="Gates open"
           icon={Users}
           variant="blue"
         />
-        <OperatorStatCard
+        <StatCard
           title="Delayed"
           value={delayedCount}
           description="Experiencing delays"
