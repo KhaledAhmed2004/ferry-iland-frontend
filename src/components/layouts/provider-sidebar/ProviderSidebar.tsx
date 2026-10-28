@@ -4,7 +4,6 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Anchor,
   CalendarX,
   ClipboardList,
   Clock,
@@ -18,6 +17,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks";
 import { Button } from "@/ui";
+import { BrandLogo } from "@/widgets";
 import { PROVIDER_MOCK_DATA } from "@/data";
 
 export interface ProviderNavItem {
@@ -98,23 +98,17 @@ export function ProviderSidebar({ onItemClick, className }: ProviderSidebarProps
     >
       {/* Brand & Provider Portal Header */}
       <div className="border-border/80 flex h-16 items-center justify-between border-b px-6">
-        <Link
+        <BrandLogo
+          size="md"
           href="/dashboard/operator"
           onClick={onItemClick}
-          className="group flex items-center gap-3 transition-opacity hover:opacity-90"
-        >
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-600 text-white shadow-sm transition-transform group-hover:scale-105">
-            <Anchor className="h-5 w-5" />
-          </div>
-          <div className="flex flex-col">
-            <span className="text-base font-extrabold tracking-tight text-foreground truncate max-w-[150px]">
+          title={
+            <span className="truncate max-w-[150px] block" title={profile.companyName}>
               {profile.companyName}
             </span>
-            <span className="text-muted-foreground text-xs font-bold tracking-wider uppercase">
-              Operator Portal
-            </span>
-          </div>
-        </Link>
+          }
+          subtitle="Operator Portal"
+        />
       </div>
 
       {/* Navigation Links */}

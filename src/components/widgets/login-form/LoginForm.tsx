@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import {
-  Anchor,
   ArrowRight,
   Eye,
   EyeOff,
@@ -17,6 +16,7 @@ import {
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 
+import { BrandLogo } from "../brand-logo";
 import { loginSchema, type LoginInput } from "@/schemas";
 import { toast } from "sonner";
 
@@ -134,16 +134,8 @@ export function LoginForm() {
       {/* Top Header & Brand */}
       <div className="space-y-4">
         {/* Brand for Desktop */}
-        <div className="hidden items-center gap-3 lg:flex">
-          <div className="bg-primary text-primary-foreground flex h-9 w-9 items-center justify-center rounded-xl shadow-md">
-            <Anchor className="h-5 w-5" />
-          </div>
-          <div>
-            <div className="text-foreground text-lg font-black tracking-tight">IslandHop</div>
-            <div className="text-primary text-[10px] font-extrabold tracking-wider uppercase">
-              SECURE PORTAL
-            </div>
-          </div>
+        <div className="hidden lg:block">
+          <BrandLogo size="md" subtitle="SECURE PORTAL" />
         </div>
 
         {/* Unified Titles */}

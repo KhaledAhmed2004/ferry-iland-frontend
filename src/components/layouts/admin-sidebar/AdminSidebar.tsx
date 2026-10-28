@@ -12,12 +12,12 @@ import {
   LayoutDashboard,
   LogOut,
   Settings,
-  Ship,
   Users
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks";
 import { Button } from "@/ui";
+import { BrandLogo } from "@/widgets";
 
 export interface AdminNavItem {
   name: string;
@@ -95,23 +95,12 @@ export function AdminSidebar({ onItemClick, className }: AdminSidebarProps) {
     >
       {/* Brand & Portal Header */}
       <div className="border-border/80 flex h-16 items-center justify-between border-b px-6">
-        <Link
+        <BrandLogo
+          size="md"
           href="/dashboard/admin"
           onClick={onItemClick}
-          className="group flex items-center gap-3 transition-opacity hover:opacity-90"
-        >
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-600 text-white shadow-sm transition-transform group-hover:scale-105">
-            <Ship className="h-6 w-6" />
-          </div>
-          <div className="flex flex-col">
-            <span className="text-lg font-extrabold tracking-tight text-foreground">
-              FerryGo
-            </span>
-            <span className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
-              Admin Portal
-            </span>
-          </div>
-        </Link>
+          subtitle="Admin Portal"
+        />
       </div>
 
       {/* Navigation Links */}

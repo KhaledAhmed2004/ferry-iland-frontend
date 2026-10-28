@@ -1,6 +1,6 @@
 import Link from "next/link";
-
-import { Facebook, Instagram, Linkedin, Ship, Twitter } from "lucide-react";
+import { Facebook, Instagram, Linkedin, Twitter } from "lucide-react";
+import { BrandLogo } from "@/widgets";
 
 const PLATFORM_LINKS = [
   { name: "Book a Ferry", href: "/#book" },
@@ -48,18 +48,19 @@ export function Footer() {
         <div className="grid grid-cols-2 gap-10 md:grid-cols-3 lg:grid-cols-12 lg:gap-8">
           {/* Column 1: Brand Info & Socials (4 Cols) */}
           <div className="space-y-6 lg:col-span-4">
-            <Link href="/" className="flex items-center gap-2.5">
-              <div className="bg-primary text-primary-foreground flex h-9 w-9 items-center justify-center rounded-xl shadow-md">
-                <Ship className="h-5 w-5" />
-              </div>
-              <span className="text-xl font-bold tracking-tight text-white">
-                Island<span className="text-primary">Hop</span>
-              </span>
-            </Link>
+            <BrandLogo
+              size="md"
+              subtitle="Book • Travel • Explore"
+              title={
+                <span className="text-xl font-bold tracking-tight text-white">
+                  Island<span className="text-primary">Hop</span>
+                </span>
+              }
+            />
 
             <p className="max-w-sm text-xs leading-relaxed text-slate-400 sm:text-sm">
-              A comprehensive Ferry Booking & Management Platform for seamless journeys across
-              waters.
+              Your seamless maritime platform to book ferries, travel across islands, and explore
+              coastal destinations.
             </p>
 
             {/* Social Icons */}

@@ -2,9 +2,9 @@ import type { ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
 
-import { Ship } from "lucide-react";
 
 import authBg from "@/assets/auth/bg.png";
+import { BrandLogo } from "@/widgets";
 
 export default function AuthenticationLayout({ children }: { children: ReactNode }) {
   return (
@@ -25,17 +25,21 @@ export default function AuthenticationLayout({ children }: { children: ReactNode
 
         <div className="relative z-10 flex h-full w-full flex-col justify-between p-12 lg:p-16">
           {/* Top Logo Watermark / Icon */}
-          <Link href="/" className="flex items-center gap-3">
-            <div className="bg-primary text-primary-foreground flex h-10 w-10 items-center justify-center rounded-xl shadow-lg">
-              <Ship className="h-6 w-6" />
-            </div>
-            <span className="text-2xl font-black tracking-tight text-white">IslandHop</span>
-          </Link>
+          <BrandLogo
+            size="md"
+            title={<span className="text-2xl font-black tracking-tight text-white">IslandHop</span>}
+          />
 
           {/* Bottom Headline & Subtitle */}
           <div className="max-w-md space-y-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-white backdrop-blur-md">
-              <Ship className="h-6 w-6" />
+            <div className="overflow-hidden rounded-2xl shadow-lg">
+              <Image
+                src="/logo.png"
+                alt="IslandHop Logo"
+                width={48}
+                height={48}
+                className="h-12 w-12 rounded-2xl object-contain"
+              />
             </div>
             <h1 className="text-4xl font-black tracking-tight text-white xl:text-5xl">
               Powering <br />
@@ -55,12 +59,7 @@ export default function AuthenticationLayout({ children }: { children: ReactNode
       <div className="bg-background flex flex-1 flex-col justify-between p-6 sm:p-10 lg:p-12 xl:p-16">
         {/* Mobile Header Logo */}
         <div className="mb-6 flex items-center justify-between lg:hidden">
-          <Link href="/" className="flex items-center gap-2.5">
-            <div className="bg-primary text-primary-foreground flex h-9 w-9 items-center justify-center rounded-xl shadow-md">
-              <Ship className="h-5 w-5" />
-            </div>
-            <span className="text-foreground text-xl font-bold tracking-tight">IslandHop</span>
-          </Link>
+          <BrandLogo size="md" />
         </div>
 
         {/* Form Slot */}

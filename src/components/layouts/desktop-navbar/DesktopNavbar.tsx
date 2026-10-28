@@ -8,12 +8,12 @@ import {
   HelpCircle,
   LayoutDashboard,
   LogOut,
-  Ship,
   Ticket
 } from "lucide-react";
 
 import { useAuth } from "@/hooks";
 import { Button } from "@/ui";
+import { BrandLogo } from "@/widgets";
 import { cn } from "@/lib/utils";
 
 const NAV_LINKS = [
@@ -74,19 +74,7 @@ export function DesktopNavbar() {
       <div className="container mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         {/* Left: Brand Logo */}
         <div className="flex items-center">
-          <Link href="/" className="group flex items-center gap-2.5">
-            <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600 text-white shadow-md shadow-blue-600/20 transition-all duration-300 group-hover:scale-105">
-              <Ship className="h-5 w-5 transition-transform duration-300 group-hover:-rotate-6" />
-            </div>
-            <div className="flex flex-col">
-              <span className="text-foreground text-xl font-extrabold tracking-tight leading-none">
-                Island<span className="text-blue-600 dark:text-blue-400">Hop</span>
-              </span>
-              <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/80 leading-tight">
-                Ferry Express
-              </span>
-            </div>
-          </Link>
+          <BrandLogo size="md" subtitle="Book • Travel • Explore" />
         </div>
 
         {/* Center: Navigation Pill Links */}

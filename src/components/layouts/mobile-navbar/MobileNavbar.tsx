@@ -9,7 +9,6 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
-  Ship,
   Ticket,
   X
 } from "lucide-react";
@@ -17,6 +16,7 @@ import { AnimatePresence, motion } from "motion/react";
 
 import { useAuth } from "@/hooks";
 import { Button } from "@/ui";
+import { BrandLogo } from "@/widgets";
 import { cn } from "@/lib/utils";
 
 const NAV_LINKS = [
@@ -76,23 +76,7 @@ export function MobileNavbar() {
       >
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
           {/* Logo */}
-          <Link
-            href="/"
-            className="group flex items-center gap-2.5"
-            onClick={() => setIsOpen(false)}
-          >
-            <div className="relative flex h-8 w-8 items-center justify-center rounded-xl bg-blue-600 text-white shadow-md shadow-blue-600/20 transition-all group-hover:scale-105">
-              <Ship className="h-4 w-4" />
-            </div>
-            <div className="flex flex-col">
-              <span className="text-foreground text-lg font-extrabold tracking-tight leading-none">
-                Island<span className="text-blue-600 dark:text-blue-400">Hop</span>
-              </span>
-              <span className="text-[9px] font-semibold uppercase tracking-widest text-muted-foreground/80 leading-tight">
-                Ferry Express
-              </span>
-            </div>
-          </Link>
+          <BrandLogo size="sm" subtitle="Book • Travel • Explore" onClick={() => setIsOpen(false)} />
 
           {/* Toggle Button */}
           <Button

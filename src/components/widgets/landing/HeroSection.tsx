@@ -172,7 +172,7 @@ export function HeroSection() {
               </span>
               <Ship className="h-3.5 w-3.5" />
               <span className="font-extrabold tracking-widest uppercase">
-                MALDIVES #1 FERRY NETWORK
+                Book • Travel • Explore
               </span>
             </div>
 

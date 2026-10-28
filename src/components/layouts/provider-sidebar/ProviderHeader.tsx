@@ -2,8 +2,8 @@
 
 import * as React from "react";
 import { usePathname } from "next/navigation";
-import { Menu, X, Anchor } from "lucide-react";
-import { ThemeSelector } from "@/widgets";
+import { Menu, X } from "lucide-react";
+import { ThemeSelector, BrandLogo } from "@/widgets";
 import { Button } from "@/ui";
 import { PROVIDER_MOCK_DATA } from "@/data";
 
@@ -63,13 +63,16 @@ export function ProviderHeader({
         </Button>
 
         {/* Mobile brand logo */}
-        <div className="flex items-center gap-2 md:hidden">
-          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-emerald-600 text-white">
-            <Anchor className="h-4 w-4" />
-          </div>
-          <span className="font-bold text-sm text-foreground truncate max-w-[140px]">
-            {profile.companyName}
-          </span>
+        <div className="md:hidden">
+          <BrandLogo
+            size="sm"
+            href="/dashboard/operator"
+            title={
+              <span className="truncate max-w-[140px] block" title={profile.companyName}>
+                {profile.companyName}
+              </span>
+            }
+          />
         </div>
 
         {/* Desktop breadcrumb */}

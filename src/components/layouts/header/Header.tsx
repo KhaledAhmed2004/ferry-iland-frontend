@@ -3,11 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { LayoutDashboard, LogOut, Ship, Ticket } from "lucide-react";
+import { LayoutDashboard, LogOut, Ticket } from "lucide-react";
 
 import { useAuth } from "@/hooks";
-
 import { Button } from "@/ui";
+import { BrandLogo } from "@/widgets";
 
 const NAV_LINKS = [
   { name: "Book", href: "/" },
@@ -43,14 +43,7 @@ export function Header() {
       <div className="container mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         {/* Brand Logo */}
         <div className="flex items-center gap-8">
-          <Link href="/" className="group flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white shadow-sm transition-transform group-hover:scale-105">
-              <Ship className="h-5 w-5" />
-            </div>
-            <span className="text-foreground text-xl font-bold tracking-tight">
-              Island<span className="text-blue-600">Hop</span>
-            </span>
-          </Link>
+          <BrandLogo size="sm" />
 
           {/* Navigation Links */}
           <nav className="text-muted-foreground hidden items-center gap-6 text-[13px] font-medium md:flex">

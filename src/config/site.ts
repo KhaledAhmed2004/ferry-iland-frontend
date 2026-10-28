@@ -3,12 +3,12 @@ import { env } from "@/env";
 
 export const siteConfig: SiteConfig = {
   name: "IslandHop",
-  description: "Fast speedboat & ferry bookings, real-time sea timetables, and fleet management.",
+  description: "Book ferry & speedboat tickets, travel between islands seamlessly, and explore top maritime routes.",
   url: env.NEXT_PUBLIC_SITE_URL,
   author: "Shariar Sultan Fahim",
   locale: "en",
   themeColor: "#000000",
-  keywords: ["islandhop", "ferry", "speedboat", "booking", "island transfer", "travel", "maritime"],
+  keywords: ["islandhop", "book", "travel", "explore", "ferry", "speedboat", "booking", "island transfer", "maritime"],
   social: {
     twitter: "",
     github: "https://github.com/shariarSultanFahim",
