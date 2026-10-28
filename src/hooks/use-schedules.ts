@@ -175,3 +175,72 @@ export function useDeleteScheduleMutation() {
     }
   });
 }
+
+/**
+ * 6. Mutation: Bulk Update Schedule Status
+ */
+export function useBulkUpdateScheduleStatusMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (payload: { ids: string[]; status: OperatorScheduleStatus }) => {
+      return await patch<ApiResponse<{ count: number }>>("/operator/schedules/bulk-status", payload);
+    },
+    onSuccess: async (response) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: scheduleKeys.all }),
+        queryClient.invalidateQueries({ queryKey: ["operator", "overview"] })
+      ]);
+      toast.success(
+        response?.message ||
+          `Successfully updated ${response?.data?.count ?? "all"} schedules!`
+      );
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to update schedules");
+    }
+  });
+}
+
+/**
+ * 7. Mutation: Bulk Delete Schedules
+ */
+export function useBulkDeleteSchedulesMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (ids: string[]) => {
+      return await post<
+        ApiResponse<{
+          count: number;
+          deletedCount?: number;
+          skippedCount?: number;
+          skippedSchedules?: string[];
+        }>
+      >("/operator/schedules/bulk-delete", { ids });
+    },
+    onSuccess: async (response) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: scheduleKeys.all }),
+        queryClient.invalidateQueries({ queryKey: ["operator", "overview"] })
+      ]);
+
+      const data = response?.data;
+      if (data?.skippedCount && data.skippedCount > 0) {
+        toast.warning(
+          response?.message ||
+            `Deleted ${data.count} schedules. ${data.skippedCount} schedules were skipped due to active customer bookings.`
+        );
+      } else {
+        toast.success(
+          response?.message ||
+            `Successfully deleted ${data?.count ?? "all"} schedules!`
+        );
+      }
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to delete schedules");
+    }
+  });
+}
+

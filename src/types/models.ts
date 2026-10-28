@@ -455,10 +455,10 @@ export interface ICreateRoutePayload {
   departurePortId: string;
   destinationPortId: string;
   durationMinutes: number;
+  description: string;
+  imageUrl: string;
   basePrice?: number;
-  description?: string;
   amenities?: string[];
-  imageUrl?: string;
   isBorderCrossing?: boolean;
   status?: RouteStatus;
 }

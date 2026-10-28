@@ -55,7 +55,7 @@ export default function HomePage() {
       </AnimatedSection>
 
       {/* 10. Ocean Video / Image Call To Action */}
-      <AnimatedSection delay={0.05}>
+      <AnimatedSection delay={0.05} className="!mt-0">
         <FinalCtaSection />
       </AnimatedSection>
     </div>

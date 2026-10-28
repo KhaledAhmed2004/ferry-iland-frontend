@@ -5,20 +5,16 @@ import Link from "next/link";
 import {
   AlertCircle,
   ArrowUpRight,
-  Building2,
   CalendarCheck,
   DollarSign,
   RefreshCw,
   Ship,
   Ticket,
-  TrendingDown,
-  TrendingUp,
   Users
 } from "lucide-react";
 
 import { useAdminAnalyticsQuery } from "@/hooks/use-admin";
 import type { IAdminAnalyticsOverview } from "@/types";
-import { cn } from "@/lib/utils";
 import { Button } from "@/ui";
 
 import {
@@ -152,8 +148,6 @@ export function AdminDashboardView() {
       )
     }
   ];
-
-
 
   if (isError) {
     return (
@@ -394,20 +388,19 @@ export function AdminDashboardView() {
         />
       </div>
 
-      {/* Real Recent Bookings Table */}
       {/* Recent Bookings Table */}
-        {isLoading ? (
-          <div className="h-72 rounded-xl border border-border/60 bg-muted/20 animate-pulse p-4" />
-        ) : (
-          <DashboardTableCard
-            title="Recent Bookings"
-            viewAllHref="/dashboard/admin/bookings"
-            columns={recentBookingColumns}
-            data={analytics?.recentBookings ?? []}
-            keyExtractor={(item) => item.id}
-            emptyMessage="No recent bookings found."
-          />
-        )}
+      {isLoading ? (
+        <div className="h-72 rounded-xl border border-border/60 bg-muted/20 animate-pulse p-4" />
+      ) : (
+        <DashboardTableCard
+          title="Recent Bookings"
+          viewAllHref="/dashboard/admin/bookings"
+          columns={recentBookingColumns}
+          data={analytics?.recentBookings ?? []}
+          keyExtractor={(item) => item.id}
+          emptyMessage="No recent bookings found."
+        />
+      )}
     </div>
   );
 }

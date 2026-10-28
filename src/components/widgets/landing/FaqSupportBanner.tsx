@@ -1,19 +1,19 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowRight,
-  ChevronDown,
   Headphones,
   HelpCircle,
   MessageCircle,
   Radio,
   ShieldCheck,
-  Ship,
-  Sparkles,
-  Users
+  Ship
 } from "lucide-react";
 
 import maldivesImg from "@/assets/landing-page/maldives.png";
+import { usePublicFaqsQuery } from "@/hooks/use-faqs";
 import {
   Accordion,
   AccordionContent,
@@ -22,42 +22,11 @@ import {
   Button
 } from "@/ui";
 
-const FAQS = [
-  {
-    id: "faq-1",
-    question: "How do I receive and present my ferry boarding pass?",
-    answer:
-      "Upon completing your reservation, your digital QR boarding pass is generated instantly on screen, emailed immediately, and available for 1-tap download into Apple Wallet or Google Wallet. At the harbor gate, simply show the QR code on your phone for instant scanning."
-  },
-  {
-    id: "faq-2",
-    question: "What is the luggage allowance on speedboats and ferries?",
-    answer:
-      "Standard ferry and speedboat bookings include 1 large check-in suitcase (up to 20kg) and 1 hand luggage bag per passenger free of charge. You can easily add extra luggage, surfboards, or scuba gear during checkout."
-  },
-  {
-    id: "faq-3",
-    question: "What happens if sea conditions cause a trip cancellation?",
-    answer:
-      "IslandHop monitors official maritime weather advisories 24/7. In the rare event an operator cancels a departure due to rough seas, you receive an immediate text notification and your choice of a free reschedule to the next safe departure or a 100% instant refund."
-  },
-  {
-    id: "faq-4",
-    question: "Can I change my travel date or passenger name after booking?",
-    answer:
-      "Yes! You can manage and update your booking details up to 2 hours prior to departure via our 'Manage Booking' portal without calling support. Changing passenger names is always 100% free."
-  },
-  {
-    id: "faq-5",
-    question: "How early should I arrive at the departure jetty or harbor?",
-    answer:
-      "We recommend arriving 15 to 20 minutes before your scheduled departure time. Harbor terminal gates begin passenger boarding 10 minutes prior to departure."
-  }
-];
-
 export function FaqSupportBanner() {
+  const { data: publicFaqsResponse, isLoading } = usePublicFaqsQuery();
+  const faqs = publicFaqsResponse?.data ?? [];
   return (
-    <section id="faqs" className="relative py-20 md:py-28 overflow-hidden">
+    <section id="faqs" className="relative pt-20 pb-10 md:pt-28 md:pb-14 overflow-hidden">
       {/* Ambient background lighting */}
       <div className="pointer-events-none absolute -top-20 left-1/4 h-[450px] w-[450px] rounded-full bg-blue-500/10 blur-[130px] -z-10" />
       <div className="pointer-events-none absolute -bottom-20 right-1/4 h-[400px] w-[400px] rounded-full bg-indigo-500/10 blur-[130px] -z-10" />
@@ -167,29 +136,62 @@ export function FaqSupportBanner() {
 
           {/* Right Column: Premium Accordion Cards */}
           <div className="lg:col-span-7">
-            <Accordion type="single" collapsible defaultValue="faq-1" className="w-full space-y-3.5">
-              {FAQS.map((faq, index) => (
-                <AccordionItem
-                  key={faq.id}
-                  value={faq.id}
-                  className="group overflow-hidden rounded-3xl border border-border/80 bg-card/90 px-6 py-1 shadow-sm backdrop-blur-md transition-all duration-300 hover:border-blue-500/40 hover:bg-card hover:shadow-lg data-[state=open]:border-blue-500/50 data-[state=open]:bg-gradient-to-r data-[state=open]:from-blue-500/[0.04] data-[state=open]:via-card data-[state=open]:to-indigo-500/[0.03] data-[state=open]:shadow-md"
-                >
-                  <AccordionTrigger className="text-left text-sm sm:text-base font-bold text-foreground hover:text-blue-600 dark:hover:text-blue-400 py-4 [&[data-state=open]>div>.faq-num]:bg-blue-600 [&[data-state=open]>div>.faq-num]:text-white [&[data-state=open]>div>.faq-num]:shadow-md [&[data-state=open]>div>.faq-num]:shadow-blue-600/30">
-                    <div className="flex items-center gap-3.5 pr-2">
-                      <span className="faq-num flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-blue-500/10 text-xs font-black text-blue-600 dark:text-blue-400 transition-all duration-300">
-                        {index + 1}
-                      </span>
-                      <span className="tracking-tight">{faq.question}</span>
+            {isLoading ? (
+              <div className="w-full space-y-3.5">
+                {[1, 2, 3, 4, 5].map((item) => (
+                  <div
+                    key={item}
+                    className="flex h-[72px] animate-pulse items-center gap-3.5 rounded-3xl border border-border/80 bg-card/60 px-6"
+                  >
+                    <div className="h-7 w-7 shrink-0 rounded-xl bg-muted/60" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 w-4/5 rounded-md bg-muted/70" />
+                      <div className="h-2.5 w-24 rounded-md bg-muted/50" />
                     </div>
-                  </AccordionTrigger>
-                  <AccordionContent className="text-xs sm:text-sm text-muted-foreground leading-relaxed pl-10 pr-2 pb-4">
-                    <p className="border-t border-border/50 pt-3">
-                      {faq.answer}
-                    </p>
-                  </AccordionContent>
-                </AccordionItem>
-              ))}
-            </Accordion>
+                  </div>
+                ))}
+              </div>
+            ) : faqs.length > 0 ? (
+              <Accordion
+                type="single"
+                collapsible
+                defaultValue={faqs[0]?.id}
+                className="w-full space-y-3.5"
+              >
+                {faqs.map((faq, index) => (
+                  <AccordionItem
+                    key={faq.id}
+                    value={faq.id}
+                    className="group overflow-hidden rounded-3xl border border-border/80 bg-card/90 px-6 py-1 shadow-sm backdrop-blur-md transition-all duration-300 hover:border-blue-500/40 hover:bg-card hover:shadow-lg data-[state=open]:border-blue-500/50 data-[state=open]:bg-gradient-to-r data-[state=open]:from-blue-500/[0.04] data-[state=open]:via-card data-[state=open]:to-indigo-500/[0.03] data-[state=open]:shadow-md"
+                  >
+                    <AccordionTrigger className="text-left text-sm sm:text-base font-bold text-foreground hover:text-blue-600 dark:hover:text-blue-400 py-4 [&[data-state=open]>div>.faq-num]:bg-blue-600 [&[data-state=open]>div>.faq-num]:text-white [&[data-state=open]>div>.faq-num]:shadow-md [&[data-state=open]>div>.faq-num]:shadow-blue-600/30">
+                      <div className="flex items-center gap-3.5 pr-2">
+                        <span className="faq-num flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-blue-500/10 text-xs font-black text-blue-600 dark:text-blue-400 transition-all duration-300">
+                          {index + 1}
+                        </span>
+                        <div className="flex flex-col items-start gap-0.5">
+                          <span className="tracking-tight">{faq.question}</span>
+                          {faq.category ? (
+                            <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider">
+                              {faq.category}
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="text-xs sm:text-sm text-muted-foreground leading-relaxed pl-10 pr-2 pb-4">
+                      <p className="border-t border-border/50 pt-3">
+                        {faq.answer}
+                      </p>
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
+            ) : (
+              <div className="rounded-3xl border border-border/80 bg-card/60 p-10 text-center text-sm text-muted-foreground">
+                No FAQs available at this moment.
+              </div>
+            )}
           </div>
 
         </div>

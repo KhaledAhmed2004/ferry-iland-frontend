@@ -28,6 +28,7 @@ import {
 import { toast } from "sonner";
 import { format, parseISO, isSameDay, isAfter, isBefore, startOfDay, addDays } from "date-fns";
 import { cn } from "@/lib/utils";
+import { OperatorStatCard } from "@/widgets";
 import type {
   ICreateOffDayPayload,
   IFerry,
@@ -42,6 +43,7 @@ import {
   useFerriesQuery,
   useOffDaysQuery,
   useOperatorSchedulesQuery,
+  useTableSelection,
   useUpdateOffDayMutation
 } from "@/hooks";
 import {
@@ -63,7 +65,7 @@ import {
   TabsList,
   TabsTrigger
 } from "@/ui";
-import { DashboardTableCard, type TableColumn } from "@/widgets";
+import { BulkActionToolbar, DashboardTableCard, TablePagination, type TableColumn } from "@/widgets";
 
 const CATEGORY_OPTIONS: Array<{ value: OffDayCategory; label: string; icon: string }> = [
   {
@@ -222,8 +224,7 @@ export default function OperatorOffDaysPage() {
   const [page, setPage] = React.useState(1);
   const [pageSize, setPageSize] = React.useState(10);
 
-  // Bulk selection & action states
-  const [selectedOffDayIds, setSelectedOffDayIds] = React.useState<Set<string>>(new Set());
+  // Bulk action states
   const [isBulkOperating, setIsBulkOperating] = React.useState(false);
   const [bulkActionType, setBulkActionType] = React.useState<
     "delete" | "MAINTENANCE" | "WEATHER" | "PUBLIC_HOLIDAY" | null
@@ -258,12 +259,12 @@ export default function OperatorOffDaysPage() {
   // Reset page and selection when filters change
   React.useEffect(() => {
     setPage(1);
-    setSelectedOffDayIds(new Set());
+    clearSelection();
   }, [selectedCategory, selectedFerryId, pageSize]);
 
   // Reset selection when page changes
   React.useEffect(() => {
-    setSelectedOffDayIds(new Set());
+    clearSelection();
   }, [page]);
 
   // Overall query for stats & calendar view
@@ -484,41 +485,18 @@ export default function OperatorOffDaysPage() {
     }
   };
 
-  // Selection Computations
-  const displayedOffDayIds = React.useMemo(() => offDays.map((d) => d.id), [offDays]);
-  const isAllCurrentPageSelected =
-    offDays.length > 0 && offDays.every((d) => selectedOffDayIds.has(d.id));
-  const isSomeCurrentPageSelected =
-    offDays.some((d) => selectedOffDayIds.has(d.id)) && !isAllCurrentPageSelected;
-  const selectedCount = selectedOffDayIds.size;
-
-  const toggleSelectAllCurrentPage = () => {
-    setSelectedOffDayIds((prev: Set<string>) => {
-      const next = new Set(prev);
-      if (isAllCurrentPageSelected) {
-        displayedOffDayIds.forEach((id) => next.delete(id));
-      } else {
-        displayedOffDayIds.forEach((id) => next.add(id));
-      }
-      return next;
-    });
-  };
-
-  const toggleSelectRow = (id: string) => {
-    setSelectedOffDayIds((prev: Set<string>) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  };
-
-  const clearSelection = () => {
-    setSelectedOffDayIds(new Set());
-  };
+  // Selection Computations via useTableSelection hook
+  const {
+    selectedIds: selectedOffDayIds,
+    selectedCount,
+    isAllCurrentPageSelected,
+    isSomeCurrentPageSelected,
+    toggleRow: toggleSelectRow,
+    toggleSelectAllCurrentPage,
+    clearSelection
+  } = useTableSelection({
+    items: offDays
+  });
 
   // Bulk Handlers
   const handleBulkSetCategory = async (category: OffDayCategory) => {
@@ -553,7 +531,7 @@ export default function OperatorOffDaysPage() {
     await refetch();
     setIsBulkOperating(false);
     setBulkActionType(null);
-    setSelectedOffDayIds(new Set());
+    clearSelection();
 
     if (failCount === 0) {
       toast.success(`Successfully updated ${successCount} off-days to ${config.label}!`, { id: toastId });
@@ -583,7 +561,7 @@ export default function OperatorOffDaysPage() {
     setIsBulkOperating(false);
     setBulkActionType(null);
     setIsBulkDeleteModalOpen(false);
-    setSelectedOffDayIds(new Set());
+    clearSelection();
 
     if (failCount === 0) {
       toast.success(`Successfully removed ${successCount} off-days! Booking slots reopened.`, { id: toastId });
@@ -819,50 +797,31 @@ export default function OperatorOffDaysPage() {
 
       {/* Operational Stat Cards (3 symmetric columns) */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Card className="border-border/80 bg-card shadow-xs">
-          <CardContent className="p-5 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase">Off Today</p>
-              <p className="text-2xl font-extrabold text-amber-600 dark:text-amber-400 mt-1">
-                {activeTodayCount} {activeTodayCount === 1 ? "Ferry" : "Ferries"}
-              </p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Currently inactive today</p>
-            </div>
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
-              <Wrench className="h-5 w-5" />
-            </div>
-          </CardContent>
-        </Card>
+        <OperatorStatCard
+          title="Off Today"
+          value={`${activeTodayCount} ${activeTodayCount === 1 ? "Ferry" : "Ferries"}`}
+          description="Currently inactive today"
+          icon={Wrench}
+          variant="amber"
+          colorValue
+        />
 
-        <Card className="border-border/80 bg-card shadow-xs">
-          <CardContent className="p-5 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase">Upcoming Off-Days</p>
-              <p className="text-2xl font-extrabold text-blue-600 dark:text-blue-400 mt-1">
-                {upcomingCount} Scheduled
-              </p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Planned maintenance & holidays</p>
-            </div>
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
-              <Clock className="h-5 w-5" />
-            </div>
-          </CardContent>
-        </Card>
+        <OperatorStatCard
+          title="Upcoming Off-Days"
+          value={`${upcomingCount} Scheduled`}
+          description="Planned maintenance & holidays"
+          icon={Clock}
+          variant="blue"
+          colorValue
+        />
 
-        <Card className="border-border/80 bg-card shadow-xs">
-          <CardContent className="p-5 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase">Total Days This Year</p>
-              <p className="text-2xl font-extrabold text-foreground mt-1">
-                {totalYtdCount} Days
-              </p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Scheduled in calendar year {calendarDate.getFullYear()}</p>
-            </div>
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-              <CalendarCheckIcon className="h-5 w-5" />
-            </div>
-          </CardContent>
-        </Card>
+        <OperatorStatCard
+          title="Total Days This Year"
+          value={`${totalYtdCount} Days`}
+          description={`Scheduled in calendar year ${calendarDate.getFullYear()}`}
+          icon={CalendarCheckIcon}
+          variant="emerald"
+        />
       </div>
 
       {/* Filter and View Mode Switcher */}
@@ -959,103 +918,44 @@ export default function OperatorOffDaysPage() {
           </div>
         ) : (
           <div className="space-y-4">
-            {/* Floating Bulk Actions Bar */}
-            {selectedCount > 0 && (
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-emerald-950 shadow-sm backdrop-blur-md dark:border-emerald-500/20 dark:bg-emerald-950/40 dark:text-emerald-100">
-                <div className="flex items-center gap-2">
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-600 text-xs font-bold text-white shadow-2xs">
-                    {selectedCount}
-                  </span>
-                  <span className="text-foreground text-xs font-semibold">
-                    {selectedCount === 1 ? "off-day selected" : "off-days selected"}
-                  </span>
-                </div>
-
-                {/* Bulk Action Buttons */}
-                <div className="flex flex-wrap items-center gap-2">
-                  {/* Bulk Set Maintenance */}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={isBulkOperating}
-                    onClick={() => handleBulkSetCategory("MAINTENANCE")}
-                    className="h-8 cursor-pointer gap-1.5 border-amber-200 bg-amber-50/50 text-xs font-semibold text-amber-700 shadow-2xs hover:bg-amber-100 hover:text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-900/60"
-                    title="Set category to Maintenance for selected off-days"
-                  >
-                    {isBulkOperating && bulkActionType === "MAINTENANCE" ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Wrench className="h-3.5 w-3.5" />
-                    )}
-                    <span>Set Maintenance</span>
-                  </Button>
-
-                  {/* Bulk Set Weather */}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={isBulkOperating}
-                    onClick={() => handleBulkSetCategory("WEATHER")}
-                    className="h-8 cursor-pointer gap-1.5 border-rose-200 bg-rose-50/50 text-xs font-semibold text-rose-700 shadow-2xs hover:bg-rose-100 hover:text-rose-800 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-300 dark:hover:bg-rose-900/60"
-                    title="Set category to Severe Weather for selected off-days"
-                  >
-                    {isBulkOperating && bulkActionType === "WEATHER" ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <CloudLightning className="h-3.5 w-3.5" />
-                    )}
-                    <span>Set Weather</span>
-                  </Button>
-
-                  {/* Bulk Set Public Holiday */}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={isBulkOperating}
-                    onClick={() => handleBulkSetCategory("PUBLIC_HOLIDAY")}
-                    className="h-8 cursor-pointer gap-1.5 border-blue-200 bg-blue-50/50 text-xs font-semibold text-blue-700 shadow-2xs hover:bg-blue-100 hover:text-blue-800 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300 dark:hover:bg-blue-900/60"
-                    title="Set category to Public Holiday for selected off-days"
-                  >
-                    {isBulkOperating && bulkActionType === "PUBLIC_HOLIDAY" ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Landmark className="h-3.5 w-3.5" />
-                    )}
-                    <span>Set Holiday</span>
-                  </Button>
-
-                  {/* Bulk Delete */}
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    disabled={isBulkOperating}
-                    onClick={() => setIsBulkDeleteModalOpen(true)}
-                    className="h-8 cursor-pointer gap-1.5 bg-rose-600 text-xs font-semibold text-white shadow-2xs hover:bg-rose-700"
-                    title="Delete selected off-days"
-                  >
-                    {isBulkOperating && bulkActionType === "delete" ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Trash2 className="h-3.5 w-3.5" />
-                    )}
-                    <span>Delete ({selectedCount})</span>
-                  </Button>
-
-                  {/* Deselect */}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    disabled={isBulkOperating}
-                    onClick={clearSelection}
-                    className="h-8 cursor-pointer gap-1 text-xs text-muted-foreground hover:text-foreground"
-                    title="Deselect all off-days"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                    <span className="hidden sm:inline">Deselect</span>
-                  </Button>
-                </div>
-              </div>
-            )}
+            {/* Reusable Bulk Action Toolbar */}
+            <BulkActionToolbar
+              selectedCount={selectedCount}
+              totalCount={totalCount}
+              displayedCount={offDays.length}
+              itemLabel="off-days"
+              isOperating={isBulkOperating}
+              onClearSelection={clearSelection}
+              onDelete={() => setIsBulkDeleteModalOpen(true)}
+              deleteLabel="Delete"
+              isDeleting={isBulkOperating && bulkActionType === "delete"}
+              actions={[
+                {
+                  label: "Set Maintenance",
+                  icon: <Wrench className="h-3.5 w-3.5" />,
+                  onClick: () => handleBulkSetCategory("MAINTENANCE"),
+                  isLoading: isBulkOperating && bulkActionType === "MAINTENANCE",
+                  className:
+                    "border-amber-200 bg-amber-50/50 text-amber-700 hover:bg-amber-100 hover:text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-900/60"
+                },
+                {
+                  label: "Set Weather",
+                  icon: <CloudLightning className="h-3.5 w-3.5" />,
+                  onClick: () => handleBulkSetCategory("WEATHER"),
+                  isLoading: isBulkOperating && bulkActionType === "WEATHER",
+                  className:
+                    "border-rose-200 bg-rose-50/50 text-rose-700 hover:bg-rose-100 hover:text-rose-800 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-300 dark:hover:bg-rose-900/60"
+                },
+                {
+                  label: "Set Holiday",
+                  icon: <Landmark className="h-3.5 w-3.5" />,
+                  onClick: () => handleBulkSetCategory("PUBLIC_HOLIDAY"),
+                  isLoading: isBulkOperating && bulkActionType === "PUBLIC_HOLIDAY",
+                  className:
+                    "border-blue-200 bg-blue-50/50 text-blue-700 hover:bg-blue-100 hover:text-blue-800 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300 dark:hover:bg-blue-900/60"
+                }
+              ]}
+            />
 
             <DashboardTableCard
               title="Off-Days & Maintenance Schedule"
@@ -1064,83 +964,21 @@ export default function OperatorOffDaysPage() {
               keyExtractor={(item) => item.id}
             />
 
-            {/* Pagination Controls */}
-            {totalCount > 0 && (
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-3.5 bg-card p-3 sm:px-4 rounded-xl border border-border/80 shadow-xs">
-                {/* Left: Showing entries info & Page size selector */}
-                <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground w-full sm:w-auto justify-between sm:justify-start">
-                  <span>
-                    Showing <span className="font-semibold text-foreground">{startIndex}</span> to{" "}
-                    <span className="font-semibold text-foreground">{endIndex}</span> of{" "}
-                    <span className="font-semibold text-foreground">{totalCount}</span> scheduled off-days
-                  </span>
-
-                  <div className="flex items-center gap-1.5 pl-0 sm:pl-3 sm:border-l sm:border-border/60">
-                    <span className="text-[11px] text-muted-foreground whitespace-nowrap">Show:</span>
-                    <ReusableSelect
-                      value={String(pageSize)}
-                      onValueChange={(val) => setPageSize(Number(val))}
-                      options={PAGE_SIZE_OPTIONS}
-                      className="h-8 text-xs w-[115px]"
-                    />
-                  </div>
-                </div>
-
-                {/* Right: Page Navigation Buttons */}
-                <div className="flex items-center gap-1.5 self-center sm:self-auto">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPage((prev) => Math.max(1, prev - 1))}
-                    disabled={currentPage <= 1 || isFetching}
-                    className="h-8 px-2.5 text-xs flex items-center gap-1 font-medium"
-                  >
-                    <ChevronLeft className="h-3.5 w-3.5" />
-                    <span className="hidden sm:inline">Previous</span>
-                  </Button>
-
-                  <div className="flex items-center gap-1">
-                    {pageNumbers.map((p, idx) =>
-                      typeof p === "number" ? (
-                        <Button
-                          key={p}
-                          variant={currentPage === p ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => setPage(p)}
-                          disabled={isFetching}
-                          className={cn(
-                            "h-8 min-w-8 px-2 text-xs font-semibold",
-                            currentPage === p
-                              ? "bg-emerald-600 text-white hover:bg-emerald-700 shadow-xs"
-                              : "text-muted-foreground hover:text-foreground"
-                          )}
-                        >
-                          {p}
-                        </Button>
-                      ) : (
-                        <span
-                          key={`ellipsis-${idx}`}
-                          className="px-1 text-xs font-bold text-muted-foreground select-none"
-                        >
-                          ...
-                        </span>
-                      )
-                    )}
-                  </div>
-
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
-                    disabled={currentPage >= totalPages || isFetching}
-                    className="h-8 px-2.5 text-xs flex items-center gap-1 font-medium"
-                  >
-                    <span className="hidden sm:inline">Next</span>
-                    <ChevronRight className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              </div>
-            )}
+            {/* Reusable Pagination Controls */}
+            <TablePagination
+              page={currentPage}
+              totalPages={totalPages}
+              totalCount={totalCount}
+              pageSize={pageSize}
+              onPageChange={setPage}
+              onPageSizeChange={(newSize) => {
+                setPageSize(newSize);
+                setPage(1);
+              }}
+              pageSizeOptions={PAGE_SIZE_OPTIONS}
+              itemName="off-days"
+              isLoading={isFetching}
+            />
           </div>
         )
       ) : (

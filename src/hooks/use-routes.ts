@@ -13,7 +13,8 @@ import type {
   IRouteFilterParams,
   IRouteListResponse,
   IUpdatePortPayload,
-  IUpdateRoutePayload
+  IUpdateRoutePayload,
+  RouteStatus
 } from "@/types";
 
 import { del, get, patch, post } from "@/lib/api";
@@ -209,6 +210,66 @@ export function useDeleteRouteMutation() {
     },
     onError: (error: Error) => {
       toast.error(error.message || "Failed to delete route");
+    }
+  });
+}
+
+/**
+  * 5b. Mutation: Bulk Update Route Status
+  */
+export function useBulkUpdateRouteStatusMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (payload: { ids: string[]; status: RouteStatus }) => {
+      return await patch<ApiResponse<{ count: number }>>("/routes/bulk-status", payload);
+    },
+    onSuccess: async (response) => {
+      await queryClient.invalidateQueries({ queryKey: routeKeys.all, refetchType: "all" });
+      await queryClient.refetchQueries({ queryKey: routeKeys.all });
+      toast.success(response?.message || `Successfully updated ${response?.data?.count ?? "all"} routes!`);
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to update routes");
+    }
+  });
+}
+
+/**
+  * 5c. Mutation: Bulk Delete Routes
+  */
+export function useBulkDeleteRoutesMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (ids: string[]) => {
+      return await post<
+        ApiResponse<{
+          count: number;
+          deletedCount?: number;
+          skippedCount?: number;
+          skippedRoutes?: string[];
+        }>
+      >("/routes/bulk-delete", { ids });
+    },
+    onSuccess: async (response) => {
+      await queryClient.invalidateQueries({ queryKey: routeKeys.all, refetchType: "all" });
+      await queryClient.refetchQueries({ queryKey: routeKeys.all });
+
+      const data = response?.data;
+      if (data?.skippedCount && data.skippedCount > 0) {
+        toast.warning(
+          response?.message ||
+            `Deleted ${data.count} routes. ${data.skippedCount} routes were skipped due to active passenger bookings.`
+        );
+      } else {
+        toast.success(
+          response?.message || `Successfully deleted ${data?.count ?? "all"} routes!`
+        );
+      }
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to delete routes");
     }
   });
 }

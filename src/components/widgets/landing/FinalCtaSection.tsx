@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, Compass, ShieldCheck, Ship, Sparkles } from "lucide-react";
+import { ArrowRight, ShieldCheck, Sparkles } from "lucide-react";
 
 import ctaBg from "@/assets/landing-page/cta-bg.png";
 import { Button } from "@/ui";
@@ -14,7 +14,7 @@ const GUARANTEES = [
 
 export function FinalCtaSection() {
   return (
-    <section className="relative mb-16 sm:mb-24 w-full overflow-hidden py-32 sm:py-40 text-center text-white">
+    <section className="relative w-full overflow-hidden py-32 sm:py-40 text-center text-white">
       {/* Background Video with Image Fallback */}
       <video
         autoPlay
@@ -42,6 +42,12 @@ export function FinalCtaSection() {
       {/* Dark overlay with subtle blue tint */}
       <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-[1.5px]" />
 
+      {/* Seamless blend from top section background */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-background via-background/50 to-transparent z-10" />
+
+      {/* Seamless blend into Footer background */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-b from-transparent to-[#071328]" />
+
       <div className="relative z-10 container mx-auto max-w-4xl px-4 sm:px-6">
         {/* Top Tag Pill */}
         <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-xs font-bold tracking-wider text-white shadow-lg backdrop-blur-md uppercase">
@@ -60,7 +66,7 @@ export function FinalCtaSection() {
         </p>
 
         {/* Action Buttons */}
-        <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3.5 sm:gap-4">
+        <div className="mt-8 flex items-center justify-center">
           <Button
             size="lg"
             className="h-12 w-full sm:w-auto rounded-2xl bg-blue-600 px-8 text-sm font-bold text-white shadow-2xl shadow-blue-600/50 transition-all hover:bg-blue-500 hover:scale-105 active:scale-95"
@@ -69,18 +75,6 @@ export function FinalCtaSection() {
             <Link href="/routes" className="flex items-center justify-center gap-2">
               <span>Find a Ferry Route</span>
               <ArrowRight className="h-4 w-4" />
-            </Link>
-          </Button>
-
-          <Button
-            size="lg"
-            variant="outline"
-            className="h-12 w-full sm:w-auto rounded-2xl border-white/30 bg-white/10 px-7 text-sm font-bold text-white backdrop-blur-md transition-all hover:bg-white/20 hover:border-white/50"
-            asChild
-          >
-            <Link href="/#book" className="flex items-center justify-center gap-2">
-              <Compass className="h-4 w-4 text-sky-300" />
-              <span>Search Timetables</span>
             </Link>
           </Button>
         </div>

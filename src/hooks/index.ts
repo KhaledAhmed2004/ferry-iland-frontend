@@ -10,4 +10,5 @@ export * from "./use-tickets";
 export * from "./use-schedules";
 export * from "./use-off-days";
 export * from "./use-operator";
+export * from "./use-table-selection";
 

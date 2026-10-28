@@ -191,6 +191,8 @@ async function run() {
       departurePortId: portA.id,
       destinationPortId: portB.id,
       durationMinutes: 65,
+      description: 'Scenic speed ferry route between ports',
+      imageUrl: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5',
       isBorderCrossing: false,
       status: 'ACTIVE'
     };

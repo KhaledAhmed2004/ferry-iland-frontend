@@ -10,8 +10,7 @@ import {
   ImageIcon,
   RefreshCw,
   Trash2,
-  UploadCloud,
-  X
+  UploadCloud
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -38,7 +37,7 @@ export function VesselImageUploader({
   const [isDragging, setIsDragging] = React.useState(false);
   const [isProcessing, setIsProcessing] = React.useState(false);
 
-  const defaultLabel = entityName === "route" ? "Route Cover Photo (Optional)" : "Vessel Image";
+  const defaultLabel = entityName === "route" ? "Route Cover Photo *" : "Vessel Image";
   const displayLabel = label || defaultLabel;
   const capitalizedEntity = entityName.charAt(0).toUpperCase() + entityName.slice(1);
 
@@ -93,7 +92,6 @@ export function VesselImageUploader({
             const ctx = canvas.getContext("2d");
             if (!ctx) {
               onChange(result);
-              toast.success(`${capitalizedEntity} photo uploaded successfully!`);
               setIsProcessing(false);
               return;
             }
@@ -104,10 +102,8 @@ export function VesselImageUploader({
 
             const optimizedDataUrl = canvas.toDataURL("image/jpeg", 0.86);
             onChange(optimizedDataUrl);
-            toast.success(`${capitalizedEntity} photo uploaded successfully!`);
           } catch {
             onChange(result);
-            toast.success(`${capitalizedEntity} photo uploaded!`);
           } finally {
             setIsProcessing(false);
           }
@@ -128,7 +124,7 @@ export function VesselImageUploader({
 
       reader.readAsDataURL(file);
     },
-    [onChange, capitalizedEntity]
+    [onChange]
   );
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -169,22 +165,12 @@ export function VesselImageUploader({
 
   return (
     <div className={cn("space-y-2", className)}>
-      {/* Header Label & Clear Action */}
+      {/* Header Label */}
       <div className="flex items-center justify-between">
         <Label className="text-foreground flex items-center gap-1.5 text-xs font-semibold">
           <ImageIcon className="text-muted-foreground h-3.5 w-3.5 text-blue-500" />
           {displayLabel}
         </Label>
-        {value && (
-          <button
-            type="button"
-            onClick={handleClear}
-            className="text-muted-foreground flex cursor-pointer items-center gap-1 text-[11px] font-medium transition-colors hover:text-rose-500"
-          >
-            <X className="h-3 w-3" />
-            Clear Photo
-          </button>
-        )}
       </div>
 
       {/* Hidden File Input */}

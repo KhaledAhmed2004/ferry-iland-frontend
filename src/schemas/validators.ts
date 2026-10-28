@@ -151,8 +151,10 @@ export const createRouteSchema = z
     durationMinutes: z.coerce
       .number({ invalid_type_error: "durationMinutes must be a number" })
       .int("durationMinutes must be an integer")
-      .min(5, "Duration must be at least 5 minutes")
-      .max(720, "Duration cannot exceed 720 minutes (12 hours)"),
+      .min(1, "Duration must be at least 1 minute")
+      .max(1440, "Duration cannot exceed 1440 minutes (24 hours)"),
+    description: z.string().trim().min(1, "Route description is required").max(1000),
+    imageUrl: z.string().trim().min(1, "Route image is required"),
     isBorderCrossing: z.boolean().optional().default(false),
     status: routeStatusEnum.optional().default("ACTIVE")
   })
@@ -170,9 +172,11 @@ export const updateRouteSchema = z.object({
   durationMinutes: z.coerce
     .number()
     .int()
-    .min(5, "Duration must be at least 5 minutes")
-    .max(720, "Duration cannot exceed 720 minutes (12 hours)")
+    .min(1, "Duration must be at least 1 minute")
+    .max(1440, "Duration cannot exceed 1440 minutes (24 hours)")
     .optional(),
+  description: z.string().trim().min(1, "Route description cannot be empty").max(1000).optional(),
+  imageUrl: z.string().trim().min(1, "Route image cannot be empty").optional(),
   isBorderCrossing: z.boolean().optional(),
   status: routeStatusEnum.optional()
 });
