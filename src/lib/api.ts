@@ -9,7 +9,7 @@ import { mockApi } from "@/lib/mock-api";
 export const USE_MOCK_API = false;
 
 export const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || env.NEXT_PUBLIC_API_URL || "http://localhost:5003/api/v1",
+  baseURL: process.env.NEXT_PUBLIC_API_URL || env.NEXT_PUBLIC_API_URL || "https://nayem5000.binarybards.online/api/v1",
   timeout: 15_000,
   headers: {
     "Content-Type": "application/json",

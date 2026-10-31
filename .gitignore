@@ -52,3 +52,8 @@ next-env.d.ts
 
 # Figma Design Files
 design
+# Playwright
+/e2e/.auth/
+/test-results/
+/playwright-report/
+/playwright/.cache/

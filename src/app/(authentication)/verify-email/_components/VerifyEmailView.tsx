@@ -7,7 +7,6 @@ import {
   ArrowLeft,
   ArrowRight,
   CheckCircle2,
-  KeyRound,
   Loader2,
   Mail,
   Pencil,

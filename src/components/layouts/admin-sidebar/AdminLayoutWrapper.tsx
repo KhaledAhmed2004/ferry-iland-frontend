@@ -13,9 +13,14 @@ export interface AdminLayoutWrapperProps {
 
 export function AdminLayoutWrapper({ children }: AdminLayoutWrapperProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+  const [mounted, setMounted] = React.useState(false);
   const { user, isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const role = (user?.role || "").toUpperCase();
   const isAdmin = isAuthenticated && (role === "ADMIN" || role === "SUPER_ADMIN");
@@ -23,7 +28,7 @@ export function AdminLayoutWrapper({ children }: AdminLayoutWrapperProps) {
   const isOperator = isAuthenticated && role === "OPERATOR";
 
   React.useEffect(() => {
-    if (isLoading) return;
+    if (!mounted || isLoading) return;
 
     if (!isAuthenticated) {
       router.replace(`/login?redirect=${encodeURIComponent(pathname)}`);
@@ -39,15 +44,17 @@ export function AdminLayoutWrapper({ children }: AdminLayoutWrapperProps) {
       router.replace("/manage-booking");
       return;
     }
-  }, [user, isAuthenticated, isLoading, isPassenger, isOperator, router, pathname]);
+  }, [mounted, user, isAuthenticated, isLoading, isPassenger, isOperator, router, pathname]);
 
-  if (isLoading || !isAuthenticated || !isAdmin) {
+  if (!mounted || isLoading || !isAuthenticated || !isAdmin) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-2">
           <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
           <span className="text-xs text-muted-foreground font-medium">
-            {!isAuthenticated
+            {!mounted || isLoading
+              ? "Verifying administrator privileges..."
+              : !isAuthenticated
               ? "Redirecting to login..."
               : isOperator || isPassenger
               ? "Redirecting to your authorized portal..."

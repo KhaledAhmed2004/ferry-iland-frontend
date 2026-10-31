@@ -6,9 +6,13 @@ import type {
   IAdminBookingFilterParams,
   IAdminBookingItem,
   IAdminBookingsResponseData,
+  IAdminPaymentsFilterParams,
+  IAdminPaymentsResponseData,
   IAdminProviderDetail,
   IAdminProviderItem,
+  IPlatformSettings,
   IProviderStatusUpdatePayload,
+  IUpdatePaymentSettingsPayload,
   ProviderFilterParams
 } from "@/types";
 
@@ -28,7 +32,11 @@ export const adminKeys = {
   providerDetail: (id: string) => [...adminKeys.providerDetails(), id] as const,
   bookings: () => [...adminKeys.all, "bookings"] as const,
   bookingLists: () => [...adminKeys.bookings(), "list"] as const,
-  bookingList: (params?: IAdminBookingFilterParams) => [...adminKeys.bookingLists(), params] as const
+  bookingList: (params?: IAdminBookingFilterParams) => [...adminKeys.bookingLists(), params] as const,
+  payments: () => [...adminKeys.all, "payments"] as const,
+  paymentLists: () => [...adminKeys.payments(), "list"] as const,
+  paymentList: (params?: IAdminPaymentsFilterParams) => [...adminKeys.paymentLists(), params] as const,
+  settings: () => [...adminKeys.all, "settings"] as const
 };
 
 /**
@@ -202,3 +210,105 @@ export function useAdminBookingsQuery(params?: IAdminBookingFilterParams) {
   });
 }
 
+/**
+ * 6. Query: Fetch Single Admin Booking Details by Reference for Quick-View Modal
+ */
+export function useAdminBookingByRefQuery(reference: string | null) {
+  return useQuery({
+    queryKey: [...adminKeys.bookings(), "detail", reference],
+    queryFn: async ({ signal }) => {
+      if (!reference) return null;
+      const response = await get<ApiResponse<IAdminBookingItem>>(`/admin/bookings/${encodeURIComponent(reference)}`, {
+        signal
+      });
+
+      return response.data ?? null;
+    },
+    enabled: Boolean(reference && reference.trim().length >= 3),
+    staleTime: 1000 * 30
+  });
+}
+
+
+/**
+ * 7. Query: Platform settings (commission rate, payout schedule, seat hold minutes). Spec 0001, AC-9.
+ */
+export function useAdminSettingsQuery() {
+  return useQuery({
+    queryKey: adminKeys.settings(),
+    queryFn: async ({ signal }) => {
+      const response = await get<ApiResponse<IPlatformSettings>>("/admin/settings", { signal });
+      return response.data;
+    },
+    staleTime: 1000 * 60
+  });
+}
+
+/**
+ * 8. Mutation: Update payment settings. Send only the fields that changed; the backend
+ * rejects an empty body. A new commission rate applies to new bookings only.
+ */
+export function useUpdatePaymentSettingsMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (payload: IUpdatePaymentSettingsPayload) => {
+      return await patch<ApiResponse<IPlatformSettings>>("/admin/settings/commission", payload);
+    },
+    onSuccess: (response) => {
+      if (response.data) {
+        queryClient.setQueryData(adminKeys.settings(), response.data);
+      }
+      queryClient.invalidateQueries({ queryKey: adminKeys.settings() });
+      toast.success(response.message || "Payment settings updated");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to update payment settings");
+    }
+  });
+}
+
+/**
+ * 9. Query: Fetch Paginated & Filtered Admin Platform Payments & Revenue Overview
+ */
+export function useAdminPaymentsQuery(params?: IAdminPaymentsFilterParams) {
+  return useQuery({
+    queryKey: adminKeys.paymentList(params),
+    queryFn: async ({ signal }) => {
+      const cleanParams: Record<string, string | number> = {};
+      if (params?.search && params.search.trim()) {
+        cleanParams.search = params.search.trim();
+      }
+      if (params?.status && params.status !== "ALL" && params.status !== "all" && params.status.trim()) {
+        cleanParams.status = params.status.toUpperCase();
+      }
+      if (params?.page) cleanParams.page = params.page;
+      if (params?.limit) cleanParams.limit = params.limit;
+
+      const response = await get<ApiResponse<IAdminPaymentsResponseData>>("/admin/payments", {
+        params: cleanParams,
+        signal
+      });
+
+      return (
+        response.data ?? {
+          overview: {
+            totalBookingValue: 0,
+            commission: 0,
+            providerAmount: 0,
+            commissionRate: 10
+          },
+          meta: {
+            page: params?.page ?? 1,
+            limit: params?.limit ?? 10,
+            total: 0,
+            totalPages: 1
+          },
+          data: []
+        }
+      );
+    },
+    staleTime: 1000 * 30, // 30 seconds
+    placeholderData: (previousData) => previousData
+  });
+}

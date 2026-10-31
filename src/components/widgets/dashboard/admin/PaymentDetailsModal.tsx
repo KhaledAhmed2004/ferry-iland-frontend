@@ -24,7 +24,8 @@ import {
 import { StatusBadge } from "../index";
 
 export interface PaymentDetailsModalProps {
-  payment: (RecentPaymentItem & {
+  payment: (Omit<RecentPaymentItem, "paymentStatus"> & {
+    paymentStatus: string;
     passenger?: string;
     route?: string;
     travelDate?: string;
@@ -48,12 +49,12 @@ export function PaymentDetailsModal({
     toast.success(`${label} copied to clipboard`);
   };
 
-  const passengerName = payment.passenger || "Elena Rodriguez";
-  const route = payment.route || "Honolulu Pier 4 → Maui Harbor";
-  const travelDate = payment.travelDate || "2024-08-20";
-  const pax = payment.pax || 4;
-  const paymentMethod = payment.paymentMethod || "Visa ending in •••• 4242";
-  const paidAt = payment.paidAt || "2024-08-15 14:32:10 UTC";
+  const passengerName = payment.passenger || "Guest Passenger";
+  const route = payment.route || "N/A";
+  const travelDate = payment.travelDate || "N/A";
+  const pax = payment.pax || 1;
+  const paymentMethod = payment.paymentMethod || "Credit / Debit Card";
+  const paidAt = payment.paidAt ? new Date(payment.paidAt).toLocaleString() : "N/A";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

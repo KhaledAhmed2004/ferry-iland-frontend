@@ -10,13 +10,15 @@ export interface BookingsVolumeChartProps {
   timeRange?: TimeRangeFilter;
   onTimeRangeChange?: (range: TimeRangeFilter) => void;
   className?: string;
+  showFilter?: boolean;
 }
 
 export function BookingsVolumeChart({
   data,
   timeRange,
   onTimeRangeChange,
-  className
+  className,
+  showFilter = false
 }: BookingsVolumeChartProps) {
   const [internalTimeRange, setInternalTimeRange] = React.useState<TimeRangeFilter>("30d");
   const [hoverIndex, setHoverIndex] = React.useState<number | null>(null);
@@ -64,10 +66,12 @@ export function BookingsVolumeChart({
           </p>
         </div>
 
-        {/* Filter Dropdown */}
-        <div className="flex flex-wrap items-center gap-3">
-          <TimeRangeFilterSelect value={activeRange} onChange={handleRangeChange} />
-        </div>
+        {/* Filter Dropdown (Optional) */}
+        {showFilter && (
+          <div className="flex flex-wrap items-center gap-3">
+            <TimeRangeFilterSelect value={activeRange} onChange={handleRangeChange} />
+          </div>
+        )}
       </div>
 
       {/* SVG Bar Chart Area */}

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks";
 
@@ -10,22 +10,24 @@ export default function ManageBookingLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const [mounted, setMounted] = React.useState(false);
   const { user, isAuthenticated, isLoading } = useAuth();
+  // Signed in passengers and guests both see the page; staff go to their own portals.
   const router = useRouter();
-  const pathname = usePathname();
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const role = (user?.role || "").toUpperCase();
   const isOperator = isAuthenticated && role === "OPERATOR";
   const isAdmin = isAuthenticated && (role === "ADMIN" || role === "SUPER_ADMIN");
   const isPassenger = isAuthenticated && (role === "USER" || role === "PASSENGER");
 
+  // Spec 0001 AC-7: guests are allowed here. A guest proves access with the booking reference
+  // plus the lead passenger email (the page asks for it), so no login redirect for them.
   React.useEffect(() => {
-    if (isLoading) return;
-
-    if (!isAuthenticated) {
-      router.replace(`/login?redirect=${encodeURIComponent(pathname)}`);
-      return;
-    }
+    if (!mounted || isLoading) return;
 
     if (isOperator) {
       router.replace("/dashboard/operator");
@@ -36,16 +38,16 @@ export default function ManageBookingLayout({
       router.replace("/dashboard/admin");
       return;
     }
-  }, [user, isAuthenticated, isLoading, isOperator, isAdmin, router, pathname]);
+  }, [mounted, isLoading, isOperator, isAdmin, router]);
 
-  if (isLoading || !isAuthenticated || isOperator || isAdmin) {
+  if (!mounted || isLoading || isOperator || isAdmin) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-2">
           <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
           <span className="text-xs text-muted-foreground font-medium">
-            {!isAuthenticated
-              ? "Redirecting to login..."
+            {!mounted || isLoading
+              ? "Loading passenger portal..."
               : isOperator
               ? "Redirecting to operator portal..."
               : isAdmin

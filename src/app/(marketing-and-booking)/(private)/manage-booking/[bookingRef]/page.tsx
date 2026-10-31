@@ -28,6 +28,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
 
 import { useBookingLookupQuery, useCancelBookingMutation } from "@/hooks/use-bookings";
+import { formatCents, paymentStatusLabel } from "@/lib/payment";
 import {
   AnimatedSection,
   Badge,
@@ -40,7 +41,8 @@ import {
   DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle
+  DialogTitle,
+  Input
 } from "@/ui";
 
 interface BookingDetailsPageProps {
@@ -50,7 +52,13 @@ interface BookingDetailsPageProps {
 export default function BookingDetailsPage({ params }: BookingDetailsPageProps) {
   const { bookingRef } = use(params);
 
-  const { data: booking, isLoading, isError, error, refetch } = useBookingLookupQuery(bookingRef);
+  // Spec 0001: a guest proves access with the lead passenger email; the signed in owner does not need it.
+  const [emailInput, setEmailInput] = useState("");
+  const [submittedEmail, setSubmittedEmail] = useState<string | undefined>(undefined);
+  const { data: booking, isLoading, isError, refetch } = useBookingLookupQuery(
+    bookingRef,
+    submittedEmail
+  );
   const cancelBookingMutation = useCancelBookingMutation();
 
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
@@ -60,7 +68,8 @@ export default function BookingDetailsPage({ params }: BookingDetailsPageProps) 
     try {
       await cancelBookingMutation.mutateAsync({
         bookingId: booking.id,
-        reason: "Customer cancellation from self-service portal"
+        reason: "Customer cancellation from self-service portal",
+        email: booking.leadPassengerEmail
       });
       toast.success("Booking cancelled successfully", {
         description: "Your reservation has been released."
@@ -102,8 +111,34 @@ export default function BookingDetailsPage({ params }: BookingDetailsPageProps) 
             <AlertCircle className="mx-auto h-12 w-12 text-destructive" />
             <h2 className="text-xl font-bold text-foreground">Booking Not Found</h2>
             <p className="text-xs text-muted-foreground">
-              {error instanceof Error ? error.message : `No booking matching reference "${bookingRef}" was found.`}
+              {submittedEmail
+                ? `No booking matching reference "${bookingRef}" and that email was found.`
+                : "Enter the email address used for this booking to view it."}
             </p>
+            <form
+              className="mx-auto flex max-w-sm flex-col gap-2 text-left sm:flex-row"
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (emailInput.trim()) setSubmittedEmail(emailInput.trim());
+              }}
+            >
+              <label htmlFor="booking-email" className="sr-only">
+                Booking email address
+              </label>
+              <Input
+                id="booking-email"
+                type="email"
+                autoComplete="email"
+                required
+                placeholder="you@example.com"
+                value={emailInput}
+                onChange={(event) => setEmailInput(event.target.value)}
+                className="rounded-xl bg-white dark:bg-card"
+              />
+              <Button type="submit" className="rounded-xl">
+                Find booking
+              </Button>
+            </form>
             <div className="pt-2 flex justify-center gap-3">
               <Button asChild className="rounded-xl">
                 <Link href="/manage-booking">Search My Bookings</Link>
@@ -125,8 +160,15 @@ export default function BookingDetailsPage({ params }: BookingDetailsPageProps) 
   const vesselName = booking.schedule?.ferry?.name || "Ocean Express";
   const vesselType = booking.schedule?.ferry?.type || "Highspeed Speedboat";
   const tickets = booking.tickets || [];
-  const totalAmount = booking.totalAmount ?? 0;
+  const payment = booking.payment;
+  const totalLabel = formatCents(
+    payment?.amountCents ?? Math.round((booking.totalAmount ?? 0) * 100),
+    payment?.currency
+  );
+  const isPaid = payment?.status === "COMPLETED" || payment?.provider === "LEGACY_SEED";
   const isCancelled = booking.status === "CANCELLED";
+  // Only PENDING and CONFIRMED bookings can be cancelled (spec 0001, AC-5).
+  const canCancel = booking.status === "PENDING" || booking.status === "CONFIRMED";
 
   const departureDateDisplay = booking.schedule?.departureTime
     ? new Date(booking.schedule.departureTime).toLocaleDateString("en-US", {
@@ -185,9 +227,11 @@ export default function BookingDetailsPage({ params }: BookingDetailsPageProps) 
                   <Badge
                     variant="outline"
                     className={
-                      isCancelled
+                      isCancelled || booking.status === "EXPIRED"
                         ? "border-destructive/30 bg-destructive/10 text-destructive text-[10px] font-bold"
-                        : "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 text-[10px] font-bold"
+                        : booking.status === "PENDING"
+                          ? "border-amber-500/30 bg-amber-500/10 text-amber-700 text-[10px] font-bold"
+                          : "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 text-[10px] font-bold"
                     }
                   >
                     {booking.status}
@@ -373,28 +417,38 @@ export default function BookingDetailsPage({ params }: BookingDetailsPageProps) 
                   <div className="text-muted-foreground flex items-center justify-between">
                     <span>Fare ({tickets.length || 1} Passengers)</span>
                     <span className="text-foreground font-semibold">
-                      ${totalAmount}
+                      {totalLabel}
                     </span>
                   </div>
 
                   <div className="border-border/60 flex items-baseline justify-between border-t pt-3">
-                    <span className="text-foreground text-sm font-bold">Total Paid</span>
+                    <span className="text-foreground text-sm font-bold">
+                      {isPaid ? "Total Paid" : "Total Due"}
+                    </span>
                     <span className="text-2xl font-black text-[#003B95] dark:text-blue-400">
-                      ${totalAmount}
+                      {totalLabel}
                     </span>
                   </div>
                 </div>
 
-                {/* Paid Badge Box */}
-                <div className="flex items-center gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-xs text-emerald-700 dark:text-emerald-400">
-                  <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                {/* Payment status: only a collected payment shows as paid (spec 0001) */}
+                <div
+                  className={
+                    isPaid
+                      ? "flex items-center gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-xs text-emerald-700 dark:text-emerald-400"
+                      : "flex items-center gap-3 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-400"
+                  }
+                >
+                  {isPaid ? (
+                    <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                  ) : (
+                    <Info className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+                  )}
                   <div className="space-y-0.5">
                     <div className="text-[10px] font-extrabold tracking-wide uppercase">
-                      {booking.payment?.status || "PAID & VERIFIED"}
+                      {paymentStatusLabel(payment)}
                     </div>
-                    <div className="text-muted-foreground text-[11px]">
-                      {booking.payment?.paymentMethod || "CARD"} &bull; Ref: {booking.reference}
-                    </div>
+                    <div className="text-muted-foreground text-[11px]">Ref: {booking.reference}</div>
                   </div>
                 </div>
               </CardContent>
@@ -425,14 +479,20 @@ export default function BookingDetailsPage({ params }: BookingDetailsPageProps) 
 
                   <button
                     type="button"
-                    disabled={isCancelled || cancelBookingMutation.isPending}
+                    disabled={!canCancel || cancelBookingMutation.isPending}
                     onClick={() => setIsCancelDialogOpen(true)}
                     className="border-border/80 text-destructive hover:bg-destructive/5 flex w-full items-center justify-between rounded-2xl border p-3.5 text-left text-xs font-bold transition-colors disabled:opacity-40 cursor-pointer"
                   >
                     <div className="space-y-0.5">
                       <div className="flex items-center gap-2">
                         <XCircle className="h-3.5 w-3.5" />
-                        <span>{isCancelled ? "Booking Cancelled" : "Cancel Booking"}</span>
+                        <span>
+                          {isCancelled
+                            ? "Booking Cancelled"
+                            : canCancel
+                              ? "Cancel Booking"
+                              : "Cannot Be Cancelled"}
+                        </span>
                       </div>
                       <div className="text-muted-foreground text-[10px] font-normal">
                         Release seats and cancel itinerary.

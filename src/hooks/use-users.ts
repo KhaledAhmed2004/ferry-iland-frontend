@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
   ApiResponse,
   IAdminUserItem,
+  IUserStatsResponse,
   UserFilterParams
 } from "@/types";
 import { get, patch } from "@/lib/api";
@@ -11,6 +12,7 @@ import { get, patch } from "@/lib/api";
  */
 export const userKeys = {
   all: ["users"] as const,
+  stats: () => [...userKeys.all, "stats"] as const,
   lists: () => [...userKeys.all, "list"] as const,
   list: (params?: UserFilterParams) => [...userKeys.lists(), params] as const,
   details: () => [...userKeys.all, "detail"] as const,
@@ -101,7 +103,23 @@ export function useUserDetailQuery(userId: string, enabled = true) {
 }
 
 /**
- * 3. Mutation: Update User / Passenger Operational Status (ACTIVE / SUSPENDED)
+ * 3. Query: Fetch Platform User & Passenger Aggregated Statistics
+ */
+export function useUserStatsQuery() {
+  return useQuery({
+    queryKey: userKeys.stats(),
+    queryFn: async ({ signal }) => {
+      const response = await get<ApiResponse<IUserStatsResponse>>("/users/stats", {
+        signal
+      });
+      return response.data;
+    },
+    staleTime: 1000 * 30
+  });
+}
+
+/**
+ * 4. Mutation: Update User / Passenger Operational Status (ACTIVE / SUSPENDED)
  */
 export function useUpdateUserStatusMutation() {
   const queryClient = useQueryClient();

@@ -10,9 +10,33 @@ export const bookingKeys = {
   all: ["bookings"] as const,
   mine: () => [...bookingKeys.all, "my"] as const,
   details: () => [...bookingKeys.all, "detail"] as const,
-  detail: (reference: string) => [...bookingKeys.details(), reference] as const,
+  detail: (reference: string, email?: string) =>
+    [...bookingKeys.details(), reference, email ?? ""] as const,
   operator: (params?: Record<string, unknown>) => [...bookingKeys.all, "operator", params] as const,
 };
+
+/**
+ * Spec 0001: a guest proves access to a booking with its reference plus the lead passenger email.
+ * The email is kept per browser tab (sessionStorage) right after checkout, so the confirmation and
+ * manage pages work without asking again. Storage can be unavailable, so every access is guarded.
+ */
+const BOOKING_EMAIL_KEY = (reference: string) => `booking-email:${reference}`;
+
+export function rememberBookingEmail(reference: string, email: string) {
+  try {
+    window.sessionStorage.setItem(BOOKING_EMAIL_KEY(reference), email.trim().toLowerCase());
+  } catch {
+    // Storage unavailable (private mode, SSR): the manage page will ask for the email instead.
+  }
+}
+
+export function recallBookingEmail(reference: string): string | undefined {
+  try {
+    return window.sessionStorage.getItem(BOOKING_EMAIL_KEY(reference)) ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 /**
  * 1. Mutation: Create New Booking (Guest or Authenticated Checkout)
@@ -24,7 +48,10 @@ export function useCreateBookingMutation() {
     mutationFn: async (payload: ICreateBookingPayload) => {
       return await post<ApiResponse<IBookingDetail>>("/bookings", payload);
     },
-    onSuccess: async (response) => {
+    onSuccess: async (response, payload) => {
+      if (response.data?.reference) {
+        rememberBookingEmail(response.data.reference, payload.leadPassengerEmail);
+      }
       // Invalidate active trips so seats update immediately for all viewers
       await queryClient.invalidateQueries({ queryKey: tripKeys.all });
       await queryClient.invalidateQueries({ queryKey: bookingKeys.all });
@@ -40,12 +67,16 @@ export function useCreateBookingMutation() {
  * 2. Query: Lookup Booking by Reference (Self-Service & Confirmation)
  */
 export function useBookingLookupQuery(reference: string, emailVerification?: string) {
+  const email =
+    emailVerification?.trim() ||
+    (typeof window !== "undefined" ? recallBookingEmail(reference) : undefined);
+
   return useQuery({
-    queryKey: bookingKeys.detail(reference),
+    queryKey: bookingKeys.detail(reference, email),
     queryFn: async ({ signal }) => {
       const cleanParams: Record<string, string> = {};
-      if (emailVerification?.trim()) {
-        cleanParams.email = emailVerification.trim();
+      if (email) {
+        cleanParams.email = email;
       }
 
       const response = await get<ApiResponse<IBookingDetail>>(`/bookings/manage/${reference}`, {
@@ -71,8 +102,20 @@ export function useCancelBookingMutation() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ bookingId, reason }: { bookingId: string; reason?: string }) => {
-      return await patch<ApiResponse<null>>(`/bookings/${bookingId}/cancel`, { reason });
+    mutationFn: async ({
+      bookingId,
+      reason,
+      email,
+    }: {
+      bookingId: string;
+      reason?: string;
+      /** Required for a guest booking (spec 0001); ignored for the signed in owner or an admin. */
+      email?: string;
+    }) => {
+      return await patch<ApiResponse<IBookingDetail>>(`/bookings/${bookingId}/cancel`, {
+        reason,
+        ...(email ? { email } : {}),
+      });
     },
     onSuccess: async (response) => {
       await queryClient.invalidateQueries({ queryKey: bookingKeys.all });

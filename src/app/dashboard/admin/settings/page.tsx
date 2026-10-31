@@ -12,10 +12,12 @@ import {
   Phone,
   ShieldCheck,
   User,
-  UserCog
+  UserCog,
+  Wallet
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/widgets";
+import { PaymentSettingsCard } from "./_components/PaymentSettingsCard";
 import {
   Avatar,
   AvatarFallback,
@@ -176,12 +178,12 @@ export default function AdminSettingsPage() {
       {/* Page Header */}
       <PageHeader
         title="Settings & Configurations"
-        description="Manage platform organization details and administrator account preferences."
+        description="Manage platform organization details, administrator account preferences, and payment settings."
       />
 
       {/* Tabs Navigation */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-6">
-        <TabsList className="bg-muted/70 dark:bg-muted/40 grid w-full grid-cols-2 max-w-md h-11 p-1 rounded-xl">
+        <TabsList className="bg-muted/70 dark:bg-muted/40 grid w-full grid-cols-3 max-w-xl h-11 p-1 rounded-xl">
           <TabsTrigger
             value="platform"
             className="flex items-center justify-center gap-2 rounded-lg text-xs font-semibold data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-none transition-all"
@@ -198,6 +200,15 @@ export default function AdminSettingsPage() {
             <UserCog className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
             <span className="hidden sm:inline">Admin Account</span>
             <span className="sm:hidden">Account</span>
+          </TabsTrigger>
+
+          <TabsTrigger
+            value="payments"
+            className="flex items-center justify-center gap-2 rounded-lg text-xs font-semibold data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-none transition-all"
+          >
+            <Wallet className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            <span className="hidden sm:inline">Payments & Holds</span>
+            <span className="sm:hidden">Payments</span>
           </TabsTrigger>
         </TabsList>
 
@@ -535,6 +546,13 @@ export default function AdminSettingsPage() {
               </Card>
             </div>
           </div>
+        </TabsContent>
+
+        {/* ========================================================================= */}
+        {/* TAB: PAYMENTS & SEAT HOLDS (live, spec 0001 AC-9)                         */}
+        {/* ========================================================================= */}
+        <TabsContent value="payments" className="space-y-6 outline-hidden">
+          <PaymentSettingsCard />
         </TabsContent>
       </Tabs>
 

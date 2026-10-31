@@ -91,6 +91,15 @@ export interface IUserListResponse {
   pagination: PaginationMeta;
 }
 
+export interface IUserStatsResponse {
+  totalPassengers: number;
+  suspendedPassengers: number;
+  totalOperators: number;
+  suspendedOperators: number;
+  totalFerries?: number;
+  totalFleets?: number;
+}
+
 export interface IRegisterPayload {
   email: string;
   password: string;
@@ -144,61 +153,94 @@ export interface IAdminAllTimeMetrics {
   totalPax: number;
 }
 
-export interface IAdminAnalyticsOverview {
-  period?: IAdminPeriodInfo;
-  allTime?: IAdminAllTimeMetrics;
-  chartData?: IAdminChartData;
-  providers: {
-    total: number;
-    active: number;
-    suspended: number;
-  };
+export interface IAdminKpiItem {
+  value: number;
+  changePercent: number;
+  trend: "up" | "down" | "neutral";
+  currency?: string;
+  subValue?: number;
+  label?: string;
+}
+
+export interface IAdminKpis {
+  netRevenue: IAdminKpiItem;
+  totalBookings: IAdminKpiItem;
+  totalPassengers: IAdminKpiItem;
   fleet: {
     total: number;
     inService: number;
     maintenance: number;
+    changePercent: number;
+    trend: "up" | "down" | "neutral";
+  };
+}
+
+export interface IAdminBreakdowns {
+  financials: {
+    grossSales: number;
+    platformCommission: number;
+    providerPayout: number;
+    changePercent: number;
   };
   bookings: {
     total: number;
     confirmed: number;
     checkedIn: number;
     cancelled: number;
-    changePercent?: number;
+    changePercent: number;
   };
   passengers: {
     totalPax: number;
     boardedPax: number;
-    changePercent?: number;
+    changePercent: number;
   };
-  financials: {
-    grossSales: number;
-    platformCommission: number;
-    providerPayout: number;
-    changePercent?: number;
+  fleet: {
+    total: number;
+    inService: number;
+    maintenance: number;
   };
-  growth?: {
-    revenuePercent: number;
-    bookingsPercent: number;
-    passengersPercent: number;
+  providers: {
+    total: number;
+    active: number;
+    suspended: number;
   };
-  recentProviders: Array<{
-    id: string;
-    companyName: string;
-    contactPersonName: string;
-    status: string;
-    ferriesCount: number;
-    createdAt: string | Date;
-  }>;
-  recentBookings: Array<{
-    id: string;
-    reference: string;
-    leadPassengerName: string;
-    totalAmount: number;
-    status: string;
-    createdAt: string | Date;
-    route: string;
-    vessel: string;
-  }>;
+}
+
+export interface IAdminAnalyticsOverview {
+  period: IAdminPeriodInfo;
+  kpis: IAdminKpis;
+  breakdowns: IAdminBreakdowns;
+  allTime: IAdminAllTimeMetrics;
+  charts: {
+    revenueTrend: IAdminChartData;
+    allTimeTotals?: IAdminAllTimeMetrics;
+  };
+  recent: {
+    providers: Array<{
+      id: string;
+      companyName: string;
+      contactPersonName: string;
+      status: string;
+      ferriesCount: number;
+      createdAt: string | Date;
+    }>;
+    bookings: Array<{
+      id: string;
+      reference: string;
+      leadPassengerName: string;
+      leadPassengerEmail?: string;
+      totalAmount: number;
+      status: string;
+      createdAt: string | Date;
+      departureTime?: string | Date;
+      route: string;
+      vessel: string;
+      operatorName?: string;
+      adultsCount?: number;
+      childrenCount?: number;
+      paxCount?: number;
+    }>;
+  };
 }
 
 /**
@@ -621,16 +663,45 @@ export interface ITicketItem {
   createdAt: string;
 }
 
+/** Spec 0001: booking lifecycle. PENDING holds seats until paid; EXPIRED is an unpaid hold that ran out. */
+export type BookingStatus = "PENDING" | "CONFIRMED" | "CANCELLED" | "CHECKED_IN" | "EXPIRED";
+
+export type PaymentStatus =
+  | "PENDING"
+  | "COMPLETED"
+  | "PARTIALLY_REFUNDED"
+  | "REFUNDED"
+  | "FAILED"
+  | "CANCELED";
+
+export type PaymentProvider = "STRIPE" | "MANUAL" | "LEGACY_SEED";
+
+export interface IRefundSummary {
+  amountCents: number;
+  status: "PENDING" | "SUCCEEDED" | "FAILED";
+  createdAt: string;
+}
+
+/**
+ * Payment as the backend shapes it per role (spec 0001, AC-7). All money is integer cents.
+ * Customers get the base fields; operators add operatorPayoutCents; admins get everything.
+ */
 export interface IPaymentRecord {
-  id: string;
-  bookingId: string;
-  transactionId?: string | null;
-  amount: number;
-  platformCommission: number;
-  operatorPayout: number;
-  status: "PENDING" | "COMPLETED" | "REFUNDED" | "FAILED";
-  paymentMethod?: string | null;
+  status: PaymentStatus;
+  amountCents: number;
+  currency: string;
   paidAt?: string | null;
+  refunds: IRefundSummary[];
+  operatorPayoutCents?: number;
+  // Admin only
+  id?: string;
+  provider?: PaymentProvider;
+  paymentMethod?: string | null;
+  commissionRate?: number;
+  platformCommissionCents?: number;
+  stripePaymentIntentId?: string | null;
+  lastFailureCode?: string | null;
+  lastFailureMessage?: string | null;
 }
 
 export interface IBookingDetail {
@@ -644,7 +715,11 @@ export interface IBookingDetail {
   adultsCount: number;
   childrenCount: number;
   totalAmount: number;
-  status: "PENDING" | "CONFIRMED" | "CANCELLED" | "CHECKED_IN";
+  status: BookingStatus;
+  holdExpiresAt?: string | null;
+  confirmedAt?: string | null;
+  cancelledAt?: string | null;
+  expiredAt?: string | null;
   createdAt: string;
   updatedAt: string;
   tickets: ITicketItem[];
@@ -953,10 +1028,11 @@ export interface IAdminBookingItem {
   childrenCount: number;
   totalAmount: number;
   currency?: string;
-  status: "PENDING" | "CONFIRMED" | "CANCELLED" | "CHECKED_IN" | "COMPLETED" | string;
+  status: BookingStatus | string;
   createdAt: string;
-  updatedAt: string;
+  cancelledAt?: string | null;
   tickets?: IAdminBookingTicket[];
+  payment?: IPaymentRecord | null;
   schedule?: {
     id: string;
     routeId?: string;
@@ -996,6 +1072,54 @@ export interface IAdminBookingsResponseData {
     totalPages: number;
   };
   data: IAdminBookingItem[];
+}
+
+// ==========================================
+// ADMIN PAYMENTS & COMMISSIONS TYPES (LIVE API)
+// ==========================================
+
+export interface IAdminPaymentListItem {
+  id: string;
+  bookingId: string;
+  bookingReference: string;
+  provider: string;
+  bookingAmount: number;
+  commission: number;
+  providerAmount: number;
+  paymentStatus: string;
+  passenger: string;
+  route: string;
+  travelDate: string;
+  pax: number;
+  paymentMethod: string;
+  paidAt: string;
+  createdAt: string;
+}
+
+export interface IAdminPaymentsOverview {
+  totalBookingValue: number;
+  commission: number;
+  providerAmount: number;
+  commissionRate: number;
+}
+
+export interface IAdminPaymentsResponseData {
+  overview: IAdminPaymentsOverview;
+  meta: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+  data: IAdminPaymentListItem[];
+}
+
+export interface IAdminPaymentsFilterParams {
+  page?: number;
+  limit?: number;
+  status?: string;
+  search?: string;
+  searchTerm?: string;
 }
 
 // ==========================================
@@ -1066,3 +1190,25 @@ export interface IManifestQueryParams {
 }
 
 
+
+/** Spec 0001: platform payment settings from `GET /api/v1/admin/settings` (ADMIN only). */
+export type PayoutSchedule = "DAILY" | "WEEKLY" | "MONTHLY";
+
+export interface IPlatformSettings {
+  id: string;
+  platformName: string;
+  supportEmail: string;
+  /** Percent, e.g. 10 means 10%. Snapshotted onto each new payment. */
+  commissionRate: number;
+  payoutSchedule: PayoutSchedule;
+  /** How long a PENDING booking holds its seats, 1 to 60 minutes. */
+  seatHoldMinutes: number;
+  updatedAt: string;
+}
+
+/** Body for `PATCH /api/v1/admin/settings/commission`. At least one field is required. */
+export interface IUpdatePaymentSettingsPayload {
+  rate?: number;
+  schedule?: PayoutSchedule;
+  seatHoldMinutes?: number;
+}

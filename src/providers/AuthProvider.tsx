@@ -38,38 +38,24 @@ function decodeJwtPayload(token: string): Partial<AuthUser> | null {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [token, setToken] = useState<string | null>(() => {
-    if (typeof window !== "undefined") {
-      return cookie.get("accessToken") || null;
-    }
-    return null;
-  });
-  const [user, setUser] = useState<AuthUser | null>(() => {
-    if (typeof window !== "undefined") {
-      const storedToken = cookie.get("accessToken");
-      if (storedToken) {
-        const decoded = decodeJwtPayload(storedToken);
-        if (decoded) {
-          return decoded as AuthUser;
-        }
-      }
-    }
-    return null;
-  });
-  const [isLoading, setIsLoading] = useState<boolean>(() => {
-    if (typeof window !== "undefined") {
-      return !!cookie.get("accessToken");
-    }
-    return false;
-  });
+  const [token, setToken] = useState<string | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
   const router = useRouter();
   const queryClient = useQueryClient();
 
   useEffect(() => {
     let isMounted = true;
-    if (token) {
-      setIsLoading(true);
+    const storedToken = cookie.get("accessToken");
+
+    if (storedToken) {
+      setToken(storedToken);
+      const decoded = decodeJwtPayload(storedToken);
+      if (decoded) {
+        setUser(decoded as AuthUser);
+      }
+
       get<{ data: AuthUser }>("/user/profile")
         .then((res) => {
           if (isMounted && res?.data) {
@@ -91,10 +77,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } else {
       setIsLoading(false);
     }
+
     return () => {
       isMounted = false;
     };
-  }, [token]);
+  }, []);
 
   const login = (newToken: string, newUser?: AuthUser) => {
     cookie.set("accessToken", newToken);

@@ -14,7 +14,6 @@ import {
   Mail,
   Phone,
   RefreshCw,
-  UserCheck,
   Users,
   XCircle
 } from "lucide-react";
@@ -22,7 +21,11 @@ import { toast } from "sonner";
 
 import { useDebounce } from "@/hooks/use-debounce";
 import { useTableSelection } from "@/hooks/use-table-selection";
-import { useUpdateUserStatusMutation, useUsersQuery } from "@/hooks/use-users";
+import {
+  useUpdateUserStatusMutation,
+  useUsersQuery,
+  useUserStatsQuery
+} from "@/hooks/use-users";
 
 import {
   BulkActionToolbar,
@@ -102,6 +105,9 @@ export default function AdminPassengersPage() {
     status: statusTab === "ALL" ? undefined : statusTab
   });
 
+  // Dedicated real-time platform statistics from /api/v1/users/stats
+  const { data: statsData } = useUserStatsQuery();
+
   // Filter out any non-passenger users from the directory
   const rawUsers = data?.users ?? [];
   const passengers = rawUsers.filter((u) => u.role !== "ADMIN" && u.role !== "OPERATOR");
@@ -113,10 +119,21 @@ export default function AdminPassengersPage() {
     totalPages: 1
   };
 
-  const totalCount = meta.total ?? passengers.length;
+  // Real-time dedicated platform statistics from /api/v1/users/stats (with fallback)
+  const totalCount =
+    statsData?.totalPassengers ??
+    meta.total ??
+    passengers.length;
+
+  const suspendedCount =
+    statsData?.suspendedPassengers ??
+    passengers.filter((u) => u.status === "SUSPENDED").length;
+
+  const activeCount = Math.max(0, totalCount - suspendedCount);
+
   const totalPages = Math.max(
     1,
-    meta.totalPages ?? meta.totalPage ?? Math.ceil(totalCount / limit)
+    meta.totalPages ?? meta.totalPage ?? Math.ceil((meta.total ?? totalCount) / limit)
   );
   const currentPage = Math.min(Math.max(page, 1), totalPages);
 
@@ -135,10 +152,6 @@ export default function AdminPassengersPage() {
     }
     return passengers;
   }, [passengers, currentPage, limit]);
-
-  // Compute stat metrics for current batch
-  const activeCount = passengers.filter((u) => u.status === "ACTIVE").length;
-  const suspendedCount = passengers.filter((u) => u.status === "SUSPENDED").length;
 
   // Headless Bulk Selection Hook
   const {
@@ -428,7 +441,7 @@ export default function AdminPassengersPage() {
       />
 
       {/* Metric Stat Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <StatCard
           label="Total Passengers"
           value={`${totalCount} ${totalCount === 1 ? "Passenger" : "Passengers"}`}
@@ -437,16 +450,8 @@ export default function AdminPassengersPage() {
           variant="blue"
         />
         <StatCard
-          label="Active Travelers"
-          value={`${activeCount} ${activeCount === 1 ? "Active" : "Active"}`}
-          description="Verified & active to travel"
-          icon={UserCheck}
-          variant="emerald"
-          colorValue
-        />
-        <StatCard
-          label="Suspended Accounts"
-          value={`${suspendedCount} ${suspendedCount === 1 ? "Account" : "Accounts"}`}
+          label="Suspended Passengers"
+          value={`${suspendedCount} ${suspendedCount === 1 ? "Passenger" : "Passengers"}`}
           description="Restricted from booking"
           icon={XCircle}
           variant="rose"

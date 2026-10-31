@@ -42,6 +42,8 @@ export function StatusBadge({ status, className, ...props }: StatusBadgeProps) {
       "bg-emerald-50 text-emerald-700 border-emerald-200/80 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800/60";
   } else if (
     normalizedStatus === "cancelled" ||
+    normalizedStatus === "canceled" ||
+    normalizedStatus === "expired" ||
     normalizedStatus === "failed" ||
     normalizedStatus === "rejected" ||
     normalizedStatus === "out of service" ||
@@ -52,6 +54,9 @@ export function StatusBadge({ status, className, ...props }: StatusBadgeProps) {
   } else if (
     normalizedStatus === "suspended" ||
     normalizedStatus === "pending" ||
+    normalizedStatus === "unpaid" ||
+    normalizedStatus === "awaiting payment" ||
+    normalizedStatus === "partially refunded" ||
     normalizedStatus === "warning" ||
     normalizedStatus === "delayed" ||
     normalizedStatus === "almost full" ||
@@ -65,6 +70,7 @@ export function StatusBadge({ status, className, ...props }: StatusBadgeProps) {
     normalizedStatus === "boarding" ||
     normalizedStatus === "preparing" ||
     normalizedStatus === "open" ||
+    normalizedStatus === "refunded" ||
     normalizedStatus === "checked in"
   ) {
     colorClasses =

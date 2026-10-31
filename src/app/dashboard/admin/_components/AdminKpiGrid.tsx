@@ -22,41 +22,74 @@ export function AdminKpiGrid({ analytics, isLoading }: AdminKpiGridProps) {
     );
   }
 
-  const activeOperatorsCount = analytics?.providers?.active ?? 0;
-  const inServiceFleetsCount = analytics?.fleet?.inService ?? 0;
+  const netRevenue =
+    analytics?.kpis?.netRevenue?.value ??
+    analytics?.breakdowns?.financials?.platformCommission ??
+    0;
+  const revenueGrowth =
+    analytics?.kpis?.netRevenue?.changePercent ??
+    analytics?.breakdowns?.financials?.changePercent ??
+    100;
+
+  const totalBookings =
+    analytics?.kpis?.totalBookings?.value ??
+    analytics?.breakdowns?.bookings?.total ??
+    0;
+  const bookingsGrowth =
+    analytics?.kpis?.totalBookings?.changePercent ??
+    analytics?.breakdowns?.bookings?.changePercent ??
+    100;
+
+  const totalPassengers =
+    analytics?.kpis?.totalPassengers?.value ??
+    analytics?.breakdowns?.passengers?.totalPax ??
+    0;
+  const passengersGrowth =
+    analytics?.kpis?.totalPassengers?.changePercent ??
+    analytics?.breakdowns?.passengers?.changePercent ??
+    100;
+
+  const fleetTotal =
+    analytics?.kpis?.fleet?.total ??
+    analytics?.breakdowns?.fleet?.total ??
+    0;
+  const fleetGrowth = analytics?.kpis?.fleet?.changePercent ?? 100;
+
+  const periodLabel = analytics?.period?.label ?? "Last 30 Days";
 
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
       <StatCard
-        label="GROSS REVENUE"
-        value={`$${(analytics?.financials?.grossSales ?? 0).toFixed(2)}`}
+        label="NET PLATFORM REVENUE"
+        value={`$${netRevenue.toFixed(2)}`}
         icon={DollarSign}
         variant="emerald"
-        changePercent={analytics?.financials?.changePercent ?? analytics?.growth?.revenuePercent}
-        comparisonText={analytics?.period?.label}
+        changePercent={revenueGrowth}
+        comparisonText={periodLabel}
       />
       <StatCard
         label="TOTAL BOOKINGS"
-        value={(analytics?.bookings?.total ?? 0).toLocaleString()}
+        value={totalBookings.toLocaleString()}
         icon={Ticket}
         variant="blue"
-        changePercent={analytics?.bookings?.changePercent ?? analytics?.growth?.bookingsPercent}
-        comparisonText={analytics?.period?.label}
+        changePercent={bookingsGrowth}
+        comparisonText={periodLabel}
       />
       <StatCard
         label="TOTAL PASSENGERS"
-        value={(analytics?.passengers?.totalPax ?? 0).toLocaleString()}
+        value={totalPassengers.toLocaleString()}
         icon={Users}
         variant="indigo"
-        changePercent={analytics?.passengers?.changePercent ?? analytics?.growth?.passengersPercent}
-        comparisonText={analytics?.period?.label}
+        changePercent={passengersGrowth}
+        comparisonText={periodLabel}
       />
       <StatCard
         label="FLEET & OPERATORS"
-        value={`${analytics?.fleet?.total ?? 0} Ferries`}
+        value={`${fleetTotal} Ferries`}
         icon={Ship}
         variant="purple"
-        comparisonText={`${activeOperatorsCount} Active ${activeOperatorsCount === 1 ? "Operator" : "Operators"} • ${inServiceFleetsCount} In Service`}
+        changePercent={fleetGrowth}
+        comparisonText={periodLabel}
       />
     </div>
   );

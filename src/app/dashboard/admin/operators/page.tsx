@@ -13,12 +13,12 @@ import {
   Navigation,
   RefreshCw,
   Ship,
-  UserCheck,
   Users
 } from "lucide-react";
 import { toast } from "sonner";
 
 import { useAdminProvidersQuery, useUpdateProviderStatusMutation } from "@/hooks/use-admin";
+import { useUserStatsQuery } from "@/hooks/use-users";
 import { useDebounce } from "@/hooks/use-debounce";
 import { useTableSelection } from "@/hooks/use-table-selection";
 import {
@@ -65,10 +65,12 @@ export default function AdminOperatorsPage() {
     totalPages: 1
   };
 
-  const totalCount = meta.total ?? providers.length;
+  const { data: statsData } = useUserStatsQuery();
+
+  const totalCount = statsData?.totalOperators ?? meta.total ?? providers.length;
   const totalPages = Math.max(
     1,
-    meta.totalPages ?? meta.totalPage ?? Math.ceil(totalCount / limit)
+    meta.totalPages ?? meta.totalPage ?? Math.ceil((meta.total ?? totalCount) / limit)
   );
   const currentPage = Math.min(Math.max(page, 1), totalPages);
 
@@ -89,9 +91,14 @@ export default function AdminOperatorsPage() {
   }, [providers, currentPage, limit]);
 
   // Compute stat card metrics
-  const activeCount = providers.filter((p) => p.user?.status === "ACTIVE").length;
-  const suspendedCount = providers.filter((p) => p.user?.status === "SUSPENDED").length;
-  const totalFleetsCount = providers.reduce((acc, p) => acc + (p.ferriesCount ?? 0), 0);
+  const suspendedCount =
+    statsData?.suspendedOperators ??
+    providers.filter((p) => p.user?.status === "SUSPENDED").length;
+  const activeCount = Math.max(0, totalCount - suspendedCount);
+  const totalFerriesCount =
+    statsData?.totalFerries ??
+    statsData?.totalFleets ??
+    providers.reduce((acc, p) => acc + (p.ferriesCount ?? 0), 0);
 
   // Headless Bulk Selection Hook
   const {
@@ -313,21 +320,13 @@ export default function AdminOperatorsPage() {
       />
 
       {/* Metric Stat Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard
           label="Total Operators"
-          value={`${totalCount} ${totalCount === 1 ? "Company" : "Companies"}`}
+          value={`${totalCount} ${totalCount === 1 ? "Operator" : "Operators"}`}
           description="Licensed marine providers"
           icon={Building2}
           variant="blue"
-        />
-        <StatCard
-          label="Active Operators"
-          value={`${activeCount} ${activeCount === 1 ? "Active" : "Active"}`}
-          description="Operational in good standing"
-          icon={UserCheck}
-          variant="emerald"
-          colorValue
         />
         <StatCard
           label="Suspended"
@@ -338,9 +337,9 @@ export default function AdminOperatorsPage() {
           colorValue
         />
         <StatCard
-          label="Total Registered Fleet"
-          value={`${totalFleetsCount} ${totalFleetsCount === 1 ? "Vessel" : "Vessels"}`}
-          description="Active transport crafts"
+          label="Total Ferries"
+          value={`${totalFerriesCount} ${totalFerriesCount === 1 ? "Ferry" : "Ferries"}`}
+          description="Active transport vessels"
           icon={Ship}
           variant="emerald"
         />

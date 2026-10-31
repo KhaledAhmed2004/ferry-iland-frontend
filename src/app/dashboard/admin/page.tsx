@@ -4,9 +4,10 @@ import * as React from "react";
 
 import { AlertCircle, RefreshCw } from "lucide-react";
 
-import { useAdminAnalyticsQuery } from "@/hooks/use-admin";
+import { useAdminAnalyticsQuery, useAdminBookingByRefQuery } from "@/hooks/use-admin";
 
 import {
+  BookingDetailsModal,
   BookingsVolumeChart,
   DashboardTableCard,
   PageHeader,
@@ -16,15 +17,24 @@ import {
 import { Button } from "@/ui";
 
 import { AdminKpiGrid } from "./_components/AdminKpiGrid";
+import { ChartEmptyState } from "./_components/ChartEmptyState";
 import { AdminOverviewCards } from "./_components/AdminOverviewCards";
-import { recentBookingColumns } from "./_components/overview-columns";
+import { getRecentBookingColumns } from "./_components/overview-columns";
 
 export type TimeRangeFilter = "7d" | "15d" | "30d" | "month";
 
 export default function AdminPage() {
   const [globalTimeRange, setGlobalTimeRange] = React.useState<TimeRangeFilter>("30d");
-  const [revenueTimeRange, setRevenueTimeRange] = React.useState<TimeRangeFilter>("30d");
-  const [bookingsTimeRange, setBookingsTimeRange] = React.useState<TimeRangeFilter>("30d");
+  const [selectedBookingRef, setSelectedBookingRef] = React.useState<string | null>(null);
+
+  // Fetch full booking details when a booking is selected for in-place quick-view modal
+  const { data: selectedBooking } = useAdminBookingByRefQuery(selectedBookingRef);
+
+  const bookingColumns = React.useMemo(() => {
+    return getRecentBookingColumns((booking) => {
+      setSelectedBookingRef(booking.reference);
+    });
+  }, []);
 
   // Primary Live Overview Query mediated by TanStack Query hook
   const {
@@ -35,53 +45,9 @@ export default function AdminPage() {
     refetch
   } = useAdminAnalyticsQuery(globalTimeRange);
 
-  // Independent chart queries when chart-level time range differs from global filter
-  const { data: revenueAnalytics } = useAdminAnalyticsQuery(revenueTimeRange);
-  const { data: bookingsAnalytics } = useAdminAnalyticsQuery(bookingsTimeRange);
-
-  // Handler for global time range change that also syncs the charts
-  const handleGlobalTimeRangeChange = (range: TimeRangeFilter) => {
-    setGlobalTimeRange(range);
-    setRevenueTimeRange(range);
-    setBookingsTimeRange(range);
-  };
-
-  // Generate dynamic chart data points from real backend totals or bucketing
-  const revenueChartData = React.useMemo(() => {
-    const active = revenueTimeRange === globalTimeRange ? analytics : revenueAnalytics;
-    if (active?.chartData?.revenue && active.chartData.revenue.length > 0) {
-      return active.chartData.revenue;
-    }
-
-    const gross = active?.financials?.grossSales ?? 0;
-    const comm = active?.financials?.platformCommission ?? 0;
-    const payout = active?.financials?.providerPayout ?? 0;
-
-    // Graceful fallback if no chartData is present
-    return [
-      { label: "W1", revenue: gross * 0.15, commission: comm * 0.15, payout: payout * 0.15 },
-      { label: "W2", revenue: gross * 0.25, commission: comm * 0.25, payout: payout * 0.25 },
-      { label: "W3", revenue: gross * 0.28, commission: comm * 0.28, payout: payout * 0.28 },
-      { label: "W4", revenue: gross * 0.32, commission: comm * 0.32, payout: payout * 0.32 }
-    ];
-  }, [analytics, revenueAnalytics, revenueTimeRange, globalTimeRange]);
-
-  const bookingsChartData = React.useMemo(() => {
-    const active = bookingsTimeRange === globalTimeRange ? analytics : bookingsAnalytics;
-    if (active?.chartData?.bookings && active.chartData.bookings.length > 0) {
-      return active.chartData.bookings;
-    }
-
-    const totalB = active?.bookings?.total ?? 0;
-    const totalP = active?.passengers?.totalPax ?? 0;
-
-    return [
-      { label: "W1", bookings: Math.round(totalB * 0.18), passengers: Math.round(totalP * 0.18) },
-      { label: "W2", bookings: Math.round(totalB * 0.24), passengers: Math.round(totalP * 0.24) },
-      { label: "W3", bookings: Math.round(totalB * 0.28), passengers: Math.round(totalP * 0.28) },
-      { label: "W4", bookings: Math.round(totalB * 0.3), passengers: Math.round(totalP * 0.3) }
-    ];
-  }, [analytics, bookingsAnalytics, bookingsTimeRange, globalTimeRange]);
+  // Chart series come only from the backend. No made up split when they are missing (AGENTS.md: no mock data).
+  const revenueChartData = analytics?.charts?.revenueTrend?.revenue ?? [];
+  const bookingsChartData = analytics?.charts?.revenueTrend?.bookings ?? [];
 
   if (isError) {
     return (
@@ -108,12 +74,12 @@ export default function AdminPage() {
         title="Dashboard"
         description="Overview of FerryGo platform activity and real-time operations."
         actions={
-          <>
-            <span className="text-muted-foreground hidden text-xs font-medium lg:inline-block">
+          <div className="flex items-center gap-2">
+            <span className="text-muted-foreground hidden text-xs font-medium sm:inline-block">
               Filter Period:
             </span>
-            <TimeRangeFilterSelect value={globalTimeRange} onChange={handleGlobalTimeRangeChange} />
-          </>
+            <TimeRangeFilterSelect value={globalTimeRange} onChange={setGlobalTimeRange} />
+          </div>
         }
       />
 
@@ -125,16 +91,16 @@ export default function AdminPage() {
 
       {/* Analytical Charts Row */}
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-        <RevenueAnalyticsChart
-          data={revenueChartData}
-          timeRange={revenueTimeRange}
-          onTimeRangeChange={setRevenueTimeRange}
-        />
-        <BookingsVolumeChart
-          data={bookingsChartData}
-          timeRange={bookingsTimeRange}
-          onTimeRangeChange={setBookingsTimeRange}
-        />
+        {revenueChartData.length > 0 ? (
+          <RevenueAnalyticsChart data={revenueChartData} />
+        ) : (
+          <ChartEmptyState title="Revenue Analytics" isLoading={isLoading} />
+        )}
+        {bookingsChartData.length > 0 ? (
+          <BookingsVolumeChart data={bookingsChartData} />
+        ) : (
+          <ChartEmptyState title="Bookings Volume" isLoading={isLoading} />
+        )}
       </div>
 
       {/* Recent Bookings Table */}
@@ -144,12 +110,24 @@ export default function AdminPage() {
         <DashboardTableCard
           title="Recent Bookings"
           viewAllHref="/dashboard/admin/bookings"
-          columns={recentBookingColumns}
-          data={analytics?.recentBookings ?? []}
+          columns={bookingColumns}
+          data={analytics?.recent?.bookings ?? []}
           keyExtractor={(item) => item.id}
           emptyMessage="No recent bookings found."
         />
       )}
+
+      {/* In-Place Quick-View Modal */}
+      <BookingDetailsModal
+        booking={selectedBooking ?? null}
+        open={Boolean(selectedBookingRef)}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) setSelectedBookingRef(null);
+        }}
+        onBookingCancelled={() => {
+          refetch();
+        }}
+      />
     </div>
   );
 }

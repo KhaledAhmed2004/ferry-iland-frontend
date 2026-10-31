@@ -231,7 +231,7 @@ export default function OperatorBookingsPage() {
       }
     },
     {
-      header: "FERRY VESSEL",
+      header: "FERRY INFO",
       cell: (item) => {
         const schedule = item.schedule;
         const ferryName = schedule?.ferry?.name || "Fleet Vessel";

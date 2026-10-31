@@ -3,19 +3,20 @@
 import * as React from "react";
 import Link from "next/link";
 import {
+  AlertTriangle,
   Ban,
   Building2,
   Calendar,
+  Check,
   CheckCircle2,
   Clock,
   Copy,
-  Loader2,
   ExternalLink,
+  Loader2,
   Mail,
   Phone,
   Shield,
   ShieldAlert,
-  User,
   XCircle
 } from "lucide-react";
 import { toast } from "sonner";
@@ -28,7 +29,6 @@ import {
   DialogDescription,
   DialogTitle
 } from "@/ui";
-import { StatusBadge } from "../index";
 
 export interface UserDetailsModalProps {
   user: IAdminUserItem | null;
@@ -46,6 +46,7 @@ export function UserDetailsModal({
   if (!user) return null;
 
   const [localStatus, setLocalStatus] = React.useState<string>(user.status || "ACTIVE");
+  const [copiedKey, setCopiedKey] = React.useState<string | null>(null);
   const updateStatusMutation = useUpdateUserStatusMutation();
 
   React.useEffect(() => {
@@ -76,136 +77,214 @@ export function UserDetailsModal({
   };
 
   const copyToClipboard = (text: string, label: string) => {
+    if (!text) return;
     navigator.clipboard.writeText(text);
+    setCopiedKey(label);
     toast.success(`${label} copied to clipboard`);
+    setTimeout(() => {
+      setCopiedKey((prev) => (prev === label ? null : prev));
+    }, 2000);
   };
 
-  const getRoleBadge = (role: string) => {
-    const normalized = role?.toUpperCase();
-    if (normalized === "ADMIN") {
-      return (
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-purple-400/25 px-2.5 py-0.5 text-xs font-bold text-purple-100 border border-purple-300/40 backdrop-blur-xs shadow-xs">
-          <Shield className="h-3 w-3 text-purple-200" />
-          Admin
-        </span>
-      );
-    }
-    if (normalized === "OPERATOR") {
-      return (
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-400/25 px-2.5 py-0.5 text-xs font-bold text-emerald-100 border border-emerald-300/40 backdrop-blur-xs shadow-xs">
-          <Building2 className="h-3 w-3 text-emerald-200" />
-          Operator
-        </span>
-      );
-    }
-    // Hide passenger tag as requested
-    return null;
-  };
-
-  const formattedStatus =
-    localStatus === "ACTIVE"
-      ? "Active"
-      : localStatus === "SUSPENDED"
-        ? "Suspended"
-        : localStatus || "Active";
+  const isSuspended = localStatus === "SUSPENDED";
+  const userInitials = user.name
+    ? user.name
+        .split(" ")
+        .filter(Boolean)
+        .map((n) => n[0])
+        .slice(0, 2)
+        .join("")
+        .toUpperCase()
+    : "P";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="sm:max-w-xl p-0 overflow-hidden"
-        closeButtonClassName="text-white/80 hover:text-white hover:bg-white/20 rounded-full"
+        className="sm:max-w-lg p-0 overflow-hidden rounded-2xl border border-border/80 shadow-2xl bg-background"
+        closeButtonClassName="text-white/80 hover:text-white hover:bg-white/20 rounded-full top-5 right-5 z-10 transition-colors"
       >
-        {/* Header Hero Banner */}
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 p-6 text-white relative">
+        {/* Header Hero Banner with Deep Marine Indigo Palette */}
+        <div className="bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-950 p-6 text-white relative border-b border-white/10">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3.5 min-w-0">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/15 backdrop-blur-md shadow-inner text-white font-extrabold text-lg">
-                {user.name ? user.name.charAt(0).toUpperCase() : "U"}
+              {/* User Avatar Badge */}
+              <div className="flex h-13 w-13 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-blue-500 via-indigo-500 to-sky-400 text-white font-black text-lg shadow-md ring-2 ring-white/20">
+                {userInitials}
               </div>
-              <div className="min-w-0">
-                <DialogTitle className="text-xl font-extrabold text-white tracking-tight flex items-center gap-2">
-                  <span className="truncate">{user.name || "Unnamed User"}</span>
-                  {user.isRootAdmin && (
-                    <span className="bg-amber-400/20 text-amber-200 border border-amber-300/30 text-[10px] px-2 py-0.5 rounded-full font-bold shrink-0">
-                      Root Admin
+
+              {/* Title & Email */}
+              <div className="min-w-0 space-y-1">
+                <div className="flex items-center gap-2">
+                  <DialogTitle className="text-lg font-bold text-white tracking-tight truncate">
+                    {user.name || "Unnamed Passenger"}
+                  </DialogTitle>
+
+                  {/* Role Tag (only shown if ADMIN or OPERATOR) */}
+                  {user.role === "ADMIN" && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-purple-500/25 px-2 py-0.5 text-[10px] font-bold text-purple-200 border border-purple-400/30">
+                      <Shield className="h-2.5 w-2.5" /> Admin
                     </span>
                   )}
-                </DialogTitle>
-                <DialogDescription className="text-white/80 text-xs mt-0.5 truncate">
-                  {user.email}
+                  {user.role === "OPERATOR" && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/25 px-2 py-0.5 text-[10px] font-bold text-emerald-200 border border-emerald-400/30">
+                      <Building2 className="h-2.5 w-2.5" /> Operator
+                    </span>
+                  )}
+                </div>
+
+                <DialogDescription className="text-white/75 text-xs truncate flex items-center gap-1.5">
+                  <span>{user.email}</span>
                 </DialogDescription>
               </div>
             </div>
 
-            {/* Badges container with mr-9 to avoid any overlap with close button */}
-            <div className="flex items-center shrink-0 mr-9">
-              <StatusBadge status={formattedStatus} className="text-xs px-3 py-1 font-bold shadow-2xs" />
-              {getRoleBadge(user.role)}
+            {/* Status Pill on Right */}
+            <div className="mr-8 shrink-0">
+              {isSuspended ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-500/20 px-3 py-1 text-xs font-bold text-rose-200 border border-rose-400/30 shadow-xs backdrop-blur-md">
+                  <span className="h-2 w-2 rounded-full bg-rose-400" />
+                  Suspended
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-200 border border-emerald-400/30 shadow-xs backdrop-blur-md">
+                  <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                  Active
+                </span>
+              )}
             </div>
           </div>
         </div>
 
         {/* Content Body */}
-        <div className="p-6 space-y-5">
-          {/* Contact & Account Credentials Card */}
-          <div className="bg-muted/30 dark:bg-zinc-800/30 border border-border/70 rounded-xl p-4 space-y-3">
-            <div className="text-[11px] font-bold tracking-wider uppercase text-muted-foreground">
-              Contact & Credentials
-            </div>
+        <div className="p-6 space-y-4">
+          {/* Section 1: Contact Information */}
+          <div className="rounded-xl border border-border/70 bg-card p-4 space-y-3 shadow-xs">
+            <span className="text-[11px] font-bold tracking-wider uppercase text-muted-foreground block">
+              Contact Information
+            </span>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-              <div className="flex items-center gap-2.5">
-                <Mail className="h-4 w-4 text-slate-400 shrink-0" />
-                <div className="overflow-hidden">
-                  <p className="text-[10px] text-muted-foreground">Email Address</p>
-                  <p className="font-semibold text-foreground truncate">{user.email}</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              {/* Email Block */}
+              <div className="flex items-center justify-between p-2.5 rounded-lg bg-muted/30 border border-border/50 hover:bg-muted/50 transition-colors">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="h-8 w-8 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                    <Mail className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-medium text-muted-foreground">Email Address</p>
+                    <p className="text-xs font-semibold text-foreground truncate">{user.email}</p>
+                  </div>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => copyToClipboard(user.email, "Email")}
+                  className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors cursor-pointer shrink-0"
+                  title="Copy email"
+                >
+                  {copiedKey === "Email" ? (
+                    <Check className="h-3.5 w-3.5 text-emerald-500" />
+                  ) : (
+                    <Copy className="h-3.5 w-3.5" />
+                  )}
+                </button>
               </div>
 
-              <div className="flex items-center gap-2.5">
-                <Phone className="h-4 w-4 text-slate-400 shrink-0" />
-                <div>
-                  <p className="text-[10px] text-muted-foreground">Phone Number</p>
-                  <p className="font-semibold text-foreground">
-                    {user.phoneNumber || user.phone || "Not provided"}
-                  </p>
+              {/* Phone Block */}
+              <div className="flex items-center justify-between p-2.5 rounded-lg bg-muted/30 border border-border/50 hover:bg-muted/50 transition-colors">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="h-8 w-8 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                    <Phone className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-medium text-muted-foreground">Phone Number</p>
+                    <p className="text-xs font-semibold text-foreground truncate">
+                      {user.phoneNumber || user.phone || "Not provided"}
+                    </p>
+                  </div>
                 </div>
-              </div>
-
-              <div className="flex items-center gap-2.5">
-                {user.isEmailVerified ? (
-                  <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
-                ) : (
-                  <XCircle className="h-4 w-4 text-amber-500 shrink-0" />
+                {(user.phoneNumber || user.phone) && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      copyToClipboard(user.phoneNumber || user.phone || "", "Phone")
+                    }
+                    className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors cursor-pointer shrink-0"
+                    title="Copy phone"
+                  >
+                    {copiedKey === "Phone" ? (
+                      <Check className="h-3.5 w-3.5 text-emerald-500" />
+                    ) : (
+                      <Copy className="h-3.5 w-3.5" />
+                    )}
+                  </button>
                 )}
+              </div>
+            </div>
+          </div>
+
+          {/* Section 2: Account & Verification Details */}
+          <div className="rounded-xl border border-border/70 bg-card p-4 space-y-3 shadow-xs">
+            <span className="text-[11px] font-bold tracking-wider uppercase text-muted-foreground block">
+              Account Verification & Status
+            </span>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              {/* Verification Status */}
+              <div className="flex items-center gap-2.5 p-2.5 rounded-lg bg-muted/30 border border-border/50">
+                <div
+                  className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${
+                    user.isEmailVerified
+                      ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                      : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                  }`}
+                >
+                  {user.isEmailVerified ? (
+                    <CheckCircle2 className="h-4 w-4" />
+                  ) : (
+                    <AlertTriangle className="h-4 w-4" />
+                  )}
+                </div>
                 <div>
-                  <p className="text-[10px] text-muted-foreground">Email Verification</p>
-                  <p className={`font-semibold ${user.isEmailVerified ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}`}>
+                  <p className="text-[10px] font-medium text-muted-foreground">Email Status</p>
+                  <p
+                    className={`text-xs font-semibold ${
+                      user.isEmailVerified
+                        ? "text-emerald-600 dark:text-emerald-400"
+                        : "text-amber-600 dark:text-amber-400"
+                    }`}
+                  >
                     {user.isEmailVerified ? "Verified Account" : "Pending Verification"}
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2.5">
-                <Calendar className="h-4 w-4 text-slate-400 shrink-0" />
+              {/* Registration Date */}
+              <div className="flex items-center gap-2.5 p-2.5 rounded-lg bg-muted/30 border border-border/50">
+                <div className="h-8 w-8 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                  <Calendar className="h-4 w-4" />
+                </div>
                 <div>
-                  <p className="text-[10px] text-muted-foreground">Registration Date</p>
-                  <p className="font-semibold text-foreground">
-                    {new Date(user.createdAt).toLocaleDateString()}
+                  <p className="text-[10px] font-medium text-muted-foreground">Registered On</p>
+                  <p className="text-xs font-semibold text-foreground">
+                    {new Date(user.createdAt).toLocaleDateString("en-US", {
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric"
+                    })}
                   </p>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Operator Profile Details if Role is OPERATOR */}
+          {/* Section 3: Operator Business Profile (if applicable) */}
           {user.operatorProfile && (
-            <div className="border border-border/70 rounded-xl p-4 space-y-3 bg-card">
+            <div className="rounded-xl border border-border/70 bg-card p-4 space-y-3 shadow-xs">
               <div className="flex items-center justify-between">
-                <div className="text-[11px] font-bold tracking-wider uppercase text-muted-foreground flex items-center gap-1.5">
+                <span className="text-[11px] font-bold tracking-wider uppercase text-muted-foreground flex items-center gap-1.5">
                   <Building2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
                   Operator Business Profile
-                </div>
+                </span>
                 <Link
                   href={`/dashboard/admin/operators/${user.operatorProfile.id}`}
                   className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1"
@@ -238,37 +317,40 @@ export function UserDetailsModal({
             </div>
           )}
 
-          {/* Timestamp footer */}
-          <div className="bg-muted/20 border border-border/60 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-            <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4 text-slate-400" />
-              <span className="text-muted-foreground">Last Profile Update:</span>
-              <span className="font-mono text-muted-foreground">
-                {new Date(user.updatedAt).toLocaleString()}
+          {/* Section 4: System Audit / Activity Bar */}
+          <div className="flex items-center gap-2 p-3 rounded-xl bg-muted/20 border border-border/60 text-xs text-muted-foreground">
+            <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            <span>
+              Last profile update:{" "}
+              <span className="font-medium text-foreground">
+                {new Date(user.updatedAt).toLocaleString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                  hour: "numeric",
+                  minute: "numeric",
+                  hour12: true
+                })}
               </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-muted-foreground">Account State:</span>
-              <span className="font-medium text-foreground">{localStatus}</span>
-            </div>
+            </span>
           </div>
 
           {/* Footer Actions */}
-          <div className="flex items-center justify-between pt-2">
-            {localStatus === "ACTIVE" ? (
+          <div className="flex items-center justify-between pt-3 border-t border-border/80">
+            {isSuspended ? (
               <Button
                 variant="outline"
                 size="sm"
                 disabled={updateStatusMutation.isPending}
                 onClick={handleToggleStatus}
-                className="h-9 gap-1.5 px-3 text-xs font-semibold text-rose-600 border-rose-200 hover:bg-rose-50 hover:text-rose-700 dark:border-rose-900/50 dark:text-rose-400 dark:hover:bg-rose-950/40 cursor-pointer"
+                className="h-9 gap-2 px-3.5 text-xs font-semibold text-emerald-600 border-emerald-300/80 hover:bg-emerald-50 hover:border-emerald-400 dark:border-emerald-900/60 dark:text-emerald-400 dark:hover:bg-emerald-950/40 cursor-pointer transition-all"
               >
                 {updateStatusMutation.isPending ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 ) : (
-                  <Ban className="h-3.5 w-3.5" />
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
                 )}
-                <span>Suspend Account</span>
+                <span>Activate Account</span>
               </Button>
             ) : (
               <Button
@@ -276,22 +358,22 @@ export function UserDetailsModal({
                 size="sm"
                 disabled={updateStatusMutation.isPending}
                 onClick={handleToggleStatus}
-                className="h-9 gap-1.5 px-3 text-xs font-semibold text-emerald-600 border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700 dark:border-emerald-900/50 dark:text-emerald-400 dark:hover:bg-emerald-950/40 cursor-pointer"
+                className="h-9 gap-2 px-3.5 text-xs font-semibold text-rose-600 border-rose-300/80 hover:bg-rose-50 hover:border-rose-400 dark:border-rose-900/60 dark:text-rose-400 dark:hover:bg-rose-950/40 cursor-pointer transition-all"
               >
                 {updateStatusMutation.isPending ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 ) : (
-                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  <Ban className="h-3.5 w-3.5 text-rose-600 dark:text-rose-400" />
                 )}
-                <span>Activate Account</span>
+                <span>Suspend Account</span>
               </Button>
             )}
 
             <Button
-              variant="default"
+              variant="secondary"
               size="sm"
               onClick={() => onOpenChange(false)}
-              className="h-9 text-xs font-semibold px-5 cursor-pointer"
+              className="h-9 text-xs font-medium px-5 cursor-pointer shadow-xs hover:bg-muted"
             >
               Close
             </Button>

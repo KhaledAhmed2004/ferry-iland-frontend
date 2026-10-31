@@ -201,7 +201,7 @@ export function getFerryColumns({
       }
     },
     {
-      header: "FERRY VESSEL",
+      header: "FERRY INFO",
       cell: (item) => {
         const ferryImg = getFerryImage(item);
         return (

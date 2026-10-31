@@ -2,8 +2,8 @@ import type { ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
 
-
 import authBg from "@/assets/auth/bg.png";
+
 import { BrandLogo } from "@/widgets";
 
 export default function AuthenticationLayout({ children }: { children: ReactNode }) {
@@ -32,15 +32,6 @@ export default function AuthenticationLayout({ children }: { children: ReactNode
 
           {/* Bottom Headline & Subtitle */}
           <div className="max-w-md space-y-4">
-            <div className="overflow-hidden rounded-2xl shadow-lg">
-              <Image
-                src="/logo.png"
-                alt="IslandHop Logo"
-                width={48}
-                height={48}
-                className="h-12 w-12 rounded-2xl object-contain"
-              />
-            </div>
             <h1 className="text-4xl font-black tracking-tight text-white xl:text-5xl">
               Powering <br />
               Seamless <br />

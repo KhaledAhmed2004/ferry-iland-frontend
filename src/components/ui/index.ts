@@ -22,3 +22,4 @@ export * from "./select";
 export * from "./calendar";
 export * from "./checkbox";
 export * from "./scroll-area";
+export * from "./password-input";

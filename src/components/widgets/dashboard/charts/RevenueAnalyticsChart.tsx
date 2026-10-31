@@ -11,13 +11,15 @@ export interface RevenueAnalyticsChartProps {
   timeRange?: TimeRangeFilter;
   onTimeRangeChange?: (range: TimeRangeFilter) => void;
   className?: string;
+  showFilter?: boolean;
 }
 
 export function RevenueAnalyticsChart({
   data,
   timeRange,
   onTimeRangeChange,
-  className
+  className,
+  showFilter = false
 }: RevenueAnalyticsChartProps) {
   const [internalTimeRange, setInternalTimeRange] = React.useState<TimeRangeFilter>("30d");
   const [hoverIndex, setHoverIndex] = React.useState<number | null>(null);
@@ -80,10 +82,12 @@ export function RevenueAnalyticsChart({
           </p>
         </div>
 
-        {/* Filter Dropdown */}
-        <div className="flex flex-wrap items-center gap-3">
-          <TimeRangeFilterSelect value={activeRange} onChange={handleRangeChange} />
-        </div>
+        {/* Filter Dropdown (Optional) */}
+        {showFilter && (
+          <div className="flex flex-wrap items-center gap-3">
+            <TimeRangeFilterSelect value={activeRange} onChange={handleRangeChange} />
+          </div>
+        )}
       </div>
 
       {/* SVG Chart Area */}

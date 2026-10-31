@@ -15,6 +15,7 @@ import {
   Ticket
 } from "lucide-react";
 import { format } from "date-fns";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 
 import { useAdminBookingsQuery, useDebounce } from "@/hooks";
@@ -40,14 +41,24 @@ const PAGE_SIZE_OPTIONS = [
 
 type BookingStatusTab = "ALL" | "CONFIRMED" | "CHECKED_IN" | "COMPLETED" | "CANCELLED" | "PENDING";
 
-export default function AdminBookingsPage() {
-  const [searchTerm, setSearchTerm] = React.useState("");
+function AdminBookingsContent() {
+  const searchParams = useSearchParams();
+  const searchParamVal = searchParams.get("search") || searchParams.get("ref") || "";
+
+  const [searchTerm, setSearchTerm] = React.useState(searchParamVal);
   const debouncedSearch = useDebounce(searchTerm, 350);
 
   const [activeTab, setActiveTab] = React.useState<BookingStatusTab>("ALL");
   const [page, setPage] = React.useState(1);
   const [limit, setLimit] = React.useState(10);
   const [selectedBooking, setSelectedBooking] = React.useState<IAdminBookingItem | null>(null);
+
+  // Sync if URL search query changes
+  React.useEffect(() => {
+    if (searchParamVal && searchParamVal !== searchTerm) {
+      setSearchTerm(searchParamVal);
+    }
+  }, [searchParamVal]);
 
   // Reset to first page when search query or filter tab changes
   React.useEffect(() => {
@@ -62,6 +73,18 @@ export default function AdminBookingsPage() {
   });
 
   const bookings = data?.data ?? [];
+
+  // When navigated with a specific reference search, auto-open the booking detail modal
+  React.useEffect(() => {
+    if (searchParamVal && bookings.length > 0 && !selectedBooking) {
+      const match =
+        bookings.find((b) => b.reference.toLowerCase() === searchParamVal.toLowerCase()) ||
+        bookings[0];
+      if (match) {
+        setSelectedBooking(match);
+      }
+    }
+  }, [searchParamVal, bookings, selectedBooking]);
   const meta = data?.meta ?? {
     page: 1,
     limit: 10,
@@ -341,3 +364,18 @@ export default function AdminBookingsPage() {
     </div>
   );
 }
+
+export default function AdminBookingsPage() {
+  return (
+    <React.Suspense
+      fallback={
+        <div className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+          <div className="border-border/60 bg-muted/20 h-72 animate-pulse rounded-xl border p-4" />
+        </div>
+      }
+    >
+      <AdminBookingsContent />
+    </React.Suspense>
+  );
+}
+

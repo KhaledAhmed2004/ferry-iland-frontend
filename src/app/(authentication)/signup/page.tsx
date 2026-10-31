@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 
-import { SignupForm } from "@/widgets";
+import { SignupForm } from "./_components/SignupForm";
 
 export const metadata: Metadata = {
   title: "Sign Up | IslandHop",

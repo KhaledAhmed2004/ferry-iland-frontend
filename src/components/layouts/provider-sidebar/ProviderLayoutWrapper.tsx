@@ -13,9 +13,14 @@ export interface ProviderLayoutWrapperProps {
 
 export function ProviderLayoutWrapper({ children }: ProviderLayoutWrapperProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+  const [mounted, setMounted] = React.useState(false);
   const { user, isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const role = (user?.role || "").toUpperCase();
   const isOperator = isAuthenticated && role === "OPERATOR";
@@ -23,7 +28,7 @@ export function ProviderLayoutWrapper({ children }: ProviderLayoutWrapperProps) 
   const isPassenger = isAuthenticated && (role === "USER" || role === "PASSENGER");
 
   React.useEffect(() => {
-    if (isLoading) return;
+    if (!mounted || isLoading) return;
 
     if (!isAuthenticated) {
       router.replace(`/login?redirect=${encodeURIComponent(pathname)}`);
@@ -39,15 +44,17 @@ export function ProviderLayoutWrapper({ children }: ProviderLayoutWrapperProps) 
       router.replace("/manage-booking");
       return;
     }
-  }, [user, isAuthenticated, isLoading, isAdmin, isPassenger, router, pathname]);
+  }, [mounted, user, isAuthenticated, isLoading, isAdmin, isPassenger, router, pathname]);
 
-  if (isLoading || !isAuthenticated || !isOperator) {
+  if (!mounted || isLoading || !isAuthenticated || !isOperator) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-2">
           <Loader2 className="h-6 w-6 animate-spin text-emerald-600" />
           <span className="text-xs text-muted-foreground font-medium">
-            {!isAuthenticated
+            {!mounted || isLoading
+              ? "Verifying operator credentials..."
+              : !isAuthenticated
               ? "Redirecting to login..."
               : isAdmin
               ? "Redirecting to admin portal..."

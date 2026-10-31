@@ -4,33 +4,27 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 
-import {
-  ArrowRight,
-  Eye,
-  EyeOff,
-  Loader2,
-  Lock,
-  Mail,
-  Sparkles
-} from "lucide-react";
+import { ArrowRight, Loader2, Mail, Sparkles } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-
-import { BrandLogo } from "../brand-logo";
-import { loginSchema, type LoginInput } from "@/schemas";
 import { toast } from "sonner";
+
+import { loginSchema, type LoginInput } from "@/schemas";
 
 import { useLoginMutation } from "@/hooks";
 
+import { BrandLogo } from "@/widgets";
 import {
   Button,
+  Checkbox,
   Form,
   FormControl,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
-  Input
+  Input,
+  PasswordInput
 } from "@/ui";
 
 const DEMO_ACCOUNTS = [
@@ -42,7 +36,6 @@ const DEMO_ACCOUNTS = [
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
 
   const loginMutation = useLoginMutation();
@@ -58,46 +51,31 @@ export function LoginForm() {
 
   const getDestination = (resUserRole?: string) => {
     const fromParam = searchParams.get("redirect") || searchParams.get("from");
-    const normalizedRole = (resUserRole || "").toUpperCase();
+    const role = (resUserRole || "").toUpperCase();
 
-    // Validate fromParam against user's actual role
+    // Check if the requested redirect path is permitted for the user's role
     if (fromParam && fromParam.startsWith("/")) {
-      if (normalizedRole === "ADMIN" || normalizedRole === "SUPER_ADMIN") {
-        // Admin cannot access operator routes or passenger portal
-        if (
-          !fromParam.startsWith("/dashboard/operator") &&
-          !fromParam.startsWith("/manage-booking")
-        ) {
-          return fromParam;
-        }
-      } else if (normalizedRole === "OPERATOR") {
-        // Operator cannot access admin routes or passenger portal
-        if (
-          !fromParam.startsWith("/dashboard/admin") &&
-          !fromParam.startsWith("/admin") &&
-          !fromParam.startsWith("/manage-booking")
-        ) {
-          return fromParam;
-        }
+      const isOperatorPath = fromParam.startsWith("/dashboard/operator");
+      const isAdminPath =
+        fromParam.startsWith("/dashboard/admin") || fromParam.startsWith("/admin");
+      const isManageBookingPath = fromParam.startsWith("/manage-booking");
+
+      if (role === "ADMIN") {
+        if (!isOperatorPath && !isManageBookingPath) return fromParam;
+      } else if (role === "OPERATOR") {
+        if (!isAdminPath && !isManageBookingPath) return fromParam;
       } else {
-        // Passenger / User cannot access admin or operator dashboards
-        if (
-          !fromParam.startsWith("/dashboard/admin") &&
-          !fromParam.startsWith("/admin") &&
-          !fromParam.startsWith("/dashboard/operator")
-        ) {
-          return fromParam;
-        }
+        if (!isAdminPath && !isOperatorPath) return fromParam;
       }
     }
 
-    if (normalizedRole === "ADMIN" || normalizedRole === "SUPER_ADMIN") {
+    if (role === "ADMIN") {
       return "/dashboard/admin";
     }
-    if (normalizedRole === "OPERATOR") {
+    if (role === "OPERATOR") {
       return "/dashboard/operator";
     }
-    if (normalizedRole === "USER" || normalizedRole === "PASSENGER") {
+    if (role === "USER" || role === "PASSENGER") {
       return "/manage-booking";
     }
     return "/";
@@ -118,10 +96,7 @@ export function LoginForm() {
           toast.error("Please verify your email before signing in.", {
             action: {
               label: "Verify OTP",
-              onClick: () =>
-                router.push(
-                  `/verify-email?email=${encodeURIComponent(values.email)}`
-                )
+              onClick: () => router.push(`/verify-email?email=${encodeURIComponent(values.email)}`)
             }
           });
         }
@@ -152,8 +127,8 @@ export function LoginForm() {
       {/* Demo Credentials Quick Fill Pills */}
       <div className="border-border/60 bg-muted/40 rounded-xl border p-3">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
-            <Sparkles className="h-3.5 w-3.5 text-primary" />
+          <div className="text-muted-foreground flex items-center gap-1.5 text-xs font-semibold">
+            <Sparkles className="text-primary h-3.5 w-3.5" />
             <span>Quick Demo:</span>
           </div>
           <div className="flex flex-wrap gap-1.5">
@@ -185,7 +160,7 @@ export function LoginForm() {
                 <FormLabel className="text-foreground text-xs font-bold">Email Address</FormLabel>
                 <FormControl>
                   <div className="relative">
-                    <Mail className="text-muted-foreground absolute top-3 left-3.5 h-4 w-4" />
+                    <Mail className="text-muted-foreground pointer-events-none absolute top-3.5 left-3.5 h-4 w-4" />
                     <Input
                       type="email"
                       placeholder="Enter your email"
@@ -215,37 +190,24 @@ export function LoginForm() {
                   </Link>
                 </div>
                 <FormControl>
-                  <div className="relative">
-                    <Lock className="text-muted-foreground absolute top-3 left-3.5 h-4 w-4" />
-                    <Input
-                      type={showPassword ? "text" : "password"}
-                      placeholder="Enter your password"
-                      autoComplete="current-password"
-                      className="border-input bg-card placeholder:text-muted-foreground/60 focus-visible:ring-primary h-11 rounded-xl pr-10 pl-10 text-xs font-medium"
-                      {...field}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="text-muted-foreground hover:text-foreground absolute top-3 right-3.5"
-                    >
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
+                  <PasswordInput
+                    placeholder="Enter your password"
+                    autoComplete="current-password"
+                    className="border-input bg-card placeholder:text-muted-foreground/60 focus-visible:ring-primary h-11 rounded-xl text-xs font-medium"
+                    {...field}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
 
-          {/* Keep me signed in Checkbox */}
+          {/* Keep me signed in Checkbox (Styled UI Checkbox) */}
           <div className="flex items-center space-x-2 pt-1">
-            <input
-              type="checkbox"
+            <Checkbox
               id="remember"
               checked={rememberMe}
-              onChange={(e) => setRememberMe(e.target.checked)}
-              className="border-border text-primary focus:ring-primary accent-primary h-4 w-4 rounded"
+              onCheckedChange={(checked) => setRememberMe(checked === true)}
             />
             <label
               htmlFor="remember"

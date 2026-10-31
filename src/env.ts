@@ -4,7 +4,7 @@ import { z } from "zod";
 export const env = createEnv({
   client: {
     NEXT_PUBLIC_SITE_URL: z.string().url().default("http://localhost:3000"),
-    NEXT_PUBLIC_API_URL: z.string().url().default("http://localhost:5000/api/v1"),
+    NEXT_PUBLIC_API_URL: z.string().url().default("https://nayem5000.binarybards.online/api/v1"),
     NEXT_PUBLIC_GA_ID: z.string().optional()
   },
   runtimeEnv: {

@@ -8,6 +8,17 @@ interface AdminOverviewCardsProps {
 }
 
 export function AdminOverviewCards({ analytics, isLoading }: AdminOverviewCardsProps) {
+  const grossSales = analytics?.breakdowns?.financials?.grossSales ?? 0;
+  const platformCommission = analytics?.breakdowns?.financials?.platformCommission ?? 0;
+  const providerPayout = analytics?.breakdowns?.financials?.providerPayout ?? 0;
+
+  // Spec 0001 AC-10: the share is derived from stored figures only. With no sales there is no
+  // real share to show, so the chip is hidden instead of falling back to a guessed 10% / 90%.
+  const commissionPct =
+    grossSales > 0 ? Math.round((platformCommission / grossSales) * 100) : null;
+  const payoutPct =
+    grossSales > 0 ? Math.round((providerPayout / grossSales) * 100) : null;
+
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
       {/* Booking Overview Section */}
@@ -19,8 +30,8 @@ export function AdminOverviewCards({ analytics, isLoading }: AdminOverviewCardsP
             </h2>
             <span className="text-muted-foreground text-[11px] font-medium">
               {analytics?.period?.label
-                ? `Passenger reservations (${analytics.period.label})`
-                : "Live passenger reservations"}
+                ? `${analytics.breakdowns?.bookings?.total ?? 0} total reservations (${analytics.period.label})`
+                : "Reservation lifecycle overview"}
             </span>
           </div>
           <Link
@@ -55,10 +66,10 @@ export function AdminOverviewCards({ analytics, isLoading }: AdminOverviewCardsP
               </div>
               <div className="mt-2">
                 <p className="text-2xl font-extrabold tracking-tight text-emerald-600 dark:text-emerald-400">
-                  {analytics?.bookings?.confirmed ?? 0}
+                  {analytics?.breakdowns?.bookings?.confirmed ?? 0}
                 </p>
                 <span className="text-muted-foreground mt-0.5 inline-block text-[10px] font-medium">
-                  Live active
+                  Active reservations
                 </span>
               </div>
             </div>
@@ -75,10 +86,10 @@ export function AdminOverviewCards({ analytics, isLoading }: AdminOverviewCardsP
               </div>
               <div className="mt-2">
                 <p className="text-2xl font-extrabold tracking-tight text-blue-600 dark:text-blue-400">
-                  {analytics?.bookings?.checkedIn ?? 0}
+                  {analytics?.breakdowns?.bookings?.checkedIn ?? 0}
                 </p>
                 <span className="text-muted-foreground mt-0.5 inline-block text-[10px] font-medium">
-                  Boarded passengers
+                  Checked-in at pier
                 </span>
               </div>
             </div>
@@ -95,10 +106,10 @@ export function AdminOverviewCards({ analytics, isLoading }: AdminOverviewCardsP
               </div>
               <div className="mt-2">
                 <p className="text-2xl font-extrabold tracking-tight text-rose-600 dark:text-rose-400">
-                  {analytics?.bookings?.cancelled ?? 0}
+                  {analytics?.breakdowns?.bookings?.cancelled ?? 0}
                 </p>
                 <span className="text-muted-foreground mt-0.5 inline-block text-[10px] font-medium">
-                  Voided bookings
+                  Cancelled bookings
                 </span>
               </div>
             </div>
@@ -111,12 +122,12 @@ export function AdminOverviewCards({ analytics, isLoading }: AdminOverviewCardsP
         <div className="mb-4 flex items-center justify-between">
           <div>
             <h2 className="text-foreground text-sm font-bold tracking-tight">
-              Platform Financials & Revenue
+              Platform Financials
             </h2>
             <span className="text-muted-foreground text-[11px] font-medium">
               {analytics?.period?.label
-                ? `Gross volume & operator payout (${analytics.period.label})`
-                : "Gross sales volume & operator payout"}
+                ? `Total ticket sales, platform fee & operator payouts (${analytics.period.label})`
+                : "Total ticket sales, platform fee & operator payouts"}
             </span>
           </div>
         </div>
@@ -132,42 +143,67 @@ export function AdminOverviewCards({ analytics, isLoading }: AdminOverviewCardsP
           </div>
         ) : (
           <div className="grid grid-cols-3 gap-3">
-            {/* Gross Booking Volume Card */}
-            <div className="bg-muted/30 border-border/60 flex flex-col justify-between rounded-xl border p-3.5 dark:bg-zinc-800/30">
-              <p className="text-muted-foreground text-[11px] font-semibold tracking-wider uppercase">
-                Gross Sales
-              </p>
+            {/* 1. Total Ticket Sales Card */}
+            <div className="flex flex-col justify-between rounded-xl border border-blue-200/60 bg-blue-500/5 p-3.5 dark:border-blue-800/40 dark:bg-blue-950/20">
+              <div className="flex items-center justify-between">
+                <p className="text-[11px] font-semibold tracking-wider text-blue-700 uppercase dark:text-blue-400">
+                  Total Ticket Sales
+                </p>
+                <span className="rounded-full bg-blue-100 px-1.5 py-0.5 text-[9px] font-bold text-blue-700 dark:bg-blue-900/50 dark:text-blue-300">
+                  Total
+                </span>
+              </div>
               <div className="mt-2">
-                <p className="text-foreground text-2xl font-extrabold tracking-tight">
-                  ${(analytics?.financials?.grossSales ?? 0).toFixed(2)}
+                <p className="text-2xl font-extrabold tracking-tight text-blue-600 dark:text-blue-400">
+                  ${grossSales.toFixed(2)}
                 </p>
                 <span className="text-muted-foreground mt-0.5 inline-block text-[10px] font-medium">
-                  {analytics?.period?.label ? `${analytics.period.label} volume` : "Total volume"}
+                  Paid by passengers
                 </span>
               </div>
             </div>
 
-            {/* Platform Commission Card */}
-            <div className="flex flex-col justify-between rounded-xl border border-blue-200/60 bg-blue-500/5 p-3.5 dark:border-blue-800/40 dark:bg-blue-950/20">
-              <p className="text-[11px] font-semibold tracking-wider text-blue-700 uppercase dark:text-blue-400">
-                Platform Cut
-              </p>
-              <div className="mt-2">
-                <p className="text-2xl font-extrabold tracking-tight text-blue-600 dark:text-blue-400">
-                  ${(analytics?.financials?.platformCommission ?? 0).toFixed(2)}
+            {/* 2. Platform Fee Card */}
+            <div className="flex flex-col justify-between rounded-xl border border-emerald-200/60 bg-emerald-500/5 p-3.5 dark:border-emerald-800/40 dark:bg-emerald-950/20">
+              <div className="flex items-center justify-between">
+                <p className="text-[11px] font-semibold tracking-wider text-emerald-700 uppercase dark:text-emerald-400">
+                  Platform Fee
                 </p>
+                {commissionPct !== null && (
+                  <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300">
+                    {commissionPct}%
+                  </span>
+                )}
+              </div>
+              <div className="mt-2">
+                <p className="text-2xl font-extrabold tracking-tight text-emerald-600 dark:text-emerald-400">
+                  ${platformCommission.toFixed(2)}
+                </p>
+                <span className="text-muted-foreground mt-0.5 inline-block text-[10px] font-medium">
+                  Our platform earnings
+                </span>
               </div>
             </div>
 
-            {/* Operator Net Payout Card */}
-            <div className="flex flex-col justify-between rounded-xl border border-emerald-200/60 bg-emerald-500/5 p-3.5 dark:border-emerald-800/40 dark:bg-emerald-950/20">
-              <p className="text-[11px] font-semibold tracking-wider text-emerald-700 uppercase dark:text-emerald-400">
-                Operator Payout
-              </p>
-              <div className="mt-2">
-                <p className="text-2xl font-extrabold tracking-tight text-emerald-600 dark:text-emerald-400">
-                  ${(analytics?.financials?.providerPayout ?? 0).toFixed(2)}
+            {/* 3. Operator Payout Card */}
+            <div className="bg-muted/30 border-border/60 flex flex-col justify-between rounded-xl border p-3.5 dark:bg-zinc-800/30">
+              <div className="flex items-center justify-between">
+                <p className="text-muted-foreground text-[11px] font-semibold tracking-wider uppercase">
+                  Operator Payout
                 </p>
+                {payoutPct !== null && (
+                  <span className="rounded-full bg-muted px-1.5 py-0.5 text-[9px] font-bold text-muted-foreground border border-border/50">
+                    {payoutPct}%
+                  </span>
+                )}
+              </div>
+              <div className="mt-2">
+                <p className="text-foreground text-2xl font-extrabold tracking-tight">
+                  ${providerPayout.toFixed(2)}
+                </p>
+                <span className="text-muted-foreground mt-0.5 inline-block text-[10px] font-medium">
+                  Paid to ferry operators
+                </span>
               </div>
             </div>
           </div>
