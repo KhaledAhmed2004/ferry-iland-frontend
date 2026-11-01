@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import { get } from "@/lib/api";
+import { get, post } from "@/lib/api";
 import { cookie } from "@/lib/cookie-client";
 
 import type { AuthContextType, AuthUser } from "@/types";
@@ -109,6 +109,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
+    // Revoke the session on the server too, so the old token stops working. Fire and forget:
+    // the user is logged out locally even if this call fails.
+    // The header is set here because the cookie is removed before the request interceptor runs.
+    if (token) {
+      post("/auth/logout", {}, { headers: { Authorization: `Bearer ${token}` } }).catch(() => {});
+    }
     cookie.remove("accessToken");
     setToken(null);
     setUser(null);
