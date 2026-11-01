@@ -22,7 +22,7 @@ powershell -Command "cd '..\..\Backend\cpbryn'; npm run audit"
 1. **Route & Endpoint Introspection**: Scans all 19 Express route modules in `src/app/modules/`, extracts all 121 HTTP endpoints (Customer, Operator, Admin, Shared), and documents methods and source files.
 2. **PostgreSQL / Prisma Invariant Check**: Connects directly to the database via Prisma and confirms master entities: Ports (14), Operators (6), Ferries (12), Routes (37), Bookable Trips (680+), and active Bookings/Tickets.
 3. **Automated Vitest Suite**: Runs all 23 test suites (**284 tests**) in silent test mode and ensures 100% pass rate.
-4. **Live E2E Verification**: Executes `scripts/verify-e2e-flow.js` on port 5003 verifying:
+4. **Live E2E Verification**: Executes `scripts/verify-e2e-flow.js` on port 5000 verifying:
    `Search -> Booking -> Seat Decrement -> Digital QR Pass -> Self-Service Portal -> Cancellation -> Seat Restoration`.
 5. **Machine-Readable Report**: Automatically updates `Backend/cpbryn/docs/LATEST-AUDIT-REPORT.json`.
 
@@ -42,7 +42,7 @@ AI agents should check [`Backend/cpbryn/docs/LATEST-AUDIT-REPORT.json`](file:///
 ## 3. Key Architectural Rules & Route Mounting
 
 1. **Base URL**:
-   - Backend runs on `http://localhost:5003/api/v1`
+   - Backend runs on `http://localhost:5000/api/v1`
    - Frontend runs on `http://localhost:3000`
 2. **Canonical Route Mounting**:
    - Ferry Routes are mounted at `/api/v1/routes` (Public / Operator / Admin).

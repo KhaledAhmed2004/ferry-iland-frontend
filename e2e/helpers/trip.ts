@@ -29,24 +29,36 @@ export async function createTestTrip(operatorApi: APIRequestContext): Promise<Te
   const ferry = ferries.find((f) => f.status === "IN_SERVICE");
   if (!ferry) throw new Error("Operator has no IN_SERVICE ferry.");
 
-  const dep = new Date();
-  dep.setUTCDate(dep.getUTCDate() + 7 + Math.floor(Math.random() * 20));
-  dep.setUTCHours(3 + Math.floor(Math.random() * 8), Math.floor(Math.random() * 4) * 15, 0, 0);
-  const arr = new Date(dep.getTime() + (route.durationMinutes ?? 60) * 60_000);
-
   const adultFare = 40;
   const seats = 20;
-  const schedule = await call(operatorApi, "post", "/schedules", {
-    routeId: route.id,
-    ferryId: ferry.id,
-    departureTime: dep.toISOString(),
-    arrivalTime: arr.toISOString(),
-    gate: "E2E Gate",
-    captain: "E2E Captain",
-    adultFare,
-    childFare: 20,
-    availableSeats: seats
-  });
+
+  // Random slot 7–27 days out. The operator may have off-days (blackout dates) or the
+  // ferry may already sail then — pick another random slot instead of failing the flow.
+  let dep = new Date();
+  let schedule: any;
+  for (let attempt = 1; !schedule; attempt++) {
+    dep = new Date();
+    dep.setUTCDate(dep.getUTCDate() + 7 + Math.floor(Math.random() * 20));
+    dep.setUTCHours(3 + Math.floor(Math.random() * 8), Math.floor(Math.random() * 4) * 15, 0, 0);
+    const arr = new Date(dep.getTime() + (route.durationMinutes ?? 60) * 60_000);
+
+    try {
+      schedule = await call(operatorApi, "post", "/schedules", {
+        routeId: route.id,
+        ferryId: ferry.id,
+        departureTime: dep.toISOString(),
+        arrivalTime: arr.toISOString(),
+        gate: "E2E Gate",
+        captain: "E2E Captain",
+        adultFare,
+        childFare: 20,
+        availableSeats: seats
+      });
+    } catch (e) {
+      const retryable = /blackout|conflict/i.test((e as Error).message);
+      if (!retryable || attempt >= 5) throw e;
+    }
+  }
 
   return {
     scheduleId: schedule.id,
