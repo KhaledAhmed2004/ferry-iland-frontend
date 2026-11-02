@@ -6,11 +6,12 @@ import Link from "next/link";
 
 import {
   Anchor,
+  Armchair,
   ArrowLeftRight,
   ArrowRight,
   ArrowUpDown,
   Calendar,
-  Compass,
+  CreditCard,
   MapPin,
   QrCode,
   ShieldCheck,
@@ -31,8 +32,8 @@ import { Card, CardContent, DatePicker, Label } from "@/ui";
 
 export function HeroSection() {
   const [tripType, setTripType] = useState<"one-way" | "round-trip">("one-way");
-  const [departurePort, setDeparturePort] = useState("Malé Ferry Terminal");
-  const [destinationPort, setDestinationPort] = useState("Maafushi Jetty");
+  const [departurePort, setDeparturePort] = useState("Blowing Point, Anguilla");
+  const [destinationPort, setDestinationPort] = useState("Marigot, Saint Martin");
   const [departureDate, setDepartureDate] = useState(() => format(new Date(), "yyyy-MM-dd"));
   const [returnDate, setReturnDate] = useState(() => format(addDays(new Date(), 3), "yyyy-MM-dd"));
   const [adults, setAdults] = useState(1);
@@ -177,27 +178,34 @@ export function HeroSection() {
             </div>
 
             {/* Main Headline */}
-            <h1 className="text-foreground text-4xl font-black tracking-tight sm:text-5xl lg:text-[60px] lg:leading-[1.08]">
-              Across the water, <br />
+            <h1 className="text-foreground text-4xl font-black tracking-tight sm:text-5xl lg:text-[54px] lg:leading-[1.12]">
+              Book your travel, <br />
               <span className="bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 bg-clip-text text-transparent dark:from-blue-400 dark:via-indigo-300 dark:to-sky-400">
-                without the hassle
-              </span>
-              .
+                Skip the lines
+              </span>{" "}
+              and Advance to your destination.
             </h1>
 
             {/* Description Subtitle */}
             <p className="text-foreground/80 max-w-xl text-sm leading-relaxed font-medium sm:text-base">
-              Book scheduled ferries, high-speed island transfers, and scenic atoll cruises with
-              live seat availability and instant digital QR boarding passes.
+              Register early for your preferred ferry, make secure Payment for your trip, arrive to the
+              terminal on time, Scan QR-Code and Board the ferry to your destination.
             </p>
 
             {/* Feature Highlights Pills */}
             <div className="flex flex-wrap items-center gap-3 pt-2">
               <div className="border-border/70 bg-card/90 text-foreground hover:bg-card inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-bold shadow-2xs backdrop-blur-md transition-all hover:shadow-xs">
                 <div className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400">
-                  <Compass className="h-3 w-3" />
+                  <Armchair className="h-3 w-3" />
                 </div>
                 <span>Live Seat Availability</span>
+              </div>
+
+              <div className="border-border/70 bg-card/90 text-foreground hover:bg-card inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-bold shadow-2xs backdrop-blur-md transition-all hover:shadow-xs">
+                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                  <CreditCard className="h-3 w-3" />
+                </div>
+                <span>Secure Online Payment</span>
               </div>
 
               <div className="border-border/70 bg-card/90 text-foreground hover:bg-card inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-bold shadow-2xs backdrop-blur-md transition-all hover:shadow-xs">
@@ -211,7 +219,7 @@ export function HeroSection() {
                 <div className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
                   <QrCode className="h-3 w-3" />
                 </div>
-                <span>Direct Mobile QR Pass</span>
+                <span>Mobile QR-Code Boarding Pass</span>
               </div>
             </div>
           </div>

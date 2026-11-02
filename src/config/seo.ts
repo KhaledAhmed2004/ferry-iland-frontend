@@ -5,11 +5,11 @@ import { siteConfig } from "@/config/site";
 export const seoConfig: Metadata = {
   metadataBase: new URL(siteConfig.url),
   title: {
-    default: "IslandHop | Book • Travel • Explore",
+    default: "IslandHop | Book your travel, Skip the lines and Advance to your destination",
     template: `%s | ${siteConfig.name}`
   },
   description:
-    "Book ferry & speedboat tickets, travel between islands seamlessly, and explore top maritime routes—all in one simple booking experience.",
+    "Register early for your preferred ferry, make secure Payment for your trip, arrive to the terminal on time, Scan QR-Code and Board the ferry to your destination.",
   alternates: { canonical: "/" },
   icons: {
     icon: [
@@ -24,9 +24,9 @@ export const seoConfig: Metadata = {
   manifest: "/site.webmanifest",
   openGraph: {
     type: "website",
-    title: "IslandHop | Book • Travel • Explore",
+    title: "IslandHop | Book your travel, Skip the lines and Advance to your destination",
     description:
-      "Book ferry & speedboat tickets, travel between islands seamlessly, and explore top maritime routes—all in one simple booking experience.",
+      "Register early for your preferred ferry, make secure Payment for your trip, arrive to the terminal on time, Scan QR-Code and Board the ferry to your destination.",
     url: siteConfig.url,
     siteName: siteConfig.name,
     images: [

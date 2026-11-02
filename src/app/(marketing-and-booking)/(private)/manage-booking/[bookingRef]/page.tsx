@@ -154,9 +154,9 @@ export default function BookingDetailsPage({ params }: BookingDetailsPageProps) 
     );
   }
 
-  const depPort = booking.schedule?.route?.departurePort?.name || "Malé Ferry Terminal";
-  const arrPort = booking.schedule?.route?.destinationPort?.name || "Maafushi Jetty";
-  const operatorName = booking.schedule?.route?.operator?.companyName || "Atoll Ferries";
+  const depPort = booking.schedule?.route?.departurePort?.name || "Blowing Point, Anguilla";
+  const arrPort = booking.schedule?.route?.destinationPort?.name || "Marigot, Saint Martin";
+  const operatorName = booking.schedule?.route?.operator?.companyName || "Makana Ferry Service";
   const vesselName = booking.schedule?.ferry?.name || "Ocean Express";
   const vesselType = booking.schedule?.ferry?.type || "Highspeed Speedboat";
   const tickets = booking.tickets || [];

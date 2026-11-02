@@ -3,7 +3,8 @@ import { env } from "@/env";
 
 export const siteConfig: SiteConfig = {
   name: "IslandHop",
-  description: "Book ferry & speedboat tickets, travel between islands seamlessly, and explore top maritime routes.",
+  description:
+    "Register early for your preferred ferry, make secure Payment for your trip, arrive to the terminal on time, Scan QR-Code and Board the ferry to your destination.",
   url: env.NEXT_PUBLIC_SITE_URL,
   author: "Shariar Sultan Fahim",
   locale: "en",

@@ -82,7 +82,7 @@ export function FaqSupportBanner() {
                 <div className="absolute bottom-3.5 left-4 right-4 text-white">
                   <div className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-sky-300">
                     <Radio className="h-3 w-3 animate-pulse" />
-                    <span>Maldives Maritime Network</span>
+                    <span>Maritime Ferry Network</span>
                   </div>
                   <div className="text-sm font-bold text-white/95 mt-0.5">
                     Fast & Safe Speedboats across South & North Atolls

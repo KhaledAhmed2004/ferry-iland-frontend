@@ -22,9 +22,9 @@ export default function Step4ConfirmationPage({ params }: Step4ConfirmationPageP
 
   // Derived values from live DB booking
   const refCode = booking?.reference || bookingRef || "BK-CONFIRMED";
-  const depPort = booking?.schedule?.route?.departurePort?.name || "Malé Ferry Terminal";
-  const arrPort = booking?.schedule?.route?.destinationPort?.name || "Maafushi Jetty";
-  const operatorName = booking?.schedule?.route?.operator?.companyName || "Atoll Ferries";
+  const depPort = booking?.schedule?.route?.departurePort?.name || "Blowing Point, Anguilla";
+  const arrPort = booking?.schedule?.route?.destinationPort?.name || "Marigot, Saint Martin";
+  const operatorName = booking?.schedule?.route?.operator?.companyName || "Makana Ferry Service";
   const vesselName = booking?.schedule?.ferry?.name || "Ocean Express";
   const totalAmount = booking?.totalAmount ?? 35;
   const passengers = booking?.tickets || [];
