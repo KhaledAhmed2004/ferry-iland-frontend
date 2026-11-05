@@ -19,7 +19,7 @@ export default function HomePage() {
         <HeroSection />
       </AnimatedSection>
 
-      {/* 3. Popular Journeys Grid ("Where are you heading?") */}
+      {/* 3. Popular Journeys Grid ("Explore our neighboring islands") */}
       <AnimatedSection delay={0.05}>
         <PopularJourneysSection />
       </AnimatedSection>

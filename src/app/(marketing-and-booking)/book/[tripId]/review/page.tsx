@@ -17,6 +17,7 @@ import {
 import { parseAsInteger, parseAsString, useQueryState } from "nuqs";
 
 import { useTripDetailsQuery } from "@/hooks/use-trips";
+import { formatTripDate, formatTripTime, tripDateDisplay, useTripLegs } from "@/hooks/use-trip-legs";
 import { BookingStepperNav, BookingSummarySidebar } from "@/widgets";
 import { AnimatedSection, Button, Card, CardContent } from "@/ui";
 
@@ -36,12 +37,16 @@ export default function Step1ReviewPage({ params }: Step1ReviewPageProps) {
   const [departureDate] = useQueryState("departureDate", parseAsString.withDefault(""));
   const [fromPort] = useQueryState("from", parseAsString.withDefault(""));
   const [toPort] = useQueryState("to", parseAsString.withDefault(""));
-  const [tripType] = useQueryState("tripType", parseAsString.withDefault("one-way"));
-
   const { data: trip, isLoading, isError, error } = useTripDetailsQuery(tripId);
+  const legs = useTripLegs(trip);
 
-  const availableSeats = trip?.availableSeats ?? 50;
-  const fare = trip?.adultFare ?? 25;
+  // A return trip is limited by the fuller of its two ferries.
+  const availableSeats = Math.min(
+    trip?.availableSeats ?? 50,
+    legs.returnTrip?.availableSeats ?? Number.POSITIVE_INFINITY
+  );
+  const fare = legs.fare?.adultFare ?? trip?.adultFare ?? 25;
+  const isTripTypeOffered = !trip || legs.fare !== null;
 
   const handleIncrement = () => {
     if (passengerCount < availableSeats) {
@@ -59,48 +64,22 @@ export default function Step1ReviewPage({ params }: Step1ReviewPageProps) {
     startTransition(() => {
       router.push(
         `/book/${tripId}/passengers?passengers=${passengerCount}&departureDate=${encodeURIComponent(
-          departureDate || (trip?.departureTime ? trip.departureTime.split("T")[0] : "")
+          // Port local date of the trip, never the UTC date (spec 0003, AC-4).
+          effectiveDate
         )}&from=${encodeURIComponent(trip?.departurePort || fromPort)}&to=${encodeURIComponent(
           trip?.destinationPort || toPort
-        )}&tripType=${tripType}`
+        )}&${legs.legQuery}`
       );
     });
   };
 
   // Format date display
-  const effectiveDate = departureDate || (trip?.departureTime ? trip.departureTime.split("T")[0] : "");
-  let formattedDate = effectiveDate;
-  try {
-    const d = new Date(effectiveDate);
-    if (!isNaN(d.getTime())) {
-      formattedDate = d.toLocaleDateString("en-US", {
-        weekday: "short",
-        day: "numeric",
-        month: "short",
-        year: "numeric"
-      });
-    }
-  } catch {
-    formattedDate = effectiveDate;
-  }
+  const { effectiveDate, formattedDate, depTimeDisplay, arrTimeDisplay } = tripDateDisplay(
+    trip,
+    departureDate
+  );
 
-  // Format departure / arrival times
-  const depTimeDisplay = trip?.departureTime
-    ? new Date(trip.departureTime).toLocaleTimeString("en-US", {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: true
-      })
-    : "TBD";
-  const arrTimeDisplay = trip?.arrivalTime
-    ? new Date(trip.arrivalTime).toLocaleTimeString("en-US", {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: true
-      })
-    : "TBD";
-
-  if (isLoading) {
+  if (isLoading || legs.isReturnLoading) {
     return (
       <div className="dark:bg-background min-h-screen bg-[#F8FAFC] py-20">
         <div className="border-border/60 dark:bg-card border-b bg-white">
@@ -152,6 +131,14 @@ export default function Step1ReviewPage({ params }: Step1ReviewPageProps) {
     duration: trip.duration,
     operator: trip.operator
   };
+
+  const returnLegSummary = legs.returnTrip
+    ? {
+        route: `${legs.returnTrip.departurePort} → ${legs.returnTrip.destinationPort}`,
+        date: formatTripDate(legs.returnTrip.departureTime, legs.returnTrip.departureTimeZone),
+        departureTime: formatTripTime(legs.returnTrip.departureTime, legs.returnTrip.departureTimeZone),
+      }
+    : null;
 
   return (
     <div className="dark:bg-background min-h-screen bg-[#F8FAFC] py-20">
@@ -240,11 +227,13 @@ export default function Step1ReviewPage({ params }: Step1ReviewPageProps) {
                       <Tag className="h-4 w-4" />
                     </div>
                     <div className="space-y-0.5">
-                      <div className="text-muted-foreground text-[11px] font-medium">Fare</div>
+                      <div className="text-muted-foreground text-[11px] font-medium">
+                        {legs.tripTypeLabel} fare
+                      </div>
                       <div className="text-foreground text-sm font-bold">
                         ${fare}{" "}
                         <span className="text-muted-foreground text-xs font-normal">
-                          / passenger
+                          / passenger{legs.isReturn ? " (both ways)" : ""}
                         </span>
                       </div>
                     </div>
@@ -252,6 +241,32 @@ export default function Step1ReviewPage({ params }: Step1ReviewPageProps) {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Return ferry (Round Trip / Same Day Return) */}
+            {legs.isReturn && legs.returnTrip && (
+              <Card className="border-border/80 dark:bg-card rounded-2xl border bg-white p-6 shadow-sm">
+                <CardContent className="space-y-3 p-0">
+                  <span className="text-muted-foreground text-xs font-semibold">Your return ferry</span>
+                  <h2 className="text-foreground text-xl font-bold tracking-tight">
+                    {legs.returnTrip.departurePort} &rarr; {legs.returnTrip.destinationPort}
+                  </h2>
+                  <div className="text-muted-foreground flex flex-wrap gap-x-6 gap-y-1 text-sm">
+                    <span>{formatTripDate(legs.returnTrip.departureTime, legs.returnTrip.departureTimeZone)}</span>
+                    <span>
+                      {formatTripTime(legs.returnTrip.departureTime, legs.returnTrip.departureTimeZone)} &rarr;{" "}
+                      {formatTripTime(legs.returnTrip.arrivalTime, legs.returnTrip.arrivalTimeZone)}
+                    </span>
+                    <span>{legs.returnTrip.vessel}</span>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {!isTripTypeOffered && (
+              <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm font-semibold">
+                {legs.tripTypeLabel} is not offered on this route. Please go back and choose another trip.
+              </div>
+            )}
 
             {/* Seats Remaining Blue Banner */}
             <div className="flex items-start gap-3 rounded-2xl border border-blue-100 bg-[#EBF5FF] p-4 text-[#003B95] dark:border-blue-900/40 dark:bg-blue-950/30 dark:text-blue-300">
@@ -315,9 +330,12 @@ export default function Step1ReviewPage({ params }: Step1ReviewPageProps) {
                 trip={sidebarTripData}
                 passengerCount={passengerCount}
                 departureDate={formattedDate}
+                tripTypeLabel={legs.tripTypeLabel}
+                returnLeg={returnLegSummary}
                 actionButton={
                   <Button
                     onClick={handleContinue}
+                    disabled={!isTripTypeOffered}
                     className="h-12 w-full rounded-xl bg-[#003B95] text-xs font-bold text-white shadow-md transition-all hover:bg-[#002f77] sm:text-sm"
                   >
                     Continue to Passenger Details <ArrowRight className="ml-1.5 h-4 w-4" />

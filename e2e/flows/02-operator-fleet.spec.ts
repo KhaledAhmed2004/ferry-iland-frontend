@@ -99,7 +99,6 @@ test("operator adds ferry, route and schedule; trip becomes searchable @smoke", 
     const dialog = page.getByRole("dialog");
     await expect(dialog.getByRole("heading", { name: /add new ferry/i })).toBeVisible();
     await dialog.getByLabel(/ferry name/i).fill(ferryName);
-    await dialog.getByLabel(/registration number/i).fill(`E2E-${stamp}`);
     await dialog.getByLabel(/passenger capacity/i).fill(String(capacity));
 
     const ferry = await submitAndCapture(page, /^add ferry$/i, "/ferries");

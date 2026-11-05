@@ -1,6 +1,11 @@
-import Link from "next/link";
+import { ExternalLink, Eye } from "lucide-react";
 
-import { StatusBadge, type TableColumn } from "@/widgets";
+import { formatDollars } from "@/lib/payment";
+import {
+  StatusBadge,
+  type TableColumn,
+  DataTableRowActions
+} from "@/widgets";
 import type { IAdminAnalyticsOverview } from "@/types";
 
 function formatBookingDate(dateInput: string | Date | undefined): string {
@@ -25,6 +30,7 @@ export function getRecentBookingColumns(
   return [
     {
       header: "REFERENCE",
+      sortValue: (item) => item.reference,
       cell: (b) => (
         <div className="flex flex-col gap-0.5">
           <span className="text-foreground block font-mono text-xs font-bold tracking-tight">
@@ -40,18 +46,20 @@ export function getRecentBookingColumns(
     },
     {
       header: "PASSENGER",
+      sortValue: (item) => item.leadPassengerName,
+      className: "min-w-[170px] whitespace-normal",
       cell: (b) => {
         const paxCount = b.paxCount ?? 1;
         return (
           <div className="flex flex-col gap-0.5">
-            <div className="flex items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-1.5">
               <span className="text-foreground text-xs font-semibold">{b.leadPassengerName}</span>
               <span className="inline-flex items-center rounded bg-muted/80 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
                 {paxCount} {paxCount === 1 ? "Passenger" : "Passengers"}
               </span>
             </div>
             {b.leadPassengerEmail && (
-              <span className="text-muted-foreground block text-[11px] font-medium" title={b.leadPassengerEmail}>
+              <span className="text-muted-foreground block break-all text-[11px] font-medium" title={b.leadPassengerEmail}>
                 {b.leadPassengerEmail}
               </span>
             )}
@@ -61,6 +69,7 @@ export function getRecentBookingColumns(
     },
     {
       header: "ROUTE & SCHEDULE",
+      className: "min-w-[180px] whitespace-normal",
       cell: (b) => {
         const isPast = b.departureTime ? new Date(b.departureTime).getTime() <= Date.now() : false;
         return (
@@ -85,6 +94,7 @@ export function getRecentBookingColumns(
     },
     {
       header: "OPERATOR & VESSEL",
+      className: "min-w-[150px] whitespace-normal",
       cell: (b) => (
         <div className="flex flex-col gap-0.5 text-xs">
           <span className="text-foreground font-semibold leading-snug" title={b.operatorName}>
@@ -100,41 +110,41 @@ export function getRecentBookingColumns(
     },
     {
       header: "AMOUNT",
+      sortValue: (item) => Number(item.totalAmount),
       cell: (b) => (
         <span className="text-foreground font-mono text-xs font-extrabold">
-          ${Number(b.totalAmount).toFixed(2)}
+          {formatDollars(Number(b.totalAmount))}
         </span>
       )
     },
     {
       header: "STATUS",
+      sortValue: (item) => item.status,
       cell: (b) => <StatusBadge status={b.status} />
     },
     {
       header: "ACTION",
       align: "right",
       headerClassName: "text-right",
-      cell: (b) => {
-        if (onViewBooking) {
-          return (
-            <button
-              type="button"
-              onClick={() => onViewBooking(b)}
-              className="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline dark:text-blue-400 cursor-pointer"
-            >
-              View
-            </button>
-          );
-        }
-        return (
-          <Link
-            href={`/dashboard/admin/bookings?search=${encodeURIComponent(b.reference)}`}
-            className="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline dark:text-blue-400"
-          >
-            View
-          </Link>
-        );
-      }
+      cell: (b) => (
+        <DataTableRowActions
+          actions={[
+            onViewBooking
+              ? { label: "View details", icon: Eye, onSelect: () => onViewBooking(b) }
+              : {
+                  label: "View details",
+                  icon: Eye,
+                  href: `/dashboard/admin/bookings?search=${encodeURIComponent(b.reference)}`
+                },
+            {
+              label: "Open in bookings",
+              icon: ExternalLink,
+              href: `/dashboard/admin/bookings?search=${encodeURIComponent(b.reference)}`,
+              separatorBefore: true
+            }
+          ]}
+        />
+      )
     }
   ];
 }

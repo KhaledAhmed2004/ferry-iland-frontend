@@ -87,7 +87,7 @@ async function runMasterAudit() {
       passed++;
       const top = popRes.data.data[0];
       console.log(`${check} (${popRes.duration}ms)`);
-      console.log(`        Loaded ${popRes.data.data.length} journeys | Top: ${colors.cyan}${top.from} ➔ ${top.to}${colors.reset} ($${top.startingPrice})`);
+      console.log(`        Loaded ${popRes.data.data.length} journeys | Top: ${colors.cyan}${top.from} ➔ ${top.to}${colors.reset} (${top.startingPrice != null ? "$" + top.startingPrice : "no fare"})`);
       suiteResults.push({ name: 'Popular Journeys API', status: 'PASS', ms: popRes.duration });
     } else {
       console.log(`${cross}`);

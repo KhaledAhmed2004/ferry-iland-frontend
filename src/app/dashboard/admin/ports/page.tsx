@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+
 import {
   AlertTriangle,
   Anchor,
@@ -13,8 +14,8 @@ import {
   Trash2,
   X
 } from "lucide-react";
-import { toast } from "sonner";
 import { parseAsInteger, parseAsStringLiteral, useQueryState } from "nuqs";
+import { toast } from "sonner";
 
 import {
   useAdminPortsQuery,
@@ -23,7 +24,18 @@ import {
   useUpdatePortMutation
 } from "@/hooks";
 import { useDebounce } from "@/hooks/use-debounce";
-import type { IPort } from "@/types";
+
+import {
+  DashboardPageSkeleton,
+  DashboardTableCard,
+  DataTableRowActions,
+  PageHeader,
+  StatCard,
+  StatCardGridSkeleton,
+  StatusBadge,
+  TableToolbar,
+  type TableColumn
+} from "@/widgets";
 import {
   Button,
   Checkbox,
@@ -37,25 +49,13 @@ import {
   Label,
   ReusableSelect
 } from "@/ui";
-import {
-  DashboardTableCard,
-  PageHeader,
-  StatCard,
-  StatusBadge,
-  TablePagination,
-  TableToolbar,
-  type TableColumn
-} from "@/widgets";
+import type { IPort } from "@/types";
+
+import { TimeZoneCombobox } from "./_components/TimeZoneCombobox";
 
 const STATUS_SELECT_OPTIONS = [
   { value: "ACTIVE", label: "Active (Operational)" },
   { value: "INACTIVE", label: "Inactive (Closed)" }
-];
-
-const PAGE_SIZE_OPTIONS = [
-  { value: "10", label: "10 per page" },
-  { value: "20", label: "20 per page" },
-  { value: "50", label: "50 per page" }
 ];
 
 export function AdminPortsView() {
@@ -68,7 +68,7 @@ export function AdminPortsView() {
 
   // Pagination states synced to URL query (?page=2&pageSize=10)
   const [page, setPage] = useQueryState("page", parseAsInteger.withDefault(1));
-  const [pageSize, setPageSize] = useQueryState("pageSize", parseAsInteger.withDefault(10));
+  const [pageSize] = useQueryState("pageSize", parseAsInteger.withDefault(10));
 
   // Bulk selection & action states
   const [selectedPortIds, setSelectedPortIds] = React.useState<Set<string>>(new Set());
@@ -85,6 +85,7 @@ export function AdminPortsView() {
 
   // Form Fields
   const [formName, setFormName] = React.useState("");
+  const [formTimeZone, setFormTimeZone] = React.useState("");
   const [formStatus, setFormStatus] = React.useState<"ACTIVE" | "INACTIVE">("ACTIVE");
   const [errorText, setErrorText] = React.useState("");
 
@@ -147,10 +148,7 @@ export function AdminPortsView() {
   }, [filteredPorts, startIndex, endIndex]);
 
   // Selection Computations
-  const displayedPortIds = React.useMemo(
-    () => paginatedPorts.map((p) => p.id),
-    [paginatedPorts]
-  );
+  const displayedPortIds = React.useMemo(() => paginatedPorts.map((p) => p.id), [paginatedPorts]);
   const isAllCurrentPageSelected =
     paginatedPorts.length > 0 && paginatedPorts.every((p) => selectedPortIds.has(p.id));
   const isSomeCurrentPageSelected =
@@ -312,6 +310,7 @@ export function AdminPortsView() {
   const handleOpenAdd = () => {
     setEditingPort(null);
     setFormName("");
+    setFormTimeZone("");
     setFormStatus("ACTIVE");
     setErrorText("");
     setIsModalOpen(true);
@@ -321,6 +320,7 @@ export function AdminPortsView() {
   const handleOpenEdit = (port: IPort) => {
     setEditingPort(port);
     setFormName(port.name);
+    setFormTimeZone(port.timeZone);
     setFormStatus(port.isActive ? "ACTIVE" : "INACTIVE");
     setErrorText("");
     setIsModalOpen(true);
@@ -333,9 +333,14 @@ export function AdminPortsView() {
       setErrorText("Port name is required");
       return;
     }
+    if (!formTimeZone) {
+      setErrorText("Time zone is required");
+      return;
+    }
 
     const payload = {
       name: formName.trim(),
+      timeZone: formTimeZone,
       isActive: formStatus === "ACTIVE"
     };
 
@@ -376,11 +381,7 @@ export function AdminPortsView() {
         <div className="flex items-center justify-center">
           <Checkbox
             checked={
-              isAllCurrentPageSelected
-                ? true
-                : isSomeCurrentPageSelected
-                  ? "indeterminate"
-                  : false
+              isAllCurrentPageSelected ? true : isSomeCurrentPageSelected ? "indeterminate" : false
             }
             onCheckedChange={toggleSelectAllCurrentPage}
             aria-label="Select all ports on current page"
@@ -393,10 +394,7 @@ export function AdminPortsView() {
       cell: (item) => {
         const isChecked = selectedPortIds.has(item.id);
         return (
-          <div
-            className="flex items-center justify-center"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
             <Checkbox
               checked={isChecked}
               onCheckedChange={() => toggleSelectRow(item.id)}
@@ -413,58 +411,50 @@ export function AdminPortsView() {
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-950/50 dark:text-blue-400">
             <Anchor className="h-4 w-4" />
           </div>
-          <span className="font-semibold text-foreground text-xs sm:text-sm">
-            {item.name}
-          </span>
+          <span className="text-foreground text-xs font-semibold sm:text-sm">{item.name}</span>
         </div>
       )
     },
     {
       header: "STATUS",
-      cell: (item) => (
-        <StatusBadge status={item.isActive ? "Active" : "Suspended"} />
-      )
+      cell: (item) => <StatusBadge status={item.isActive ? "Active" : "Suspended"} />
     },
     {
       header: "ACTIONS",
       align: "right",
       headerClassName: "text-right",
       cell: (item) => (
-        <div className="flex items-center justify-end gap-1.5">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleOpenEdit(item)}
-            className="h-8 px-2.5 text-xs gap-1 text-foreground"
-          >
-            <Edit className="h-3.5 w-3.5 text-muted-foreground" />
-            <span>Edit</span>
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setDeletingPort(item)}
-            className="h-8 px-2 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/50"
-            title="Delete"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
-        </div>
+        <DataTableRowActions
+          actions={[
+            { label: "Edit port", icon: Edit, onSelect: () => handleOpenEdit(item) },
+            {
+              label: "Delete port",
+              icon: Trash2,
+              destructive: true,
+              separatorBefore: true,
+              onSelect: () => setDeletingPort(item)
+            }
+          ]}
+        />
       )
     }
   ];
 
   return (
-    <div className="w-full space-y-5 px-4 py-6 sm:px-6 lg:px-8">
+    <div className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8">
       {/* Clean Header */}
       <PageHeader
         title="Ports"
-        description={`Manage ferry terminals, harbors, and docking stations (${totalCount} ports total).`}
+        description={
+          isLoading
+            ? "Manage ferry terminals, harbors, and docking stations."
+            : `Manage ferry terminals, harbors, and docking stations (${totalCount} ports total).`
+        }
         actions={
           <Button
             size="sm"
             onClick={handleOpenAdd}
-            className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5 self-start sm:self-auto h-9 text-xs font-semibold px-3.5 shadow-xs"
+            className="h-9 gap-1.5 self-start bg-blue-600 px-3.5 text-xs font-semibold text-white shadow-xs hover:bg-blue-700 sm:self-auto"
           >
             <Plus className="h-4 w-4" />
             <span>Add Port</span>
@@ -473,58 +463,51 @@ export function AdminPortsView() {
       />
 
       {/* Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-        <StatCard
-          label="Total Terminals"
-          value={totalCount}
-          icon={Anchor}
-          variant="blue"
-        />
+      {isLoading ? (
+        <StatCardGridSkeleton count={3} className="grid grid-cols-1 gap-4 sm:grid-cols-3" />
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <StatCard label="Total Terminals" value={totalCount} icon={Anchor} variant="blue" />
 
-        <StatCard
-          label="Operational (Active)"
-          value={activeCount}
-          icon={CheckCircle2}
-          variant="emerald"
-          colorValue
-        />
+          <StatCard
+            label="Operational (Active)"
+            value={activeCount}
+            icon={CheckCircle2}
+            variant="emerald"
+            colorValue
+          />
 
-        <StatCard
-          label="Suspended (Closed)"
-          value={inactiveCount}
-          icon={AlertTriangle}
-          variant="amber"
-          colorValue
-        />
-      </div>
+          <StatCard
+            label="Suspended (Closed)"
+            value={inactiveCount}
+            icon={AlertTriangle}
+            variant="amber"
+            colorValue
+          />
+        </div>
+      )}
 
       {/* Reusable Search & Status Toolbar */}
-      <TableToolbar
-        searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
-        searchPlaceholder="Search ports by name..."
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        tabs={[
-          { value: "all", label: "All", count: totalCount },
-          { value: "active", label: "Active", count: activeCount },
-          { value: "inactive", label: "Inactive", count: inactiveCount }
-        ]}
-      />
-
-      {/* Table & Bulk Actions */}
-      {isLoading ? (
-        <div className="space-y-3 rounded-xl border border-border/80 bg-card p-6 shadow-xs animate-pulse">
-          <div className="h-5 w-40 rounded bg-muted mb-4" />
-          <div className="h-10 w-full rounded bg-muted/60" />
-          <div className="h-10 w-full rounded bg-muted/40" />
-          <div className="h-10 w-full rounded bg-muted/60" />
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {/* Bulk Action Sticky / Floating Toolbar */}
-          {selectedCount > 0 && (
-            <div className="bg-card/95 dark:bg-card/90 border-blue-500/30 sticky top-4 z-20 flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3 shadow-lg backdrop-blur-md transition-all animate-in fade-in slide-in-from-top-2 duration-200">
+      <DashboardTableCard
+        itemName="ports"
+        toolbar={
+          <TableToolbar
+            countsLoading={isLoading}
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+            searchPlaceholder="Search ports by name..."
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            tabs={[
+              { value: "all", label: "All", count: totalCount },
+              { value: "active", label: "Active", count: activeCount },
+              { value: "inactive", label: "Inactive", count: inactiveCount }
+            ]}
+          />
+        }
+        bulkActions={
+          selectedCount > 0 ? (
+            <div className="bg-card/95 dark:bg-card/90 animate-in fade-in slide-in-from-top-2 sticky top-4 z-20 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-500/30 p-3 shadow-lg backdrop-blur-md transition-all duration-200">
               <div className="flex flex-wrap items-center gap-2.5">
                 <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-blue-600 px-2 text-xs font-bold text-white shadow-2xs">
                   {selectedCount}
@@ -602,7 +585,7 @@ export function AdminPortsView() {
                   size="sm"
                   disabled={isBulkOperating}
                   onClick={clearSelection}
-                  className="h-8 cursor-pointer gap-1 text-xs text-muted-foreground hover:text-foreground"
+                  className="text-muted-foreground hover:text-foreground h-8 cursor-pointer gap-1 text-xs"
                   title="Deselect all ports"
                 >
                   <X className="h-3.5 w-3.5" />
@@ -610,68 +593,53 @@ export function AdminPortsView() {
                 </Button>
               </div>
             </div>
-          )}
-
-          <DashboardTableCard
-            title={
-              searchTerm || activeTab !== "all"
-                ? "Filtered Ports"
-                : "All Ports"
-            }
-            headerRight={
-              selectedCount > 0 ? (
-                <div className="flex items-center gap-2">
-                  <span className="text-muted-foreground text-xs font-medium">
-                    {selectedCount} selected
-                  </span>
-                  <button
-                    type="button"
-                    onClick={clearSelection}
-                    className="cursor-pointer text-xs font-semibold text-rose-600 hover:underline dark:text-rose-400"
-                  >
-                    Clear
-                  </button>
-                </div>
-              ) : undefined
-            }
-            columns={columns}
-            data={paginatedPorts}
-            keyExtractor={(item) => item.id}
-            rowClassName={(item) =>
-              selectedPortIds.has(item.id)
-                ? "bg-blue-500/10 hover:bg-blue-500/15 dark:bg-blue-950/30 dark:hover:bg-blue-950/40 border-l-2 border-l-blue-600 dark:border-l-blue-400"
-                : undefined
-            }
-            emptyMessage={
-              searchTerm || activeTab !== "all"
-                ? "No ports found matching your search."
-                : "No ports registered yet. Click 'Add Port' to create one."
-            }
-          />
-
-          {/* Reusable Pagination Controls */}
-          <TablePagination
-            page={currentPage}
-            totalPages={totalPages}
-            totalCount={totalFiltered}
-            pageSize={pageSize}
-            onPageChange={(newPage) => void setPage(newPage)}
-            onPageSizeChange={(newSize) => {
-              void setPageSize(newSize);
-              void setPage(1);
-            }}
-            pageSizeOptions={PAGE_SIZE_OPTIONS}
-            itemName="ports"
-            isLoading={isFetching}
-          />
-        </div>
-      )}
+          ) : null
+        }
+        pagination={{
+          page: currentPage,
+          pageSize: pageSize,
+          totalCount: totalFiltered,
+          totalPages: totalPages,
+          onPageChange: (newPage) => void setPage(newPage)
+        }}
+        title={searchTerm || activeTab !== "all" ? "Filtered Ports" : "All Ports"}
+        headerRight={
+          selectedCount > 0 ? (
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground text-xs font-medium">
+                {selectedCount} selected
+              </span>
+              <button
+                type="button"
+                onClick={clearSelection}
+                className="cursor-pointer text-xs font-semibold text-rose-600 hover:underline dark:text-rose-400"
+              >
+                Clear
+              </button>
+            </div>
+          ) : undefined
+        }
+        columns={columns}
+        data={paginatedPorts}
+        isLoading={isLoading}
+        keyExtractor={(item) => item.id}
+        rowClassName={(item) =>
+          selectedPortIds.has(item.id)
+            ? "bg-blue-500/10 hover:bg-blue-500/15 dark:bg-blue-950/30 dark:hover:bg-blue-950/40 border-l-2 border-l-blue-600 dark:border-l-blue-400"
+            : undefined
+        }
+        emptyMessage={
+          searchTerm || activeTab !== "all"
+            ? "No ports found matching your search."
+            : "No ports registered yet. Click 'Add Port' to create one."
+        }
+      />
 
       {/* ─── ADD / EDIT DIALOG ────────────────────────────────────────────── */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-base text-foreground flex items-center gap-2">
+            <DialogTitle className="text-foreground flex items-center gap-2 text-base">
               <Compass className="h-4 w-4 text-blue-600" />
               <span>{editingPort ? "Edit Port" : "Add New Port"}</span>
             </DialogTitle>
@@ -689,7 +657,7 @@ export function AdminPortsView() {
               </Label>
               <Input
                 id="port-name"
-                placeholder="e.g. Malé Terminal"
+                placeholder="e.g. Blowing Point, Anguilla"
                 value={formName}
                 onChange={(e) => {
                   setFormName(e.target.value);
@@ -697,9 +665,25 @@ export function AdminPortsView() {
                 }}
                 className="h-9 text-xs"
               />
-              {errorText && (
-                <p className="text-[11px] font-medium text-rose-500">{errorText}</p>
-              )}
+              {errorText && <p className="text-[11px] font-medium text-rose-500">{errorText}</p>}
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="port-time-zone" className="text-xs font-semibold">
+                Time Zone <span className="text-rose-500">*</span>
+              </Label>
+              <TimeZoneCombobox
+                id="port-time-zone"
+                value={formTimeZone}
+                onChange={(zone) => {
+                  setFormTimeZone(zone);
+                  if (errorText) setErrorText("");
+                }}
+              />
+              <p className="text-muted-foreground text-[11px]">
+                Trip times at this port are shown in this zone. It cannot change while upcoming
+                trips use the port.
+              </p>
             </div>
 
             <div className="space-y-1.5">
@@ -708,7 +692,7 @@ export function AdminPortsView() {
                 value={formStatus}
                 onValueChange={(val) => setFormStatus(val as "ACTIVE" | "INACTIVE")}
                 options={STATUS_SELECT_OPTIONS}
-                className="h-9 text-xs w-full"
+                className="h-9 w-full text-xs"
               />
             </div>
 
@@ -726,7 +710,7 @@ export function AdminPortsView() {
                 type="submit"
                 size="sm"
                 disabled={isSubmitting}
-                className="h-9 text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 gap-1.5"
+                className="h-9 gap-1.5 bg-blue-600 text-xs font-semibold text-white hover:bg-blue-700"
               >
                 {isSubmitting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                 <span>{editingPort ? "Save Changes" : "Create Port"}</span>
@@ -740,23 +724,26 @@ export function AdminPortsView() {
       <Dialog open={!!deletingPort} onOpenChange={(open) => !open && setDeletingPort(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-base text-rose-600 flex items-center gap-2">
+            <DialogTitle className="flex items-center gap-2 text-base text-rose-600">
               <Trash2 className="h-4 w-4" />
               <span>Delete Port</span>
             </DialogTitle>
             <DialogDescription asChild>
-              <div className="text-xs space-y-3 pt-1 text-muted-foreground">
+              <div className="text-muted-foreground space-y-3 pt-1 text-xs">
                 <p>
                   Are you sure you want to delete{" "}
                   <strong className="text-foreground">{deletingPort?.name}</strong>?
                 </p>
-                <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-2.5 text-[11px] text-amber-700 dark:text-amber-300 space-y-1">
-                  <p className="font-semibold flex items-center gap-1.5">
-                    <AlertTriangle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                <div className="space-y-1 rounded-lg border border-amber-500/20 bg-amber-500/10 p-2.5 text-[11px] text-amber-700 dark:text-amber-300">
+                  <p className="flex items-center gap-1.5 font-semibold">
+                    <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600" />
                     <span>Route & History Safety Notice</span>
                   </p>
                   <p className="leading-relaxed">
-                    If this port is linked to active routes or past bookings, it cannot be wiped completely. Instead, the system will safely <strong>deactivate (Suspend)</strong> it to keep route schedules and tickets intact.
+                    If this port is linked to active routes or past bookings, it cannot be wiped
+                    completely. Instead, the system will safely{" "}
+                    <strong>deactivate (Suspend)</strong> it to keep route schedules and tickets
+                    intact.
                   </p>
                 </div>
               </div>
@@ -779,11 +766,9 @@ export function AdminPortsView() {
               size="sm"
               disabled={deleteMutation.isPending}
               onClick={handleDelete}
-              className="h-9 text-xs font-semibold bg-rose-600 text-white hover:bg-rose-700 gap-1.5"
+              className="h-9 gap-1.5 bg-rose-600 text-xs font-semibold text-white hover:bg-rose-700"
             >
-              {deleteMutation.isPending && (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              )}
+              {deleteMutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
               <span>Delete</span>
             </Button>
           </DialogFooter>
@@ -806,13 +791,14 @@ export function AdminPortsView() {
                   Delete {selectedCount} {selectedCount === 1 ? "Port" : "Ports"}
                 </DialogTitle>
                 <DialogDescription className="text-xs">
-                  Are you sure you want to permanently delete {selectedCount} selected ports? This may affect routes that originate or terminate at these ports.
+                  Are you sure you want to permanently delete {selectedCount} selected ports? This
+                  may affect routes that originate or terminate at these ports.
                 </DialogDescription>
               </div>
             </div>
           </DialogHeader>
 
-          <DialogFooter className="gap-2 sm:gap-0 pt-3">
+          <DialogFooter className="gap-2 pt-3 sm:gap-0">
             <Button
               variant="outline"
               size="sm"
@@ -847,7 +833,7 @@ export function AdminPortsView() {
 
 export default function AdminPortsPage() {
   return (
-    <React.Suspense fallback={<div className="p-8 text-xs text-muted-foreground animate-pulse">Loading ports...</div>}>
+    <React.Suspense fallback={<DashboardPageSkeleton statCount={3} />}>
       <AdminPortsView />
     </React.Suspense>
   );

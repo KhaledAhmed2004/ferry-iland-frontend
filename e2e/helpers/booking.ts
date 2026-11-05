@@ -40,18 +40,21 @@ export async function bookTripViaUI(page: Page, trip: TestTrip, passengerName: s
     await page.getByRole("button", { name: /continue to payment/i }).click();
   });
 
-  await test.step("Pay & confirm (POST /bookings → 201)", async () => {
+  await test.step("Continue to pay (POST /bookings → 201)", async () => {
     await expect(page).toHaveURL(/\/payment/);
     const bookingResponse = page.waitForResponse(
       (r) => r.url().endsWith("/bookings") && r.request().method() === "POST"
     );
-    await page.getByRole("button", { name: /confirm booking/i }).click();
+    await page.getByRole("button", { name: /continue to pay/i }).click();
 
     const res = await bookingResponse;
     expect(res.status(), "POST /bookings should succeed").toBe(201);
     const data = (await res.json()).data;
     booking = { id: data.id, reference: data.reference };
     expect(booking.reference).toBeTruthy();
+    // This helper covers the confirm on create flow (backend PAYMENTS_ENABLED off). With
+    // payments on, the booking waits for a card: use the pay at checkout flow (06) instead.
+    expect(data.status, "set PAYMENTS_ENABLED=false on the backend for this flow").toBe("CONFIRMED");
   });
 
   await test.step("Confirmation shows the real reference + passenger", async () => {

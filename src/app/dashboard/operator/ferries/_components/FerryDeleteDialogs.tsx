@@ -60,7 +60,6 @@ export function FerryDeleteDialogs({
               <div className="font-semibold text-foreground flex items-center gap-2">
                 <Ship className="h-4 w-4 text-emerald-600" />
                 <span>{deletingFerry.name}</span>
-                <span className="font-mono text-muted-foreground">({deletingFerry.registration})</span>
               </div>
               <div className="text-muted-foreground text-[11px]">
                 Capacity: {deletingFerry.capacity} passengers • Type: {deletingFerry.type}

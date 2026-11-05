@@ -15,7 +15,9 @@ import {
   Trash2,
   X
 } from "lucide-react";
+
 import { cn } from "@/lib/utils";
+
 import {
   useAdminFaqsQuery,
   useBulkCategoryFaqsMutation,
@@ -25,12 +27,14 @@ import {
   useDeleteFaqMutation,
   useUpdateFaqMutation
 } from "@/hooks/use-faqs";
+
 import {
   DashboardTableCard,
+  DataTableRowActions,
   PageHeader,
   StatCard,
+  StatCardGridSkeleton,
   StatusBadge,
-  TablePagination,
   TableToolbar,
   type TableColumn,
   type TableToolbarTab
@@ -65,7 +69,7 @@ export function FaqManagementView() {
   const [searchTerm, setSearchTerm] = React.useState("");
   const [selectedCategory, setSelectedCategory] = React.useState<string>("ALL");
   const [page, setPage] = React.useState(1);
-  const [pageSize, setPageSize] = React.useState(10);
+  const pageSize = 10;
 
   // Bulk Selection States
   const [selectedFaqIds, setSelectedFaqIds] = React.useState<Set<string>>(new Set());
@@ -84,6 +88,9 @@ export function FaqManagementView() {
     page,
     limit: pageSize
   });
+
+  // Category tabs need every category for the current search, not just the selected one.
+  const { data: tabSourceResponse } = useAdminFaqsQuery({ search: searchTerm, limit: 0 });
 
   const createFaqMutation = useCreateFaqMutation();
   const updateFaqMutation = useUpdateFaqMutation();
@@ -402,56 +409,53 @@ export function FaqManagementView() {
       align: "right",
       className: "w-32 text-right",
       cell: (item) => (
-        <div className="flex items-center justify-end gap-1">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleOpenEditModal(item)}
-            className="h-8 gap-1 rounded-lg px-2.5 text-xs font-semibold"
-          >
-            <Edit2 className="text-muted-foreground h-3.5 w-3.5" />
-            <span>Edit</span>
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              setDeletingItem(item);
-              setIsDeleteModalOpen(true);
-            }}
-            className="h-8 px-2 text-xs text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:hover:bg-rose-950/50"
-            title="Delete FAQ"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
-        </div>
+        <DataTableRowActions
+          actions={[
+            { label: "Edit FAQ", icon: Edit2, onSelect: () => handleOpenEditModal(item) },
+            {
+              label: "Delete FAQ",
+              icon: Trash2,
+              destructive: true,
+              separatorBefore: true,
+              onSelect: () => {
+                setDeletingItem(item);
+                setIsDeleteModalOpen(true);
+              }
+            }
+          ]}
+        />
       )
     }
   ];
 
   // Tab configurations for TableToolbar dynamically generated from current FAQs
   const toolbarTabs: TableToolbarTab<string>[] = React.useMemo(() => {
+    const allFaqs = tabSourceResponse?.data ?? faqs;
     const activeCategories = Array.from(
-      new Set(faqs.map((f) => (f.category || "").trim()).filter(Boolean))
+      new Set(allFaqs.map((f) => (f.category || "").trim()).filter(Boolean))
     );
 
     return [
-      { value: "ALL", label: "All Topics", count: faqs.length },
+      { value: "ALL", label: "All Topics", count: allFaqs.length },
       ...activeCategories.map((cat) => ({
         value: cat,
         label: cat,
-        count: faqs.filter((f) => (f.category || "").trim().toLowerCase() === cat.toLowerCase())
+        count: allFaqs.filter((f) => (f.category || "").trim().toLowerCase() === cat.toLowerCase())
           .length
       }))
     ];
-  }, [faqs]);
+  }, [tabSourceResponse, faqs]);
 
   return (
-    <div className="w-full space-y-5 px-4 py-6 sm:px-6 lg:px-8">
+    <div className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8">
       {/* Clean Header */}
       <PageHeader
         title="FAQ Management"
-        description={`Create, edit, and organize passenger frequently asked questions (${faqs.length} total).`}
+        description={
+          isLoading
+            ? "Create, edit, and organize passenger frequently asked questions."
+            : `Create, edit, and organize passenger frequently asked questions (${faqs.length} total).`
+        }
         actions={
           <Button
             size="sm"
@@ -465,176 +469,170 @@ export function FaqManagementView() {
       />
 
       {/* Metric Cards Row */}
-      <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-3">
-        <StatCard label="Total Questions" value={stats.total} icon={FileQuestion} variant="blue" />
-        <StatCard
-          label="Published & Active"
-          value={stats.published}
-          icon={CheckCircle2}
-          variant="emerald"
-        />
-        <StatCard
-          label="Topic Categories"
-          value={stats.categoriesCount}
-          icon={Tag}
-          variant="purple"
-        />
-      </div>
+      {isLoading ? (
+        <StatCardGridSkeleton count={3} className="grid grid-cols-1 gap-4 sm:grid-cols-3" />
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <StatCard
+            label="Total Questions"
+            value={stats.total}
+            icon={FileQuestion}
+            variant="blue"
+          />
+          <StatCard
+            label="Published & Active"
+            value={stats.published}
+            icon={CheckCircle2}
+            variant="emerald"
+          />
+          <StatCard
+            label="Topic Categories"
+            value={stats.categoriesCount}
+            icon={Tag}
+            variant="purple"
+          />
+        </div>
+      )}
 
       {/* Reusable Search & Category Toolbar */}
-      <TableToolbar
-        searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
-        searchPlaceholder="Search questions or answers..."
-        activeTab={selectedCategory}
-        onTabChange={setSelectedCategory}
-        tabs={toolbarTabs}
-      />
-
-      {/* Table Management View */}
-      <div className="flex flex-col gap-4">
-        {/* Bulk Action Sticky / Floating Toolbar */}
-        {selectedCount > 0 && (
-          <div className="bg-card/95 dark:bg-card/90 animate-in fade-in slide-in-from-top-2 sticky top-4 z-20 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-500/30 p-3 shadow-lg backdrop-blur-md transition-all duration-200">
-            <div className="flex flex-wrap items-center gap-2.5">
-              <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-blue-600 px-2 text-xs font-bold text-white shadow-2xs">
-                {selectedCount}
-              </span>
-              <span className="text-foreground text-xs font-semibold">
-                {selectedCount === 1 ? "question selected" : "questions selected"}
-              </span>
-            </div>
-
-            {/* Bulk Action Buttons */}
-            <div className="flex flex-wrap items-center gap-2">
-              {/* Bulk Publish */}
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={isBulkOperating}
-                onClick={() => handleBulkPublish(true)}
-                className="h-8 cursor-pointer gap-1.5 border-emerald-200 bg-emerald-50/50 text-xs font-semibold text-emerald-700 shadow-2xs hover:bg-emerald-100 hover:text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/60"
-                title="Publish selected FAQs"
-              >
-                {bulkPublishMutation.isPending ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Check className="h-3.5 w-3.5 stroke-[2.5]" />
-                )}
-                <span>Publish</span>
-              </Button>
-
-              {/* Bulk Unpublish */}
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={isBulkOperating}
-                onClick={() => handleBulkPublish(false)}
-                className="h-8 cursor-pointer gap-1.5 border-amber-200 bg-amber-50/50 text-xs font-semibold text-amber-700 shadow-2xs hover:bg-amber-100 hover:text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-900/60"
-                title="Unpublish (Draft) selected FAQs"
-              >
-                {bulkPublishMutation.isPending ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <EyeOff className="h-3.5 w-3.5" />
-                )}
-                <span>Unpublish</span>
-              </Button>
-
-              {/* Bulk Move Category */}
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={isBulkOperating}
-                onClick={() => setIsBulkCategoryModalOpen(true)}
-                className="h-8 cursor-pointer gap-1.5 border-purple-200 bg-purple-50/50 text-xs font-semibold text-purple-700 shadow-2xs hover:bg-purple-100 hover:text-purple-800 dark:border-purple-800 dark:bg-purple-950/40 dark:text-purple-300 dark:hover:bg-purple-900/60"
-                title="Reassign category topic for selected FAQs"
-              >
-                {bulkCategoryMutation.isPending ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <FolderInput className="h-3.5 w-3.5" />
-                )}
-                <span>Change Topic</span>
-              </Button>
-
-              {/* Bulk Delete */}
-              <Button
-                variant="destructive"
-                size="sm"
-                disabled={isBulkOperating}
-                onClick={() => setIsBulkDeleteModalOpen(true)}
-                className="h-8 cursor-pointer gap-1.5 bg-rose-600 text-xs font-semibold text-white shadow-2xs hover:bg-rose-700"
-                title="Delete selected FAQs"
-              >
-                {bulkDeleteMutation.isPending ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Trash2 className="h-3.5 w-3.5" />
-                )}
-                <span>Delete ({selectedCount})</span>
-              </Button>
-
-              {/* Deselect */}
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={isBulkOperating}
-                onClick={clearSelection}
-                className="text-muted-foreground hover:text-foreground h-8 cursor-pointer gap-1 text-xs"
-                title="Deselect all FAQs"
-              >
-                <X className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Deselect</span>
-              </Button>
-            </div>
-          </div>
-        )}
-
-        <DashboardTableCard
-          title={
-            <div className="flex items-center gap-2">
-              <span className="text-foreground text-sm font-bold">Questions Directory</span>
-              <span className="text-muted-foreground text-xs font-normal">
-                ({totalCount} items total)
-              </span>
-              {isFetching && (
-                <span className="animate-pulse text-[10px] font-medium text-blue-600">
-                  Syncing...
+      <DashboardTableCard
+        itemName="FAQs"
+        toolbar={
+          <TableToolbar
+            countsLoading={isLoading}
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+            searchPlaceholder="Search questions or answers..."
+            activeTab={selectedCategory}
+            onTabChange={setSelectedCategory}
+            tabs={toolbarTabs}
+          />
+        }
+        bulkActions={
+          selectedCount > 0 ? (
+            <div className="bg-card/95 dark:bg-card/90 animate-in fade-in slide-in-from-top-2 sticky top-4 z-20 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-500/30 p-3 shadow-lg backdrop-blur-md transition-all duration-200">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-blue-600 px-2 text-xs font-bold text-white shadow-2xs">
+                  {selectedCount}
                 </span>
-              )}
-            </div>
-          }
-          columns={columns}
-          data={faqs}
-          keyExtractor={(item) => item.id}
-          emptyMessage={
-            isLoading
-              ? "Loading questions from database..."
-              : "No questions found matching your filter criteria."
-          }
-        />
+                <span className="text-foreground text-xs font-semibold">
+                  {selectedCount === 1 ? "question selected" : "questions selected"}
+                </span>
+              </div>
 
-        {/* Proper Table Pagination Component */}
-        <TablePagination
-          page={currentPage}
-          totalPages={totalPages}
-          totalCount={totalCount}
-          pageSize={pageSize}
-          onPageChange={setPage}
-          onPageSizeChange={(newSize) => {
-            setPageSize(newSize);
-            setPage(1);
-          }}
-          pageSizeOptions={[
-            { value: "5", label: "5 per page" },
-            { value: "10", label: "10 per page" },
-            { value: "20", label: "20 per page" },
-            { value: "50", label: "50 per page" }
-          ]}
-          itemName="FAQs"
-        />
-      </div>
+              {/* Bulk Action Buttons */}
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Bulk Publish */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={isBulkOperating}
+                  onClick={() => handleBulkPublish(true)}
+                  className="h-8 cursor-pointer gap-1.5 border-emerald-200 bg-emerald-50/50 text-xs font-semibold text-emerald-700 shadow-2xs hover:bg-emerald-100 hover:text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/60"
+                  title="Publish selected FAQs"
+                >
+                  {bulkPublishMutation.isPending ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Check className="h-3.5 w-3.5 stroke-[2.5]" />
+                  )}
+                  <span>Publish</span>
+                </Button>
+
+                {/* Bulk Unpublish */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={isBulkOperating}
+                  onClick={() => handleBulkPublish(false)}
+                  className="h-8 cursor-pointer gap-1.5 border-amber-200 bg-amber-50/50 text-xs font-semibold text-amber-700 shadow-2xs hover:bg-amber-100 hover:text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-900/60"
+                  title="Unpublish (Draft) selected FAQs"
+                >
+                  {bulkPublishMutation.isPending ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <EyeOff className="h-3.5 w-3.5" />
+                  )}
+                  <span>Unpublish</span>
+                </Button>
+
+                {/* Bulk Move Category */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={isBulkOperating}
+                  onClick={() => setIsBulkCategoryModalOpen(true)}
+                  className="h-8 cursor-pointer gap-1.5 border-purple-200 bg-purple-50/50 text-xs font-semibold text-purple-700 shadow-2xs hover:bg-purple-100 hover:text-purple-800 dark:border-purple-800 dark:bg-purple-950/40 dark:text-purple-300 dark:hover:bg-purple-900/60"
+                  title="Reassign category topic for selected FAQs"
+                >
+                  {bulkCategoryMutation.isPending ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <FolderInput className="h-3.5 w-3.5" />
+                  )}
+                  <span>Change Topic</span>
+                </Button>
+
+                {/* Bulk Delete */}
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  disabled={isBulkOperating}
+                  onClick={() => setIsBulkDeleteModalOpen(true)}
+                  className="h-8 cursor-pointer gap-1.5 bg-rose-600 text-xs font-semibold text-white shadow-2xs hover:bg-rose-700"
+                  title="Delete selected FAQs"
+                >
+                  {bulkDeleteMutation.isPending ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-3.5 w-3.5" />
+                  )}
+                  <span>Delete ({selectedCount})</span>
+                </Button>
+
+                {/* Deselect */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={isBulkOperating}
+                  onClick={clearSelection}
+                  className="text-muted-foreground hover:text-foreground h-8 cursor-pointer gap-1 text-xs"
+                  title="Deselect all FAQs"
+                >
+                  <X className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Deselect</span>
+                </Button>
+              </div>
+            </div>
+          ) : null
+        }
+        pagination={{
+          page: currentPage,
+          pageSize: pageSize,
+          totalCount: totalCount,
+          totalPages: totalPages,
+          onPageChange: setPage
+        }}
+        title={
+          <div className="flex items-center gap-2">
+            <span className="text-foreground text-sm font-bold">Questions Directory</span>
+            <span className="text-muted-foreground text-xs font-normal">
+              ({totalCount} items total)
+            </span>
+            {isFetching && (
+              <span className="animate-pulse text-[10px] font-medium text-blue-600">
+                Syncing...
+              </span>
+            )}
+          </div>
+        }
+        columns={columns}
+        data={faqs}
+        keyExtractor={(item) => item.id}
+        emptyMessage="No questions found matching your filter criteria."
+        isLoading={isLoading}
+        skeletonRows={pageSize > 10 ? 10 : pageSize}
+      />
 
       {/* ADD / EDIT MODAL */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>

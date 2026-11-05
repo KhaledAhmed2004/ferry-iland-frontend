@@ -668,9 +668,6 @@ export default function OperatorOffDaysPage() {
               </div>
               <div>
                 <p className="font-semibold text-foreground text-xs">{item.ferry.name}</p>
-                <p className="text-[10px] text-muted-foreground font-mono">
-                  {item.ferry.registration}
-                </p>
               </div>
             </div>
           );

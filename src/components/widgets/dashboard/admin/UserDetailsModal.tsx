@@ -37,23 +37,28 @@ export interface UserDetailsModalProps {
   onStatusChange?: (user: IAdminUserItem, nextStatus: "ACTIVE" | "SUSPENDED") => void;
 }
 
-export function UserDetailsModal({
+export function UserDetailsModal(props: UserDetailsModalProps) {
+  if (!props.user) return null;
+  // Keyed so local status resets when another passenger (or a new status) comes in,
+  // and so hooks below always run in the same order.
+  return (
+    <UserDetailsModalContent
+      key={`${props.user.id}:${props.user.status}`}
+      {...props}
+      user={props.user}
+    />
+  );
+}
+
+function UserDetailsModalContent({
   user,
   open,
   onOpenChange,
   onStatusChange
-}: UserDetailsModalProps) {
-  if (!user) return null;
-
+}: UserDetailsModalProps & { user: IAdminUserItem }) {
   const [localStatus, setLocalStatus] = React.useState<string>(user.status || "ACTIVE");
   const [copiedKey, setCopiedKey] = React.useState<string | null>(null);
   const updateStatusMutation = useUpdateUserStatusMutation();
-
-  React.useEffect(() => {
-    if (user?.status) {
-      setLocalStatus(user.status);
-    }
-  }, [user?.status]);
 
   const handleToggleStatus = async () => {
     const nextStatus = localStatus === "ACTIVE" ? "SUSPENDED" : "ACTIVE";

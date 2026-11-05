@@ -1,50 +1,48 @@
 "use client";
 
 import * as React from "react";
-import {
-  AlertCircle,
-  ChevronLeft,
-  ChevronRight,
-  CircleDollarSign,
-  CreditCard,
-  DollarSign,
-  RefreshCw,
-  Search
-} from "lucide-react";
+import { CircleDollarSign, CreditCard, DollarSign, Eye, RefreshCw } from "lucide-react";
+
 import { useAdminPaymentsQuery } from "@/hooks/use-admin";
-import type { IAdminPaymentListItem } from "@/types";
-import { Button, Input } from "@/ui";
+import { useTableState } from "@/hooks/use-table-state";
+import type { AdminPaymentSortField, IAdminPaymentListItem } from "@/types";
+import { Button, ReusableSelect } from "@/ui";
 import {
-  DashboardTableCard,
+  DataTable,
   PageHeader,
   PaymentDetailsModal,
   StatCard,
+  StatCardGridSkeleton,
   StatusBadge,
-  type TableColumn
+  TableToolbar,
+  type DataTableColumn,
+  DataTableRowActions
 } from "@/widgets";
 
+const STATUS_OPTIONS = [
+  { value: "ALL", label: "All statuses" },
+  { value: "COMPLETED", label: "Completed" },
+  { value: "PENDING", label: "Pending" },
+  { value: "REFUNDED", label: "Refunded" },
+  { value: "CANCELED", label: "Canceled" }
+];
+
+const money = (value: number) => `$${value.toFixed(2)}`;
+
 export default function AdminPaymentsPage() {
-  const [page, setPage] = React.useState<number>(1);
-  const [searchTerm, setSearchTerm] = React.useState<string>("");
-  const [debouncedSearch, setDebouncedSearch] = React.useState<string>("");
-  const [statusFilter, setStatusFilter] = React.useState<string>("ALL");
+  const table = useTableState({
+    filters: { status: "ALL" },
+    defaultSort: { id: "createdAt", desc: true }
+  });
   const [selectedPayment, setSelectedPayment] = React.useState<IAdminPaymentListItem | null>(null);
 
-  // Debounce search input
-  React.useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearch(searchTerm);
-      setPage(1);
-    }, 400);
-    return () => clearTimeout(timer);
-  }, [searchTerm]);
-
-  // Live Query from Backend API
-  const { data, isLoading, isError, error, refetch, isFetching } = useAdminPaymentsQuery({
-    page,
-    limit: 10,
-    search: debouncedSearch || undefined,
-    status: statusFilter !== "ALL" ? statusFilter : undefined
+  const { data, isLoading, error, refetch, isFetching } = useAdminPaymentsQuery({
+    page: table.page,
+    limit: table.pageSize,
+    search: table.debouncedSearch || undefined,
+    status: table.filters.status,
+    sortBy: table.sortBy as AdminPaymentSortField | undefined,
+    sortOrder: table.sortOrder
   });
 
   const overview = data?.overview ?? {
@@ -53,59 +51,79 @@ export default function AdminPaymentsPage() {
     providerAmount: 0,
     commissionRate: 10
   };
-
+  const commissionRate = overview.commissionRate || 10;
   const payments = data?.data ?? [];
-  const meta = data?.meta ?? { page: 1, limit: 10, total: 0, totalPages: 1 };
+  const meta = data?.meta ?? { page: 1, limit: table.pageSize, total: 0, totalPages: 1 };
 
-  const paymentColumns: TableColumn<IAdminPaymentListItem>[] = [
-    {
-      header: "BOOKING REFERENCE",
-      accessorKey: "bookingReference",
-      className: "font-mono font-medium text-slate-700 dark:text-slate-300"
-    },
-    {
-      header: "PROVIDER",
-      accessorKey: "provider",
-      className: "font-medium text-foreground"
-    },
-    {
-      header: "BOOKING AMOUNT",
-      className: "font-bold text-foreground",
-      cell: (item) => `$${item.bookingAmount.toFixed(2)}`
-    },
-    {
-      header: "COMMISSION",
-      className: "font-semibold text-blue-600 dark:text-blue-400",
-      cell: (item) => `$${item.commission.toFixed(2)}`
-    },
-    {
-      header: "PROVIDER AMOUNT",
-      className: "font-medium text-foreground",
-      cell: (item) => `$${item.providerAmount.toFixed(2)}`
-    },
-    {
-      header: "PAYMENT STATUS",
-      cell: (item) => <StatusBadge status={item.paymentStatus} />
-    },
-    {
-      header: "ACTION",
-      align: "right",
-      headerClassName: "text-right",
-      cell: (item) => (
-        <button
-          type="button"
-          onClick={() => setSelectedPayment(item)}
-          className="text-blue-600 hover:text-blue-700 dark:text-blue-400 font-semibold hover:underline transition-colors cursor-pointer"
-        >
-          View Details
-        </button>
-      )
-    }
-  ];
+  // Column ids double as the backend `sortBy` values.
+  const columns = React.useMemo<DataTableColumn<IAdminPaymentListItem>[]>(
+    () => [
+      {
+        id: "bookingReference",
+        header: "Booking Reference",
+        accessorKey: "bookingReference",
+        meta: { className: "font-mono font-medium text-slate-700 dark:text-slate-300" }
+      },
+      {
+        id: "provider",
+        header: "Provider",
+        accessorKey: "provider",
+        enableSorting: false,
+        meta: { className: "font-medium" }
+      },
+      {
+        id: "passenger",
+        header: "Passenger",
+        accessorKey: "passenger",
+        enableSorting: false
+      },
+      {
+        id: "bookingAmount",
+        header: "Booking Amount",
+        accessorKey: "bookingAmount",
+        cell: ({ row }) => money(row.original.bookingAmount),
+        meta: { className: "font-bold" }
+      },
+      {
+        id: "commission",
+        header: "Commission",
+        accessorKey: "commission",
+        cell: ({ row }) => money(row.original.commission),
+        meta: { className: "font-semibold text-blue-600 dark:text-blue-400" }
+      },
+      {
+        id: "providerAmount",
+        header: "Provider Amount",
+        accessorKey: "providerAmount",
+        cell: ({ row }) => money(row.original.providerAmount),
+        meta: { className: "font-medium" }
+      },
+      {
+        id: "paymentStatus",
+        header: "Payment Status",
+        accessorKey: "paymentStatus",
+        cell: ({ row }) => <StatusBadge status={row.original.paymentStatus} />
+      },
+      {
+        id: "actions",
+        header: "Action",
+        enableSorting: false,
+        enableHiding: false,
+        meta: { align: "right" },
+        cell: ({ row }) => (
+          <DataTableRowActions
+            actions={[
+              { label: "View details", icon: Eye, onSelect: () => setSelectedPayment(row.original) }
+            ]}
+          />
+        )
+      }
+    ],
+    []
+  );
 
   return (
     <div className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8">
-      {/* Page Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <PageHeader
           title="Payments & Commissions"
@@ -116,144 +134,87 @@ export default function AdminPaymentsPage() {
           size="sm"
           onClick={() => refetch()}
           disabled={isFetching}
-          className="self-start sm:self-auto gap-2"
+          className="gap-2 self-start sm:self-auto"
         >
           <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
           Refresh
         </Button>
       </div>
 
-      {/* 3 Stat Cards for Live Revenue Breakdown */}
+      {isLoading ? (
+        <StatCardGridSkeleton count={3} className="grid grid-cols-1 gap-4 sm:grid-cols-3" />
+      ) : (
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        {/* Card 1: Total Booking Value */}
         <StatCard
           label="Total Booking Value"
-          value={`$${overview.totalBookingValue.toFixed(2)}`}
+          value={money(overview.totalBookingValue)}
           icon={DollarSign}
           variant="emerald"
           changePercent={0}
           trend="neutral"
           comparisonText="collected gross revenue"
         />
-
-        {/* Card 2: FerryGo Commission */}
         <StatCard
-          label={`FerryGo Commission (${overview.commissionRate || 10}%)`}
-          value={`$${overview.commission.toFixed(2)}`}
+          label={`FerryGo Commission (${commissionRate}%)`}
+          value={money(overview.commission)}
           icon={CircleDollarSign}
           variant="blue"
           changePercent={0}
           trend="neutral"
-          comparisonText={`${overview.commissionRate || 10}% platform fee`}
+          comparisonText={`${commissionRate}% platform fee`}
         />
-
-        {/* Card 3: Provider Amount */}
         <StatCard
-          label={`Provider Amount (${100 - (overview.commissionRate || 10)}%)`}
-          value={`$${overview.providerAmount.toFixed(2)}`}
+          label={`Provider Amount (${100 - commissionRate}%)`}
+          value={money(overview.providerAmount)}
           icon={CreditCard}
           variant="indigo"
           changePercent={0}
           trend="neutral"
-          comparisonText={`${100 - (overview.commissionRate || 10)}% net operator payout`}
+          comparisonText={`${100 - commissionRate}% net operator payout`}
         />
       </div>
-
-      {/* Filters Bar: Search & Status Filter */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-card p-4 rounded-xl border border-border shadow-2xs">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            type="text"
-            placeholder="Search by reference, passenger, or provider..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-9 h-9"
-          />
-        </div>
-
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-muted-foreground">Status:</span>
-          <select
-            value={statusFilter}
-            onChange={(e) => {
-              setStatusFilter(e.target.value);
-              setPage(1);
-            }}
-            className="h-9 px-3 text-xs rounded-md border border-input bg-background font-medium focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring cursor-pointer"
-          >
-            <option value="ALL">All Statuses</option>
-            <option value="COMPLETED">Completed</option>
-            <option value="PENDING">Pending</option>
-            <option value="REFUNDED">Refunded</option>
-            <option value="CANCELED">Canceled</option>
-          </select>
-        </div>
-      </div>
-
-      {/* Error State */}
-      {isError && (
-        <div className="flex items-center justify-between rounded-xl border border-rose-200 bg-rose-50/70 p-4 text-rose-900 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200">
-          <div className="flex items-center gap-3">
-            <AlertCircle className="h-5 w-5 shrink-0 text-rose-600 dark:text-rose-400" />
-            <p className="text-sm font-medium">
-              {error instanceof Error ? error.message : "Failed to load live payment transactions."}
-            </p>
-          </div>
-          <Button variant="outline" size="sm" onClick={() => refetch()} className="border-rose-300">
-            Retry
-          </Button>
-        </div>
       )}
 
-      {/* Transaction Records Table */}
-      <div className="space-y-4">
-        <DashboardTableCard
-          title="Transaction Records"
-          columns={paymentColumns}
-          data={payments}
-          keyExtractor={(item) => item.id}
-          emptyMessage={isLoading ? "Loading live transactions..." : "No payment records found."}
-          headerRight={isFetching ? <RefreshCw className="h-4 w-4 animate-spin text-muted-foreground" /> : undefined}
-        />
+      <DataTable
+        title="Transaction Records"
+        itemName="records"
+        columns={columns}
+        data={payments}
+        getRowId={(row) => row.id}
+        isLoading={isLoading}
+        isFetching={isFetching}
+        error={error}
+        onRetry={() => refetch()}
+        emptyMessage="No payment records found."
+        sorting={table.sorting}
+        onSortingChange={table.setSorting}
+        enableColumnVisibility
+        storageKey="admin-payments"
+        initialColumnVisibility={{ passenger: false }}
+        toolbar={
+          <TableToolbar
+            searchTerm={table.search}
+            onSearchChange={table.setSearch}
+            searchPlaceholder="Search by reference, passenger, or provider..."
+          >
+            <ReusableSelect
+              value={table.filters.status}
+              onValueChange={(value) => table.setFilter("status", value)}
+              options={STATUS_OPTIONS}
+              className="h-8 w-full text-xs sm:w-[160px]"
+            />
+          </TableToolbar>
+        }
+        pagination={{
+          page: meta.page,
+          pageSize: table.pageSize,
+          totalCount: meta.total,
+          totalPages: meta.totalPages,
+          onPageChange: table.setPage,
+          onPageSizeChange: table.setPageSize
+        }}
+      />
 
-        {/* Pagination Controls */}
-        {meta.totalPages > 1 && (
-          <div className="flex items-center justify-between px-2 pt-2 text-xs text-muted-foreground">
-            <span>
-              Showing {payments.length > 0 ? (meta.page - 1) * meta.limit + 1 : 0} to{" "}
-              {Math.min(meta.page * meta.limit, meta.total)} of {meta.total} records
-            </span>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={meta.page <= 1 || isLoading}
-                className="h-8 px-2"
-              >
-                <ChevronLeft className="h-4 w-4" />
-                <span className="sr-only">Previous</span>
-              </Button>
-              <span className="font-medium text-foreground">
-                Page {meta.page} of {meta.totalPages}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPage((p) => Math.min(meta.totalPages, p + 1))}
-                disabled={meta.page >= meta.totalPages || isLoading}
-                className="h-8 px-2"
-              >
-                <ChevronRight className="h-4 w-4" />
-                <span className="sr-only">Next</span>
-              </Button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Payment Details Modal */}
       <PaymentDetailsModal
         payment={selectedPayment}
         open={!!selectedPayment}

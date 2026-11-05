@@ -1,5 +1,4 @@
 export * from "./animated-section";
-export * from "./animated-theme-toggler";
 export * from "./avatar";
 export * from "./badge";
 export * from "./button";
@@ -23,3 +22,6 @@ export * from "./calendar";
 export * from "./checkbox";
 export * from "./scroll-area";
 export * from "./password-input";
+export * from "./skeleton";
+export * from "./chart";
+export * from "./dropdown-menu";

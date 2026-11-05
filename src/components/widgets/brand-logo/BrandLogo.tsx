@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 
 interface BrandLogoProps {
   size?: "sm" | "md" | "lg";
+  logoSrc?: string;
   showText?: boolean;
   title?: ReactNode;
   subtitle?: string;
@@ -20,6 +21,7 @@ interface BrandLogoProps {
 
 export function BrandLogo({
   size = "md",
+  logoSrc,
   showText = true,
   title,
   subtitle = "Book • Travel • Explore",
@@ -48,12 +50,12 @@ export function BrandLogo({
         )}
       >
         <Image
-          src="/logo.png"
-          alt="IslandHop Logo"
+          src={logoSrc || "/logo.png"}
+          alt="Brand Logo"
           width={currentSize.px}
           height={currentSize.px}
           priority={priority}
-          className="h-full w-full object-contain"
+          className={cn("h-full w-full", logoSrc ? "object-cover" : "object-contain")}
         />
       </div>
 

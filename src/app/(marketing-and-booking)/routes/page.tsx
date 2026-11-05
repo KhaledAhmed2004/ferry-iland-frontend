@@ -1,16 +1,15 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import Image from "next/image";
 
-import { Ship } from "lucide-react";
-
 import heroBg from "@/assets/routes/route-bg.png";
 import { ExploreRoutesGrid, RouteSearchFilterBar } from "@/widgets";
-import { AnimatedSection, Card, CardContent } from "@/ui";
+import { AnimatedSection } from "@/ui";
 
 export const metadata: Metadata = {
   title: "Explore Island Routes | IslandHop",
   description:
-    "Discover connections between islands and plan your next journey across the Maldives."
+    "Discover connections between islands and plan your next journey across the Caribbean."
 };
 
 export default function RoutesPage() {
@@ -35,50 +34,35 @@ export default function RoutesPage() {
 
           <div className="relative z-10 container mx-auto max-w-7xl p-4 sm:px-6 md:py-10 lg:px-8 lg:py-20">
             <div className="max-w-xl space-y-4">
-              <div className="text-primary bg-card bg-opacity/30 flex w-fit items-center gap-2 rounded-full px-2 py-1 text-xs font-semibold tracking-wider uppercase">
-                <Ship className="text-primary h-4 w-4" /> ROUTES
-              </div>
-
               <h1 className="text-foreground text-3xl font-black tracking-tight sm:text-5xl lg:text-6xl">
                 Explore our <br />
                 <span className="text-primary">ferry routes</span>
               </h1>
 
-              {/* Feature pill badge card inside hero */}
-              <div className="pt-2">
-                <Card className="border-border/80 dark:bg-card/90 w-fit rounded-2xl border bg-white/95 p-3.5 shadow-sm backdrop-blur-md">
-                  <CardContent className="flex items-center gap-3 p-0">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#003B95]/10 text-[#003B95] dark:bg-blue-950/50 dark:text-blue-400">
-                      <Ship className="h-5 w-5" />
-                    </div>
-                    <div className="space-y-0.5 pr-2">
-                      <h4 className="text-foreground text-xs font-bold">
-                        Multiple daily trips to popular destinations
-                      </h4>
-                      <p className="text-muted-foreground text-[11px]">
-                        Find the best route for your adventure.
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
+              <p className="text-foreground/80 text-sm font-medium sm:text-base">
+                Ferry connections across the Caribbean islands.
+              </p>
             </div>
           </div>
         </section>
       </AnimatedSection>
 
-      {/* 2. Floating Search by Port Filter Bar */}
+      {/* 2. From/To filter — writes ?from=&to= which the grid below reads */}
       <AnimatedSection
         delay={0.05}
         className="relative z-20 mx-auto -mt-14 w-full max-w-7xl px-4 sm:px-6 lg:px-8"
       >
-        <RouteSearchFilterBar />
+        <Suspense fallback={null}>
+          <RouteSearchFilterBar />
+        </Suspense>
       </AnimatedSection>
 
-      {/* 3. Explore Ferry Routes Grid with Progressive "Load More" Pagination */}
+      {/* 3. Routes grid */}
       <main className="container mx-auto mt-14 max-w-7xl px-4 sm:px-6 lg:px-8">
         <AnimatedSection delay={0.05}>
-          <ExploreRoutesGrid />
+          <Suspense fallback={null}>
+            <ExploreRoutesGrid />
+          </Suspense>
         </AnimatedSection>
       </main>
     </div>

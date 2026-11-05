@@ -1,5 +1,6 @@
 import * as React from "react";
-import { format, isValid, parseISO } from "date-fns";
+import { isValid, parseISO } from "date-fns";
+import { formatPortDate } from "@/lib/port-time";
 import { AlertTriangle, Clock, Loader2, Ship, Trash2 } from "lucide-react";
 import type { IOperatorSchedule } from "@/types";
 import {
@@ -63,8 +64,12 @@ export function ScheduleDeleteDialogs({
               </div>
               <div className="text-muted-foreground flex items-center gap-1 font-mono">
                 <Clock className="h-3.5 w-3.5 text-emerald-600" />
-                {isValid(parseISO(deletingSchedule.departureTime))
-                  ? format(parseISO(deletingSchedule.departureTime), "hh:mm a, dd MMM yyyy")
+                {isValid(parseISO(deletingSchedule.departureTime)) && deletingSchedule.route?.departurePort?.timeZone
+                  ? formatPortDate(
+                      deletingSchedule.departureTime,
+                      deletingSchedule.route.departurePort.timeZone,
+                      "hh:mm a, dd MMM yyyy"
+                    )
                   : deletingSchedule.departureTime}
               </div>
               <div className="text-muted-foreground flex items-center gap-1">

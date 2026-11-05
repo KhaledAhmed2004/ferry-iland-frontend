@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  Ship,
   Ticket,
   X
 } from "lucide-react";
@@ -21,7 +22,8 @@ import { cn } from "@/lib/utils";
 
 const NAV_LINKS = [
   { name: "Book", href: "/", icon: Ticket },
-  { name: "Routes", href: "/routes", icon: Compass },
+  { name: "Travel", href: "/ferries", icon: Ship },
+  { name: "Explore", href: "/routes", icon: Compass },
   { name: "Manage Booking", href: "/manage-booking", icon: Ticket },
   { name: "Help", href: "/help", icon: HelpCircle }
 ];

@@ -18,6 +18,7 @@ import {
   Users
 } from "lucide-react";
 import { format, isValid } from "date-fns";
+import { formatPortDate } from "@/lib/port-time";
 import { toast } from "sonner";
 
 import {
@@ -214,7 +215,7 @@ export default function OperatorBookingsPage() {
       header: "ROUTE & PORTS",
       cell: (item) => {
         const schedule = item.schedule;
-        const dep = schedule?.route?.departurePort?.name || "Malé Terminal";
+        const dep = schedule?.route?.departurePort?.name || "Departure Port";
         const arr = schedule?.route?.destinationPort?.name || "Destination Jetty";
         return (
           <div className="space-y-0.5 max-w-[190px]">
@@ -235,7 +236,7 @@ export default function OperatorBookingsPage() {
       cell: (item) => {
         const schedule = item.schedule;
         const ferryName = schedule?.ferry?.name || "Fleet Vessel";
-        const ferryInfo = schedule?.ferry?.type || schedule?.ferry?.registration;
+        const ferryInfo = schedule?.ferry?.type;
         return (
           <div className="space-y-0.5 max-w-[150px]">
             <div className="font-semibold text-xs text-foreground truncate flex items-center gap-1">
@@ -255,15 +256,17 @@ export default function OperatorBookingsPage() {
       header: "DEPARTURE",
       cell: (item) => {
         const time = item.schedule?.departureTime;
-        if (!time) return <span className="text-muted-foreground text-xs">—</span>;
+        // Dock local time at the departure port (spec 0003, AC-7).
+        const zone = item.schedule?.route?.departurePort?.timeZone;
+        if (!time || !zone) return <span className="text-muted-foreground text-xs">—</span>;
         return (
           <div className="space-y-0.5">
             <div className="text-xs font-semibold text-foreground">
-              {formatDateSafe(time, "MMM dd, yyyy")}
+              {formatPortDate(time, zone, "MMM dd, yyyy")}
             </div>
             <div className="text-[11px] text-muted-foreground font-mono flex items-center gap-1">
               <Clock className="h-2.5 w-2.5 text-muted-foreground" />
-              <span>{formatDateSafe(time, "hh:mm a")}</span>
+              <span>{formatPortDate(time, zone, "hh:mm a")}</span>
             </div>
           </div>
         );

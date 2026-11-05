@@ -1,5 +1,6 @@
 "use client";
 
+import { formatPortDate, formatPortTime } from "@/lib/port-time";
 import { use, useState } from "react";
 import Link from "next/link";
 import {
@@ -29,6 +30,7 @@ import { toast } from "sonner";
 
 import { useBookingLookupQuery, useCancelBookingMutation } from "@/hooks/use-bookings";
 import { formatCents, paymentStatusLabel } from "@/lib/payment";
+import { ReturnLegCard } from "@/widgets";
 import {
   AnimatedSection,
   Badge,
@@ -170,30 +172,21 @@ export default function BookingDetailsPage({ params }: BookingDetailsPageProps) 
   // Only PENDING and CONFIRMED bookings can be cancelled (spec 0001, AC-5).
   const canCancel = booking.status === "PENDING" || booking.status === "CONFIRMED";
 
-  const departureDateDisplay = booking.schedule?.departureTime
-    ? new Date(booking.schedule.departureTime).toLocaleDateString("en-US", {
-        weekday: "short",
-        day: "numeric",
-        month: "short",
-        year: "numeric"
-      })
-    : "Scheduled";
-
-  const departureTimeDisplay = booking.schedule?.departureTime
-    ? new Date(booking.schedule.departureTime).toLocaleTimeString("en-US", {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: true
-      })
-    : "TBD";
-
-  const arrivalTimeDisplay = booking.schedule?.arrivalTime
-    ? new Date(booking.schedule.arrivalTime).toLocaleTimeString("en-US", {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: true
-      })
-    : "TBD";
+  // Dock local date and times at each port (spec 0003, AC-4).
+  const departureZone = booking.schedule?.route?.departurePort?.timeZone;
+  const arrivalZone = booking.schedule?.route?.destinationPort?.timeZone;
+  const departureDateDisplay =
+    booking.schedule?.departureTime && departureZone
+      ? formatPortDate(booking.schedule.departureTime, departureZone, "EEE, d MMM yyyy")
+      : "Scheduled";
+  const departureTimeDisplay =
+    booking.schedule?.departureTime && departureZone
+      ? formatPortTime(booking.schedule.departureTime, departureZone)
+      : "TBD";
+  const arrivalTimeDisplay =
+    booking.schedule?.arrivalTime && arrivalZone
+      ? formatPortTime(booking.schedule.arrivalTime, arrivalZone)
+      : "TBD";
 
   return (
     <div className="dark:bg-background min-h-screen bg-[#F8FAFC] pb-24">
@@ -295,6 +288,8 @@ export default function BookingDetailsPage({ params }: BookingDetailsPageProps) 
                     </div>
                   </div>
                 </div>
+
+                <ReturnLegCard tripType={booking.tripType} returnSchedule={booking.returnSchedule} />
               </CardContent>
             </Card>
 

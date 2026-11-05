@@ -1,3 +1,12 @@
+export interface OperatorProfileSummary {
+  id: string;
+  userId: string;
+  companyName: string;
+  contactPersonName: string;
+  contactEmail?: string | null;
+  businessAddress?: string | null;
+}
+
 export interface AuthUser {
   id: string;
   name?: string | null;
@@ -5,6 +14,7 @@ export interface AuthUser {
   role?: string;
   avatar?: string | null;
   verified?: boolean;
+  operatorProfile?: OperatorProfileSummary | null;
 }
 
 export interface LoginCredentials {

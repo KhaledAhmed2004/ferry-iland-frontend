@@ -1,95 +1,106 @@
 import { DollarSign, Ship, Ticket, Users } from "lucide-react";
 
-import { StatCard } from "@/widgets";
-import type { IAdminAnalyticsOverview } from "@/types";
+import { StatCard, StatCardGridSkeleton } from "@/widgets";
+import { formatDollars } from "@/lib/payment";
+import type { IAdminAnalyticsOverview, IAdminPeriodInfo } from "@/types";
 
 interface AdminKpiGridProps {
   analytics?: IAdminAnalyticsOverview;
   isLoading: boolean;
 }
 
+const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
+
+/**
+ * The period a growth figure is compared against, in plain words ("the 30 days before").
+ * Not "the previous 30 days": admins read that as the same "last 30 days" the number covers.
+ */
+export function previousPeriodPhrase(period?: IAdminPeriodInfo): string {
+  if (period?.key === "month") return "the month before";
+  if (period?.key === "this-month") return "the same days last month";
+  const days = period?.days ?? Number.parseInt(period?.key ?? "", 10);
+  return Number.isFinite(days) && days > 0 ? `the ${days} days before` : "the period before";
+}
+
+/**
+ * Growth chips only show a real comparison. When the backend sends null (the previous period
+ * had nothing), say what actually happened instead of a made up "+100%".
+ */
+export function trendProps(
+  changePercent: number | null | undefined,
+  previousPhrase: string,
+  what: string
+) {
+  if (typeof changePercent === "number") {
+    return { changePercent, comparisonText: `vs ${previousPhrase}` };
+  }
+  // Name what was missing, so it never reads as if this period had none.
+  return { changePercent: null, comparisonText: `No ${what} in ${previousPhrase}` };
+}
+
 export function AdminKpiGrid({ analytics, isLoading }: AdminKpiGridProps) {
   if (isLoading) {
-    return (
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {[1, 2, 3, 4].map((i) => (
-          <div
-            key={i}
-            className="border-border/60 bg-muted/20 h-28 animate-pulse rounded-xl border p-4"
-          />
-        ))}
-      </div>
-    );
+    return <StatCardGridSkeleton count={4} />;
   }
 
-  const netRevenue =
+  const previous = previousPeriodPhrase(analytics?.period);
+
+  const platformEarnings =
     analytics?.kpis?.netRevenue?.value ??
     analytics?.breakdowns?.financials?.platformCommission ??
     0;
-  const revenueGrowth =
-    analytics?.kpis?.netRevenue?.changePercent ??
-    analytics?.breakdowns?.financials?.changePercent ??
-    100;
+  const earningsGrowth =
+    analytics?.kpis?.netRevenue?.changePercent ?? analytics?.breakdowns?.financials?.changePercent;
 
-  const totalBookings =
+  // Headline counts are what was actually sold (confirmed + checked in), like the revenue.
+  // Cancelled bookings are shown in the Booking Status Breakdown below, not here.
+  const bookingBreakdown = analytics?.breakdowns?.bookings;
+  const confirmedBookings =
     analytics?.kpis?.totalBookings?.value ??
-    analytics?.breakdowns?.bookings?.total ??
-    0;
+    (bookingBreakdown ? bookingBreakdown.confirmed + bookingBreakdown.checkedIn : 0);
   const bookingsGrowth =
-    analytics?.kpis?.totalBookings?.changePercent ??
-    analytics?.breakdowns?.bookings?.changePercent ??
-    100;
+    analytics?.kpis?.totalBookings?.changePercent ?? bookingBreakdown?.changePercent;
 
-  const totalPassengers =
-    analytics?.kpis?.totalPassengers?.value ??
-    analytics?.breakdowns?.passengers?.totalPax ??
-    0;
+  const passengers =
+    analytics?.kpis?.totalPassengers?.value ?? analytics?.breakdowns?.passengers?.totalPax ?? 0;
   const passengersGrowth =
     analytics?.kpis?.totalPassengers?.changePercent ??
-    analytics?.breakdowns?.passengers?.changePercent ??
-    100;
+    analytics?.breakdowns?.passengers?.changePercent;
 
-  const fleetTotal =
-    analytics?.kpis?.fleet?.total ??
-    analytics?.breakdowns?.fleet?.total ??
-    0;
-  const fleetGrowth = analytics?.kpis?.fleet?.changePercent ?? 100;
-
-  const periodLabel = analytics?.period?.label ?? "Last 30 Days";
+  // A current snapshot, not a trend: one number and one short line, no growth arrow.
+  // Ferry maintenance detail belongs to operators, so it stays off the admin overview.
+  const activeOperators = analytics?.breakdowns?.providers?.active ?? 0;
+  const fleetTotal = analytics?.breakdowns?.fleet?.total ?? analytics?.kpis?.fleet?.total ?? 0;
 
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
       <StatCard
-        label="NET PLATFORM REVENUE"
-        value={`$${netRevenue.toFixed(2)}`}
+        label="PLATFORM EARNINGS"
+        value={formatDollars(platformEarnings)}
         icon={DollarSign}
         variant="emerald"
-        changePercent={revenueGrowth}
-        comparisonText={periodLabel}
+        {...trendProps(earningsGrowth, previous, "earnings")}
       />
       <StatCard
-        label="TOTAL BOOKINGS"
-        value={totalBookings.toLocaleString()}
+        label="CONFIRMED BOOKINGS"
+        value={confirmedBookings.toLocaleString()}
         icon={Ticket}
         variant="blue"
-        changePercent={bookingsGrowth}
-        comparisonText={periodLabel}
+        {...trendProps(bookingsGrowth, previous, "bookings")}
       />
       <StatCard
-        label="TOTAL PASSENGERS"
-        value={totalPassengers.toLocaleString()}
+        label="PASSENGERS"
+        value={passengers.toLocaleString()}
         icon={Users}
         variant="indigo"
-        changePercent={passengersGrowth}
-        comparisonText={periodLabel}
+        {...trendProps(passengersGrowth, previous, "passengers")}
       />
       <StatCard
-        label="FLEET & OPERATORS"
-        value={`${fleetTotal} Ferries`}
+        label="ACTIVE OPERATORS"
+        value={activeOperators.toLocaleString()}
         icon={Ship}
         variant="purple"
-        changePercent={fleetGrowth}
-        comparisonText={periodLabel}
+        comparisonText={`${plural(fleetTotal, "ferry", "ferries")} on the platform`}
       />
     </div>
   );

@@ -7,19 +7,19 @@ const TESTIMONIALS = [
     location: "London, United Kingdom",
     avatar: "SJ",
     avatarBg: "bg-blue-600 text-white",
-    route: "Malé ⇄ Maafushi Island",
+    route: "Anguilla ⇄ Saint Martin",
     rating: 5,
     date: "Travelled Aug 2026",
     comment:
-      "Island hopping used to feel like guesswork with local jetty timetables. IslandHop made booking our speedboat to Maafushi effortless. We got our QR codes instantly and boarded with zero waiting!"
+      "Island hopping used to feel like guesswork with local jetty timetables. IslandHop made booking our ferry from Blowing Point to Marigot effortless. We got our QR codes instantly and boarded with zero waiting!"
   },
   {
     id: "t-2",
     author: "Hassan Niyaz",
-    location: "Malé Resident",
+    location: "Sint Maarten Resident",
     avatar: "HN",
     avatarBg: "bg-emerald-600 text-white",
-    route: "Malé ⇄ Thulusdhoo Commuter",
+    route: "Sint Maarten ⇄ Saba Commuter",
     rating: 5,
     date: "Weekly Commuter",
     comment:
@@ -31,7 +31,7 @@ const TESTIMONIALS = [
     location: "Milan, Italy",
     avatar: "MR",
     avatarBg: "bg-indigo-600 text-white",
-    route: "Malé ⇄ Dhiffushi Island",
+    route: "Sint Maarten ⇄ St. Kitts",
     rating: 5,
     date: "Travelled Jul 2026",
     comment:

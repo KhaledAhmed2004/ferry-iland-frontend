@@ -1,5 +1,6 @@
 "use client";
 
+import { formatPortDate, formatPortDateTime, formatPortTime } from "@/lib/port-time";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
@@ -26,6 +27,7 @@ import { useQueryStates } from "nuqs";
 
 import { cn } from "@/lib/utils";
 import { BOOKING_STATUS_OPTIONS, manageBookingsParsers } from "@/schemas/manage-bookings-params";
+import { bookingTripTypeLabel } from "@/schemas/booking-params";
 import { useDebounce } from "@/hooks/use-debounce";
 import { useMyBookingsQuery, useCancelBookingMutation } from "@/hooks/use-bookings";
 import type { IBookingDetail } from "@/types";
@@ -268,7 +270,7 @@ export function ManageBookingsTable() {
                                 You don't have any bookings yet
                               </span>
                               <span className="text-muted-foreground text-xs max-w-sm">
-                                Find ferry schedules across Malé, Maafushi, Hulhumalé and book your seat with digital instant tickets.
+                                Find ferry schedules across Anguilla, Saint Martin, Sint Maarten, Saba, Sint Eustatius and St. Kitts and book your seat with digital instant tickets.
                               </span>
                               <div className="pt-2">
                                 <Button asChild size="sm" className="rounded-xl text-xs font-bold gap-1.5">
@@ -294,35 +296,26 @@ export function ManageBookingsTable() {
                     </TableRow>
                   ) : (
                     paginatedBookings.map((b) => {
-                      const depPort = b.schedule?.route?.departurePort?.name || "Malé";
+                      const depPort = b.schedule?.route?.departurePort?.name || "Departure Port";
                       const destPort = b.schedule?.route?.destinationPort?.name || "Destination";
                       const operatorName = b.schedule?.route?.operator?.companyName || "Ferry Operator";
                       const ferryName = b.schedule?.ferry?.name || "Vessel";
 
-                      const departureDateFormatted = b.schedule?.departureTime
-                        ? new Date(b.schedule.departureTime).toLocaleDateString("en-US", {
-                            weekday: "short",
-                            day: "numeric",
-                            month: "short",
-                            year: "numeric"
-                          })
-                        : "Scheduled";
-
-                      const departureTimeFormatted = b.schedule?.departureTime
-                        ? new Date(b.schedule.departureTime).toLocaleTimeString("en-US", {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                            hour12: true
-                          })
-                        : "TBD";
-
-                      const arrivalTimeFormatted = b.schedule?.arrivalTime
-                        ? new Date(b.schedule.arrivalTime).toLocaleTimeString("en-US", {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                            hour12: true
-                          })
-                        : "";
+                      // Dock local date and times at each port (spec 0003, AC-4).
+                      const depZone = b.schedule?.route?.departurePort?.timeZone;
+                      const arrZone = b.schedule?.route?.destinationPort?.timeZone;
+                      const departureDateFormatted =
+                        b.schedule?.departureTime && depZone
+                          ? formatPortDate(b.schedule.departureTime, depZone, "EEE, d MMM yyyy")
+                          : "Scheduled";
+                      const departureTimeFormatted =
+                        b.schedule?.departureTime && depZone
+                          ? formatPortTime(b.schedule.departureTime, depZone)
+                          : "TBD";
+                      const arrivalTimeFormatted =
+                        b.schedule?.arrivalTime && arrZone
+                          ? formatPortTime(b.schedule.arrivalTime, arrZone)
+                          : "";
 
                       const passengerCount =
                         b.tickets && b.tickets.length > 0
@@ -358,6 +351,16 @@ export function ManageBookingsTable() {
                               <div className="text-muted-foreground text-[11px] font-medium">
                                 {ferryName} &bull; {operatorName}
                               </div>
+                              {b.returnSchedule && (
+                                <div className="text-primary text-[11px] font-semibold">
+                                  {bookingTripTypeLabel(b.tripType)} &bull; back{" "}
+                                  {formatPortDateTime(
+                                    b.returnSchedule.departureTime,
+                                    b.returnSchedule.route.departurePort.timeZone,
+                                    { datePattern: "d MMM" }
+                                  )}
+                                </div>
+                              )}
                             </div>
                           </TableCell>
 

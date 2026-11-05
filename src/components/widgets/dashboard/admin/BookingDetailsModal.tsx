@@ -14,7 +14,6 @@ import {
   CreditCard,
   DollarSign,
   Landmark,
-  Loader2,
   Luggage,
   Mail,
   MapPin,
@@ -39,7 +38,8 @@ import {
   DialogHeader,
   DialogTitle,
   ScrollArea,
-  Separator
+  Separator,
+  Skeleton
 } from "@/ui";
 import { StatusBadge } from "../index";
 import { useCancelBookingMutation } from "@/hooks/use-bookings";
@@ -80,10 +80,41 @@ export function BookingDetailsModal({
     if (!open) return null;
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-md p-8 rounded-2xl flex flex-col items-center justify-center space-y-3">
+        <DialogContent className="sm:max-w-2xl rounded-2xl p-6" aria-busy="true">
           <DialogTitle className="sr-only">Loading reservation</DialogTitle>
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-sm font-medium text-muted-foreground">Loading booking reservation...</p>
+          <div className="space-y-6" aria-hidden="true">
+            <div className="flex items-start justify-between gap-4">
+              <div className="space-y-2">
+                <Skeleton className="h-6 w-48" />
+                <Skeleton className="h-4 w-32" />
+              </div>
+              <Skeleton className="h-6 w-20 rounded-full" />
+            </div>
+            <div className="border-border/60 flex items-center justify-between gap-4 rounded-xl border p-4">
+              <div className="space-y-2">
+                <Skeleton className="h-3 w-16" />
+                <Skeleton className="h-5 w-28" />
+              </div>
+              <Skeleton className="h-5 w-5 rounded-full" />
+              <div className="space-y-2 text-right">
+                <Skeleton className="ml-auto h-3 w-16" />
+                <Skeleton className="h-5 w-28" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="space-y-2">
+                  <Skeleton className="h-3 w-20" />
+                  <Skeleton className="h-4 w-32" />
+                </div>
+              ))}
+            </div>
+            <div className="space-y-2">
+              {[1, 2, 3].map((i) => (
+                <Skeleton key={i} className="h-10 w-full" />
+              ))}
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     );
@@ -95,7 +126,6 @@ export function BookingDetailsModal({
   const destinationPort = route?.destinationPort?.name || "Arrival Hub";
   const operatorName = route?.operator?.companyName || "Commercial Carrier";
   const ferryName = schedule?.ferry?.name || "Express Ferry";
-  const ferryReg = schedule?.ferry?.registration;
 
   const departureDate = schedule?.departureTime
     ? new Date(schedule.departureTime)
@@ -237,7 +267,7 @@ export function BookingDetailsModal({
                 <div>
                   <span className="text-muted-foreground text-[11px]">Ferry Info</span>
                   <p className="font-semibold text-foreground">
-                    {ferryName} {ferryReg ? `(${ferryReg})` : ""}
+                    {ferryName}
                   </p>
                 </div>
                 <div>

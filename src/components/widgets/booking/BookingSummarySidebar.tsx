@@ -1,5 +1,6 @@
 "use client";
 
+import { formatCalendarDate } from "@/lib/port-time";
 import type { ReactNode } from "react";
 import { Ship } from "lucide-react";
 import { Card, CardContent } from "@/ui";
@@ -24,6 +25,10 @@ interface BookingSummarySidebarProps {
   actionButton?: ReactNode;
   secondaryButton?: ReactNode;
   title?: string;
+  /** e.g. "Round Trip"; shown with the fare. */
+  tripTypeLabel?: string;
+  /** Return ferry of a round trip / same day return. */
+  returnLeg?: { route: string; date: string; departureTime: string } | null;
 }
 
 export function BookingSummarySidebar({
@@ -32,24 +37,22 @@ export function BookingSummarySidebar({
   departureDate = "Sat, 24 May 2026",
   actionButton,
   secondaryButton,
-  title = "Your booking"
+  title = "Your booking",
+  tripTypeLabel,
+  returnLeg
 }: BookingSummarySidebarProps) {
   const farePerPassenger = trip.price ?? trip.adultFare ?? 25;
-  const totalPrice = trip.totalPrice ?? farePerPassenger * passengerCount;
+  // Rounded to cents: fares like $191.38 x 3 must not show float noise.
+  const totalPrice =
+    trip.totalPrice ?? Math.round(farePerPassenger * passengerCount * 100) / 100;
   const depPort = trip.departurePort || "Departure Port";
   const arrPort = trip.arrivalPort || trip.destinationPort || "Destination Port";
 
-  // Format departure date nicely if valid ISO
+  // departureDate is a port local calendar day (YYYY-MM-DD); show it without a day shift (spec 0003).
   let displayDate = departureDate;
   try {
-    const d = new Date(departureDate);
-    if (!isNaN(d.getTime())) {
-      displayDate = d.toLocaleDateString("en-US", {
-        weekday: "short",
-        day: "numeric",
-        month: "short",
-        year: "numeric"
-      });
+    if (/^d{4}-d{2}-d{2}$/.test(departureDate)) {
+      displayDate = formatCalendarDate(departureDate, "EEE, d MMM yyyy");
     }
   } catch {
     displayDate = departureDate;
@@ -84,6 +87,25 @@ export function BookingSummarySidebar({
             </div>
           )}
 
+          {tripTypeLabel && (
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-muted-foreground font-medium">Trip type</span>
+              <span className="text-foreground font-semibold">{tripTypeLabel}</span>
+            </div>
+          )}
+
+          {returnLeg && (
+            <div className="border-border/60 space-y-1.5 rounded-xl border p-3">
+              <div className="text-muted-foreground text-[10px] font-extrabold tracking-wider uppercase">
+                Return
+              </div>
+              <div className="text-foreground font-bold">{returnLeg.route}</div>
+              <div className="text-muted-foreground text-xs">
+                {returnLeg.date} · {returnLeg.departureTime}
+              </div>
+            </div>
+          )}
+
           <div className="flex items-center justify-between gap-2">
             <span className="text-muted-foreground font-medium">Passengers</span>
             <span className="text-foreground font-semibold">
@@ -98,7 +120,7 @@ export function BookingSummarySidebar({
         <div className="space-y-2">
           <div className="text-muted-foreground flex items-center justify-between text-xs">
             <span>
-              Tickets (${farePerPassenger} &times; {passengerCount})
+              {tripTypeLabel ? `${tripTypeLabel} fare` : "Tickets"} (${farePerPassenger} &times; {passengerCount})
             </span>
             <span className="text-foreground font-medium">${totalPrice}</span>
           </div>

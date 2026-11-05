@@ -196,3 +196,106 @@ export function useUnboardPassengerMutation() {
   });
 }
 
+export interface IOperatorSettingsData {
+  id: string;
+  userId: string;
+  companyName: string;
+  contactPersonName: string;
+  contactEmail?: string | null;
+  businessAddress?: string | null;
+  /** Company logo URL; null when none was uploaded. */
+  logoUrl?: string | null;
+  user?: {
+    email: string;
+    name: string;
+    phoneNumber?: string | null;
+    status: string;
+  };
+}
+
+/**
+ * Hook to fetch operator company profile from backend
+ * GET /api/v1/operator/settings
+ */
+export function useOperatorSettingsQuery() {
+  return useQuery({
+    queryKey: [...operatorKeys.all, "settings"],
+    queryFn: async ({ signal }) => {
+      const response = await get<ApiResponse<IOperatorSettingsData>>("/operator/settings", {
+        signal
+      });
+      return response.data;
+    },
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    retry: false
+  });
+}
+
+/**
+ * Hook to update operator company profile
+ * PATCH /api/v1/operator/settings
+ */
+export function useUpdateOperatorSettingsMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (payload: {
+      companyName?: string;
+      contactPersonName?: string;
+      contactEmail?: string;
+      businessAddress?: string;
+    }) => {
+      const response = await patch<ApiResponse<IOperatorSettingsData>>("/operator/settings", payload);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: operatorKeys.all });
+      queryClient.invalidateQueries({ queryKey: ["user", "profile"] });
+      toast.success("Operator settings updated successfully!");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to update operator settings.");
+    }
+  });
+}
+
+/** Logo files the backend accepts (fileHandler images) and its size cap. */
+export const OPERATOR_LOGO_TYPES = ["image/png", "image/jpeg", "image/webp"];
+export const OPERATOR_LOGO_MAX_MB = 2;
+
+/**
+ * Upload or remove the operator company logo.
+ * PATCH /api/v1/operator/settings — multipart `logo` file, or `{ removeLogo: true }`.
+ */
+export function useOperatorLogoMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (action: { file: File } | { remove: true }) => {
+      if ("remove" in action) {
+        const response = await patch<ApiResponse<IOperatorSettingsData>>("/operator/settings", {
+          removeLogo: true
+        });
+        return response.data;
+      }
+      const form = new FormData();
+      form.append("logo", action.file);
+      // Overrides the client's JSON default; the browser fills in the multipart boundary.
+      const response = await patch<ApiResponse<IOperatorSettingsData>>("/operator/settings", form, {
+        headers: { "Content-Type": "multipart/form-data" }
+      });
+      return response.data;
+    },
+    onSuccess: (_data, action) => {
+      queryClient.invalidateQueries({ queryKey: operatorKeys.all });
+      // The admin operators table shows this logo too.
+      queryClient.invalidateQueries({ queryKey: ["admin"] });
+      toast.success("remove" in action ? "Logo removed." : "Logo updated.");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to update the logo.");
+    }
+  });
+}
+
+

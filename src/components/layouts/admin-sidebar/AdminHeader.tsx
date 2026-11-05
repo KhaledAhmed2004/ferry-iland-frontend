@@ -3,7 +3,7 @@
 import * as React from "react";
 import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
-import { ThemeSelector, BrandLogo } from "@/widgets";
+import { BrandLogo } from "@/widgets";
 import { Button } from "@/ui";
 
 interface AdminHeaderProps {
@@ -61,7 +61,6 @@ export function AdminHeader({
       </div>
 
       <div className="flex items-center gap-3">
-        <ThemeSelector />
       </div>
     </header>
   );

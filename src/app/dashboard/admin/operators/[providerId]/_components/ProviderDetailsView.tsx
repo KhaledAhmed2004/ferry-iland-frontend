@@ -30,14 +30,20 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
-  Label
+  Label,
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+  Skeleton
 } from "@/ui";
 
 import {
   DashboardTableCard,
   FerryDetailsModal,
   StatCard,
+  StatCardGridSkeleton,
   StatusBadge,
+  TableCardSkeleton,
   TablePagination,
   type TableColumn
 } from "@/widgets";
@@ -49,7 +55,6 @@ export interface ProviderDetailsViewProps {
 export interface ProviderFerryRow {
   id: string;
   name: string;
-  registration?: string;
   type?: string;
   capacity: number;
   yearBuilt?: number;
@@ -142,11 +147,6 @@ export function ProviderDetailsView({ providerId }: ProviderDetailsViewProps) {
           >
             {item.name}
           </button>
-          {item.registration ? (
-            <div className="text-[11px] font-mono text-muted-foreground mt-0.5">
-              Reg: {item.registration}
-            </div>
-          ) : null}
         </div>
       )
     },
@@ -243,15 +243,30 @@ export function ProviderDetailsView({ providerId }: ProviderDetailsViewProps) {
 
   if (isLoading) {
     return (
-      <div className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8 animate-pulse">
-        <div className="h-4 w-36 rounded bg-muted/50 mb-4" />
-        <div className="h-44 rounded-2xl border border-border/60 bg-muted/20" />
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {[1, 2].map((i) => (
-            <div key={i} className="h-28 rounded-xl border border-border/40 bg-muted/20" />
-          ))}
+      <div
+        className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8"
+        role="status"
+        aria-label="Loading operator details"
+      >
+        <Skeleton className="mb-4 h-4 w-36" />
+        {/* Profile header card */}
+        <div className="bg-card border-border/80 space-y-5 rounded-2xl border p-6 shadow-xs">
+          <div className="flex items-center gap-4">
+            <Skeleton className="h-16 w-16 shrink-0 rounded-2xl" />
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-6 w-56 max-w-full" />
+              <Skeleton className="h-4 w-40" />
+            </div>
+            <Skeleton className="hidden h-9 w-36 sm:block" />
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            {[1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-4 w-full max-w-[200px]" />
+            ))}
+          </div>
         </div>
-        <div className="h-64 rounded-xl border border-border/40 bg-muted/20" />
+        <StatCardGridSkeleton count={2} className="grid grid-cols-1 gap-4 sm:grid-cols-2" />
+        <TableCardSkeleton rows={4} columns={5} />
       </div>
     );
   }
@@ -295,7 +310,6 @@ export function ProviderDetailsView({ providerId }: ProviderDetailsViewProps) {
     return {
       id: f.id,
       name: f.name,
-      registration: f.registration,
       type: f.type || "Catamaran",
       capacity: f.capacity,
       yearBuilt: f.yearBuilt,
@@ -319,18 +333,15 @@ export function ProviderDetailsView({ providerId }: ProviderDetailsViewProps) {
   const totalFerries = formattedFerries.length;
   const totalFerriesPages = Math.max(1, Math.ceil(totalFerries / ferriesPageSize));
   const validFerriesPage = Math.min(Math.max(1, ferriesPage), totalFerriesPages);
-  const paginatedFerries = React.useMemo(() => {
-    const startIndex = (validFerriesPage - 1) * ferriesPageSize;
-    return formattedFerries.slice(startIndex, startIndex + ferriesPageSize);
-  }, [formattedFerries, validFerriesPage, ferriesPageSize]);
+  // Plain slices: these run after the early returns above, so they must not be hooks.
+  const ferriesStart = (validFerriesPage - 1) * ferriesPageSize;
+  const paginatedFerries = formattedFerries.slice(ferriesStart, ferriesStart + ferriesPageSize);
 
   const totalRoutes = formattedRoutes.length;
   const totalRoutesPages = Math.max(1, Math.ceil(totalRoutes / routesPageSize));
   const validRoutesPage = Math.min(Math.max(1, routesPage), totalRoutesPages);
-  const paginatedRoutes = React.useMemo(() => {
-    const startIndex = (validRoutesPage - 1) * routesPageSize;
-    return formattedRoutes.slice(startIndex, startIndex + routesPageSize);
-  }, [formattedRoutes, validRoutesPage, routesPageSize]);
+  const routesStart = (validRoutesPage - 1) * routesPageSize;
+  const paginatedRoutes = formattedRoutes.slice(routesStart, routesStart + routesPageSize);
 
   const registeredDateStr = provider.createdAt
     ? new Date(provider.createdAt).toLocaleDateString()
@@ -354,9 +365,18 @@ export function ProviderDetailsView({ providerId }: ProviderDetailsViewProps) {
         <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-start">
           {/* Provider Info Left Column */}
           <div className="flex items-start gap-4">
-            <div className="bg-blue-600 text-white flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl shadow-sm">
-              <Ship className="h-7 w-7" />
-            </div>
+            <Avatar className="size-14 rounded-2xl shadow-sm">
+              {provider.logoUrl && (
+                <AvatarImage
+                  src={provider.logoUrl}
+                  alt={`${provider.companyName} logo`}
+                  className="object-cover"
+                />
+              )}
+              <AvatarFallback className="rounded-2xl bg-blue-600 text-white">
+                <Ship className="size-7" />
+              </AvatarFallback>
+            </Avatar>
 
             <div className="space-y-1.5">
               <div className="flex flex-wrap items-center gap-3">

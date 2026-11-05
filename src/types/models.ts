@@ -155,7 +155,8 @@ export interface IAdminAllTimeMetrics {
 
 export interface IAdminKpiItem {
   value: number;
-  changePercent: number;
+  /** null when the previous period had nothing to compare with. */
+  changePercent: number | null;
   trend: "up" | "down" | "neutral";
   currency?: string;
   subValue?: number;
@@ -170,6 +171,7 @@ export interface IAdminKpis {
     total: number;
     inService: number;
     maintenance: number;
+    /** Share of ferries in service (inService / total * 100). Not a growth figure. */
     changePercent: number;
     trend: "up" | "down" | "neutral";
   };
@@ -180,19 +182,19 @@ export interface IAdminBreakdowns {
     grossSales: number;
     platformCommission: number;
     providerPayout: number;
-    changePercent: number;
+    changePercent: number | null;
   };
   bookings: {
     total: number;
     confirmed: number;
     checkedIn: number;
     cancelled: number;
-    changePercent: number;
+    changePercent: number | null;
   };
   passengers: {
     totalPax: number;
     boardedPax: number;
-    changePercent: number;
+    changePercent: number | null;
   };
   fleet: {
     total: number;
@@ -253,6 +255,8 @@ export interface IAdminProviderItem {
   contactPersonName: string;
   contactEmail: string | null;
   businessAddress: string | null;
+  /** Company logo URL; null when the operator has not uploaded one. */
+  logoUrl?: string | null;
   bufferMinutes: number;
   createdAt: string | Date;
   updatedAt: string | Date;
@@ -269,7 +273,6 @@ export interface IAdminProviderItem {
 export interface IAdminProviderFerry {
   id: string;
   name: string;
-  registration?: string;
   capacity: number;
   status: string;
   type?: string;
@@ -282,11 +285,15 @@ export interface IAdminProviderRoute {
   departurePort: {
     id: string;
     name: string;
+    /** IANA zone; trip times at this port are shown in it (spec 0003). */
+    timeZone: string;
     code?: string | null;
   };
   destinationPort: {
     id: string;
     name: string;
+    /** IANA zone; trip times at this port are shown in it (spec 0003). */
+    timeZone: string;
     code?: string | null;
   };
   durationMinutes?: number;
@@ -305,6 +312,8 @@ export interface IAdminProviderDetail {
   contactPersonName: string;
   contactEmail: string | null;
   businessAddress: string | null;
+  /** Company logo URL; null when the operator has not uploaded one. */
+  logoUrl?: string | null;
   bufferMinutes: number;
   createdAt: string | Date;
   updatedAt: string | Date;
@@ -360,7 +369,6 @@ export interface IFerry {
   id: string;
   operatorId: string;
   name: string;
-  registration: string;
   capacity: number;
   type: VesselType;
   status: VesselStatus;
@@ -378,7 +386,6 @@ export interface IFerryListResponse {
 
 export interface ICreateFerryPayload {
   name: string;
-  registration: string;
   capacity: number;
   type?: VesselType;
   status?: VesselStatus;
@@ -388,7 +395,6 @@ export interface ICreateFerryPayload {
 
 export interface IUpdateFerryPayload {
   name?: string;
-  registration?: string;
   capacity?: number;
   type?: VesselType;
   status?: VesselStatus;
@@ -421,6 +427,8 @@ export type RouteStatus = "ACTIVE" | "INACTIVE";
 export interface IPort {
   id: string;
   name: string;
+  /** IANA zone (e.g. America/Anguilla); trip times at this port are shown in it (spec 0003). */
+  timeZone: string;
   isActive: boolean;
   createdAt?: string | Date;
   updatedAt?: string | Date;
@@ -438,28 +446,34 @@ export interface IPortListResponse {
 
 export interface ICreatePortPayload {
   name: string;
+  timeZone: string;
   isActive?: boolean;
 }
 
 export interface IUpdatePortPayload {
   name?: string;
+  timeZone?: string;
   isActive?: boolean;
 }
 
 export interface IConnectedDestination {
   portId: string;
   portName: string;
+  timeZone: string;
 }
 
 export interface IConnectedPort {
   portId: string;
   portName: string;
+  timeZone: string;
   destinations: IConnectedDestination[];
 }
 
 export interface IRoutePortSummary {
   id: string;
   name: string;
+  /** IANA zone (spec 0003). */
+  timeZone: string;
   region?: string;
 }
 
@@ -470,6 +484,11 @@ export interface IRoute {
   destinationPortId: string;
   durationMinutes: number;
   basePrice?: number | null;
+  /** Bundle fares per passenger; null = option not offered on this route. */
+  adultRoundTripFare?: number | null;
+  childRoundTripFare?: number | null;
+  adultSameDayFare?: number | null;
+  childSameDayFare?: number | null;
   description?: string | null;
   amenities?: string[];
   imageUrl?: string | null;
@@ -503,11 +522,20 @@ export interface ICreateRoutePayload {
   amenities?: string[];
   isBorderCrossing?: boolean;
   status?: RouteStatus;
+  adultRoundTripFare?: number | null;
+  childRoundTripFare?: number | null;
+  adultSameDayFare?: number | null;
+  childSameDayFare?: number | null;
 }
 
 export interface IUpdateRoutePayload {
   durationMinutes?: number;
   basePrice?: number;
+  /** null clears the fare (option not offered). */
+  adultRoundTripFare?: number | null;
+  childRoundTripFare?: number | null;
+  adultSameDayFare?: number | null;
+  childSameDayFare?: number | null;
   description?: string;
   amenities?: string[];
   imageUrl?: string;
@@ -529,36 +557,38 @@ export interface IPopularJourney {
   fromPortId: string;
   to: string;
   toPortId: string;
-  duration: string;
   durationMinutes: number;
-  price: number;
-  startingPrice: number;
-  frequency: string;
-  dailyTripsCount: number;
+  /** Cheapest upcoming adult fare, else the route's base price; null when no fare is known. */
+  startingPrice: number | null;
+  /** Number of future bookable departures (not per day). */
+  upcomingTripsCount: number;
+  /** ISO time of the earliest future departure with free seats; null when none is bookable. */
+  nextDepartureTime: string | null;
   totalBookings: number;
   popularityScore: number;
-  tag: string;
-  tagColor: string;
-  rating: number;
-  reviews: number;
+  /** "Most Popular" for the top route with bookings, otherwise null. */
+  tag: string | null;
+  /** The route's real amenities; empty when the operator listed none. */
   highlights: string[];
-  category: "speedboat" | "scenic" | string;
   description?: string | null;
   imageUrl?: string | null;
   operatorName?: string;
   departurePort?: {
     id: string;
     name: string;
+    /** IANA zone; trip times at this port are shown in it (spec 0003). */
+    timeZone: string;
   };
   destinationPort?: {
     id: string;
     name: string;
+    /** IANA zone; trip times at this port are shown in it (spec 0003). */
+    timeZone: string;
   };
 }
 
 export interface IPopularRoutesParams {
   limit?: number;
-  category?: "all" | "speedboat" | "scenic" | string;
 }
 
 /**
@@ -581,6 +611,32 @@ export interface ISearchedTrip {
   totalPrice: number;
   image?: string | null;
   vesselType?: string;
+  /** Full ISO times and operator, used to pair an outbound with a valid return. */
+  departureAt: string;
+  arrivalAt: string;
+  /** IANA zones of the departure and destination ports; times above are local to them (spec 0003). */
+  departureTimeZone: string;
+  arrivalTimeZone: string;
+  operatorId: string;
+  /** Price for the searched trip type (bundle for round trip / same day). */
+  fareQuote: ITripFareQuote;
+}
+
+/** Booking API trip type (backend enum). */
+export type BookingTripType = "ONE_WAY" | "ROUND_TRIP" | "SAME_DAY_RETURN";
+
+export interface ITripFareQuote {
+  tripType: BookingTripType;
+  /** false when this route does not offer the searched trip type. */
+  available: boolean;
+  pricePerAdult: number | null;
+  pricePerChild: number | null;
+  totalPrice: number | null;
+}
+
+export interface IFarePerPassenger {
+  adultFare: number;
+  childFare: number;
 }
 
 export interface ITripSearchResponse {
@@ -595,7 +651,7 @@ export interface ITripSearchResponse {
 }
 
 export interface ITripSearchParams {
-  tripType?: "one-way" | "round-trip";
+  tripType?: "one-way" | "round-trip" | "same-day-return";
   from: string;
   to: string;
   departureDate: string;
@@ -619,10 +675,16 @@ export interface ITripDetail {
   destinationPortId?: string;
   departureTime: string;
   arrivalTime: string;
+  /** IANA zones of the departure and destination ports (spec 0003). */
+  departureTimeZone: string;
+  arrivalTimeZone: string;
   duration: string;
   availableSeats: number;
   adultFare: number;
   childFare: number;
+  /** Per passenger fare by trip type; null = not offered on this route. */
+  fares?: Record<BookingTripType, IFarePerPassenger | null>;
+  operatorId?: string;
   status: string;
   gate?: string;
   captain?: string;
@@ -641,6 +703,9 @@ export interface IPassengerInput {
 
 export interface ICreateBookingPayload {
   scheduleId: string;
+  tripType?: BookingTripType;
+  /** Required for ROUND_TRIP and SAME_DAY_RETURN. */
+  returnScheduleId?: string;
   leadPassengerName: string;
   leadPassengerEmail: string;
   leadPassengerPhone?: string;
@@ -704,11 +769,48 @@ export interface IPaymentRecord {
   lastFailureMessage?: string | null;
 }
 
+/** Spec 0002: body of a 200 from POST /payments/intent. The amount is always the server's. */
+export interface IPaymentIntent {
+  bookingId: string;
+  bookingReference: string;
+  clientSecret: string;
+  amountCents: number;
+  currency: string;
+  holdExpiresAt: string;
+  /** Server clock at response time; used to correct the hold countdown for clock skew. */
+  serverNow: string;
+}
+
+/** Spec 0002: `data` on a 409 from POST /payments/intent, telling the page where to go. */
+export interface IPaymentConflict {
+  code: "BOOKING_NOT_PENDING" | "HOLD_EXPIRED" | "PAYMENT_PROCESSING" | "PAYMENT_SUCCEEDED";
+  bookingStatus: BookingStatus;
+  bookingReference: string;
+}
+
+/** Return leg of a round trip / same day return booking. */
+export interface IBookingReturnSchedule {
+  id: string;
+  departureTime: string;
+  arrivalTime: string;
+  gate?: string | null;
+  status: string;
+  route: {
+    id: string;
+    departurePort: { id: string; name: string; timeZone: string };
+    destinationPort: { id: string; name: string; timeZone: string };
+  };
+  ferry: { id: string; name: string; type?: string };
+}
+
 export interface IBookingDetail {
   id: string;
   reference: string;
   userId?: string | null;
   scheduleId: string;
+  tripType?: BookingTripType;
+  returnScheduleId?: string | null;
+  returnSchedule?: IBookingReturnSchedule | null;
   leadPassengerName: string;
   leadPassengerEmail: string;
   leadPassengerPhone?: string | null;
@@ -737,14 +839,13 @@ export interface IBookingDetail {
     route: {
       id: string;
       durationMinutes: number;
-      departurePort: { id: string; name: string };
-      destinationPort: { id: string; name: string };
+      departurePort: { id: string; name: string; timeZone: string };
+      destinationPort: { id: string; name: string; timeZone: string };
       operator: { id: string; companyName: string; contactPersonName?: string };
     };
     ferry: {
       id: string;
       name: string;
-      registration: string;
       capacity: number;
       type: string;
     };
@@ -769,8 +870,14 @@ export interface IDigitalPassResponse {
     destinationPort: string;
     departureTime: string;
     arrivalTime: string;
+    /** IANA zones of the departure and destination ports (spec 0003). */
+    departureTimeZone: string;
+    arrivalTimeZone: string;
     gate?: string;
   };
+  /** Round trip / same day return: the same ticket is used on the return ferry. */
+  tripType?: BookingTripType;
+  returnSchedule?: IBookingReturnSchedule | null;
   qrCodePayload: string;
 }
 
@@ -800,14 +907,13 @@ export interface IOperatorSchedule {
     durationMinutes: number;
     departurePortId?: string;
     destinationPortId?: string;
-    departurePort?: { id: string; name: string };
-    destinationPort?: { id: string; name: string };
+    departurePort?: { id: string; name: string; timeZone: string };
+    destinationPort?: { id: string; name: string; timeZone: string };
   };
   ferry: {
     id: string;
     operatorId?: string;
     name: string;
-    registration?: string;
     capacity: number;
     type?: string;
     status?: string;
@@ -869,7 +975,6 @@ export interface IOffDay {
   ferry?: {
     id: string;
     name: string;
-    registration: string;
     type?: string;
   } | null;
   date: string;
@@ -947,13 +1052,12 @@ export interface IOperatorOverviewDeparture {
   availableSeats: number;
   route: {
     id: string;
-    departurePort: { name: string; code?: string };
-    destinationPort: { name: string; code?: string };
+    departurePort: { name: string; code?: string; timeZone: string };
+    destinationPort: { name: string; code?: string; timeZone: string };
   };
   ferry: {
     id: string;
     name: string;
-    registration?: string;
     capacity: number;
   };
 }
@@ -968,6 +1072,8 @@ export interface IOperatorOverviewBooking {
   leadPassengerEmail?: string;
   route?: string;
   departureTime: string;
+  /** Departure port zone (spec 0003); null when the booking has no trip. */
+  departureTimeZone: string | null;
   pax: number;
   amount: number;
   totalAmount?: number;
@@ -976,8 +1082,8 @@ export interface IOperatorOverviewBooking {
   schedule?: {
     departureTime: string;
     route?: {
-      departurePort?: { name: string; code?: string };
-      destinationPort?: { name: string; code?: string };
+      departurePort?: { name: string; code?: string; timeZone: string };
+      destinationPort?: { name: string; code?: string; timeZone: string };
     };
     ferry?: { name: string };
   };
@@ -1021,6 +1127,8 @@ export interface IAdminBookingItem {
   reference: string;
   userId?: string | null;
   scheduleId: string;
+  tripType?: BookingTripType;
+  returnSchedule?: IBookingReturnSchedule | null;
   leadPassengerName: string;
   leadPassengerEmail: string;
   leadPassengerPhone?: string | null;
@@ -1049,14 +1157,13 @@ export interface IAdminBookingItem {
       id?: string;
       durationMinutes?: number;
       basePrice?: number;
-      departurePort?: { id?: string; name: string };
-      destinationPort?: { id?: string; name: string };
+      departurePort?: { id?: string; name: string; timeZone: string };
+      destinationPort?: { id?: string; name: string; timeZone: string };
       operator?: { id?: string; companyName: string; contactPersonName?: string };
     };
     ferry?: {
       id?: string;
       name: string;
-      registration?: string;
       capacity?: number;
       type?: string;
       imageUrl?: string | null;
@@ -1070,6 +1177,8 @@ export interface IAdminBookingsResponseData {
     limit: number;
     total: number;
     totalPages: number;
+    /** Bookings per status for the current search, ignoring the status filter. */
+    statusCounts?: Partial<Record<"PENDING" | "CONFIRMED" | "CANCELLED" | "CHECKED_IN" | "EXPIRED", number>>;
   };
   data: IAdminBookingItem[];
 }
@@ -1120,7 +1229,18 @@ export interface IAdminPaymentsFilterParams {
   status?: string;
   search?: string;
   searchTerm?: string;
+  /** Server-side sort column (see backend ADMIN_PAYMENT_SORT_FIELDS). */
+  sortBy?: AdminPaymentSortField;
+  sortOrder?: "asc" | "desc";
 }
+
+export type AdminPaymentSortField =
+  | "createdAt"
+  | "bookingAmount"
+  | "commission"
+  | "providerAmount"
+  | "paymentStatus"
+  | "bookingReference";
 
 // ==========================================
 // OPERATOR BOOKING TYPES (LIVE API)
@@ -1172,6 +1292,9 @@ export interface ITripManifestInfo {
   departurePort: string;
   destinationPort: string;
   departureTime: string;
+  /** IANA zones of the departure and destination ports (spec 0003). */
+  departureTimeZone: string;
+  arrivalTimeZone: string;
   arrivalTime: string;
   tripStatus: OperatorScheduleStatus;
   totalPassengers: number;

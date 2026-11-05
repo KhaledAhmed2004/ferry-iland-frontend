@@ -2,11 +2,11 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ArrowRight, Clock, MapPin, Navigation, Ship, Sparkles, Waves, Wind } from "lucide-react";
+import { ArrowRight, Clock, Ship } from "lucide-react";
 
-import type { IslandRoute } from "@/data/routes";
+import { formatPortDate, formatPortTime, portLocalDate, portToday } from "@/lib/port-time";
+import type { IPopularJourney } from "@/types";
 import { Button, Card, CardContent } from "@/ui";
-import { cn } from "@/lib/utils";
 
 export const DEFAULT_ROUTE_IMAGES = [
   "https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=800&q=80",
@@ -17,79 +17,77 @@ export const DEFAULT_ROUTE_IMAGES = [
   "https://images.unsplash.com/photo-1499793983690-e29da59ef1c2?auto=format&fit=crop&w=800&q=80"
 ];
 
-export interface RouteCardItem {
-  id: string;
-  from: string;
-  to: string;
-  description?: string | null;
-  duration?: string;
-  durationMinutes?: number;
-  trips?: string;
-  frequency?: string;
-  dailyTripsCount?: number;
-  image?: string;
-  imageUrl?: string | null;
-  price?: number;
-  startingPrice?: number;
-  highlights?: string[];
-  tag?: string | null;
-  tagColor?: string | null;
-  category?: string;
-  departurePort?: { name?: string };
-  destinationPort?: { name?: string };
-}
+/** A route card renders exactly what GET /routes/popular returns — no invented values. */
+export type RouteCardItem = Pick<
+  IPopularJourney,
+  | "id"
+  | "from"
+  | "to"
+  | "durationMinutes"
+  | "nextDepartureTime"
+  | "highlights"
+  | "tag"
+  | "description"
+  | "imageUrl"
+  | "departurePort"
+  | "destinationPort"
+>;
 
 interface RouteCardProps {
-  route: RouteCardItem | IslandRoute;
-  index?: number;
+  route: RouteCardItem;
 }
 
-function getTodayDateString(): string {
-  const d = new Date();
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+/**
+ * "Today, 2:30 PM" · "Tomorrow, 9:00 AM" · "Mon 10 Nov, 9:00 AM", all at the departure port,
+ * so "today" is the port's today, not the viewer's (spec 0003, AC-13).
+ */
+function formatNextDeparture(iso: string, timeZone: string): string {
+  const time = formatPortTime(iso, timeZone);
+  const day = portLocalDate(iso, timeZone);
+  const now = new Date();
+  if (day === portToday(timeZone, now)) return `Today, ${time}`;
+  if (day === portToday(timeZone, new Date(now.getTime() + 24 * 60 * 60 * 1000))) {
+    return `Tomorrow, ${time}`;
+  }
+  return `${formatPortDate(iso, timeZone)}, ${time}`;
 }
 
-export function RouteCard({ route, index = 0 }: RouteCardProps) {
-  const item = route as RouteCardItem;
-  const staticItem = route as IslandRoute;
-  const today = React.useMemo(() => getTodayDateString(), []);
+export function RouteCard({ route }: RouteCardProps) {
+  const portZone = route.departurePort?.timeZone;
+  const nextDepartureLabel =
+    route.nextDepartureTime && portZone
+      ? formatNextDeparture(route.nextDepartureTime, portZone)
+      : "No trips scheduled";
 
-  const fromVal = item.departurePort?.name || route.from;
-  const toVal = item.destinationPort?.name || route.to;
+  // Open the trip search on the departure port's local day of the next sailing (spec 0003).
+  const searchDate =
+    route.nextDepartureTime && portZone
+      ? portLocalDate(route.nextDepartureTime, portZone)
+      : portZone
+        ? portToday(portZone)
+        : new Date().toISOString().slice(0, 10);
+  const fromVal = route.departurePort?.name || route.from;
+  const toVal = route.destinationPort?.name || route.to;
   const targetUrl = `/ferries?from=${encodeURIComponent(fromVal)}&to=${encodeURIComponent(
     toVal
-  )}&departureDate=${today}&passengers=1%20Passenger&adults=1`;
+  )}&departureDate=${searchDate}&passengers=1%20Passenger&adults=1`;
 
-
-  // Resolve best image URL with scenic Maldivian fallback
+  // Use the route's own image, else a stable placeholder picked from the route id
   const displayImage = React.useMemo(() => {
-    const raw = item.imageUrl || staticItem.image;
-    if (raw && typeof raw === "string" && raw.trim().startsWith("http")) return raw.trim();
-    if (raw && typeof raw === "object" && "src" in (raw as Record<string, unknown>)) {
-      return String((raw as Record<string, unknown>).src);
-    }
+    const raw = route.imageUrl?.trim();
+    if (raw && raw.startsWith("http")) return raw;
 
-    const key = `${route.id || ""}-${route.from}-${route.to}`;
+    const key = `${route.id}-${route.from}-${route.to}`;
     let hash = 0;
     for (let i = 0; i < key.length; i++) {
       hash = (hash + key.charCodeAt(i)) % DEFAULT_ROUTE_IMAGES.length;
     }
     return DEFAULT_ROUTE_IMAGES[hash];
-  }, [item.imageUrl, staticItem.image, route.id, route.from, route.to]);
+  }, [route.imageUrl, route.id, route.from, route.to]);
 
-  const price = item.startingPrice ?? item.price ?? 30;
-  const duration =
-    item.duration || (item.durationMinutes ? `${item.durationMinutes} min` : "40 min");
-  const frequency =
-    item.frequency ||
-    staticItem.trips ||
-    (item.dailyTripsCount ? `${item.dailyTripsCount} Daily Trips` : "Multiple daily");
-  const highlights = item.highlights || [];
-  const tag = item.tag;
-  const tagColor = item.tagColor || "bg-[#003B95] text-white";
+  const duration = route.durationMinutes > 0 ? `${route.durationMinutes} min` : null;
+  const highlights = route.highlights ?? [];
+  const tag = route.tag;
 
   return (
     <Card className="group border-border/80 bg-card hover:border-primary/50 overflow-hidden rounded-3xl border p-0 shadow-xs transition-all duration-300 hover:-translate-y-1 hover:shadow-xl flex flex-col justify-between">
@@ -108,31 +106,14 @@ export function RouteCard({ route, index = 0 }: RouteCardProps) {
             {/* Gradient Overlay */}
             <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent pointer-events-none" />
 
-            {/* Top Badges */}
-            <div className="absolute top-3 inset-x-3 flex items-center justify-between gap-2 pointer-events-none">
-              {tag ? (
-                <span
-                  className={cn(
-                    "text-[10px] font-bold px-2.5 py-1 rounded-full shadow-sm tracking-wide uppercase",
-                    tagColor
-                  )}
-                >
+            {/* Top Badge */}
+            {tag && (
+              <div className="absolute top-3 left-3 pointer-events-none">
+                <span className="text-[10px] font-bold px-2.5 py-1 rounded-full shadow-sm tracking-wide uppercase bg-[#003B95] text-white">
                   {tag}
                 </span>
-              ) : (
-                <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-black/40 backdrop-blur-md text-white border border-white/20">
-                  Daily Ferry
-                </span>
-              )}
-
-              {/* Price Pill */}
-              <div className="bg-white/95 dark:bg-slate-900/90 backdrop-blur-md px-2.5 py-1 rounded-full border border-border/80 shadow-sm flex items-center gap-1">
-                <span className="text-[10px] text-muted-foreground font-medium">From</span>
-                <span className="text-xs font-black text-emerald-600 dark:text-emerald-400 font-mono">
-                  ${price}
-                </span>
               </div>
-            </div>
+            )}
 
             {/* Bottom Port Names on Image */}
             <div className="absolute bottom-3 inset-x-3 text-white pointer-events-none">
@@ -144,57 +125,53 @@ export function RouteCard({ route, index = 0 }: RouteCardProps) {
             </div>
           </div>
 
-          {/* Middle Body Content */}
-          <div className="space-y-3 p-5">
-            <p className="text-muted-foreground text-xs line-clamp-2 min-h-[32px]">
-              {route.description ||
-                `Regular ferry departures connecting ${route.from} and ${route.to} with fast, comfortable marine transfers.`}
-            </p>
+          {/* Middle Body — only the operator's own description and amenities */}
+          {(route.description || highlights.length > 0) && (
+            <div className="space-y-3 p-5">
+              {route.description && (
+                <p className="text-muted-foreground text-xs line-clamp-2">{route.description}</p>
+              )}
 
-            {/* Amenities Chips (up to 2 visible) */}
-            {highlights.length > 0 && (
-              <div className="flex flex-wrap gap-1">
-                {highlights.slice(0, 2).map((h) => (
-                  <span
-                    key={h}
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium bg-muted text-muted-foreground border border-border/60"
-                  >
-                    <Sparkles className="h-2.5 w-2.5 text-emerald-600 dark:text-emerald-400" />
-                    <span>{h}</span>
-                  </span>
-                ))}
-                {highlights.length > 2 && (
-                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-semibold text-muted-foreground bg-muted/60">
-                    +{highlights.length - 2}
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
+              {highlights.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {highlights.slice(0, 3).map((h) => (
+                    <span
+                      key={h}
+                      className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium bg-muted text-muted-foreground border border-border/60"
+                    >
+                      {h}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Bottom Specs & Action Footer */}
         <div className="border-border/60 border-t p-4 pt-3 flex items-center justify-between text-xs bg-muted/10">
           <div className="flex items-center gap-3.5">
             {/* Duration */}
-            <div className="space-y-0.5">
-              <div className="text-muted-foreground text-[9px] font-bold uppercase tracking-wider">
-                Duration
+            {duration && (
+              <div className="space-y-0.5">
+                <div className="text-muted-foreground text-[9px] font-bold uppercase tracking-wider">
+                  Duration
+                </div>
+                <div className="text-foreground flex items-center gap-1 font-bold text-xs">
+                  <Clock className="text-[#003B95] dark:text-blue-400 h-3 w-3" />
+                  <span>{duration}</span>
+                </div>
               </div>
-              <div className="text-foreground flex items-center gap-1 font-bold text-xs">
-                <Clock className="text-[#003B95] dark:text-blue-400 h-3 w-3" />
-                <span>{duration}</span>
-              </div>
-            </div>
+            )}
 
-            {/* Trips Frequency */}
+            {/* Next bookable departure */}
             <div className="space-y-0.5">
               <div className="text-muted-foreground text-[9px] font-bold uppercase tracking-wider">
-                Departures
+                Next departure
               </div>
               <div className="text-foreground flex items-center gap-1 font-bold text-xs">
                 <Ship className="text-[#003B95] dark:text-blue-400 h-3 w-3" />
-                <span>{frequency}</span>
+                <span>{nextDepartureLabel}</span>
               </div>
             </div>
           </div>

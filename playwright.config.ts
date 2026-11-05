@@ -17,7 +17,8 @@ export default defineConfig({
     // Local: always record a trace so every run can be replayed step by step (npm run e2e:report).
     trace: process.env.CI ? "retain-on-failure" : "on",
     screenshot: "only-on-failure",
-    video: "retain-on-failure",
+    // E2E_VIDEO=1 keeps a video of every test (to watch a passing flow in the report).
+    video: process.env.E2E_VIDEO ? "on" : "retain-on-failure",
     launchOptions: { slowMo: Number(process.env.SLOWMO ?? 0) }
   },
 

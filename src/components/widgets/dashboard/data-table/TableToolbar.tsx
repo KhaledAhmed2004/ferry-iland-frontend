@@ -1,10 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { Search, X } from "lucide-react";
-
 import { cn } from "@/lib/utils";
-import { Input, Tabs, TabsList, TabsTrigger } from "@/ui";
+import { Input, Skeleton, Tabs, TabsList, TabsTrigger } from "@/ui";
 
 export interface TableToolbarTab<T extends string = string> {
   value: T;
@@ -34,6 +32,8 @@ export interface TableToolbarProps<T extends string = string> {
   className?: string;
   /** Optional custom input className */
   inputClassName?: string;
+  /** While the first load is in flight, tab counts show a skeleton instead of "0". */
+  countsLoading?: boolean;
 }
 
 export function TableToolbar<T extends string = string>({
@@ -46,62 +46,38 @@ export function TableToolbar<T extends string = string>({
   tabs,
   children,
   className,
-  inputClassName
+  inputClassName,
+  countsLoading = false
 }: TableToolbarProps<T>) {
   const effectiveSearch = searchTerm ?? searchValue ?? "";
 
+  // Same row as shadcn's data-table-demo: a plain filter input, then the status tabs.
   return (
-    <div
-      className={cn(
-        "flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-card p-3 rounded-xl border border-border/80 shadow-xs",
-        className
-      )}
-    >
-      {/* Left: Search input */}
-      <div className="relative flex-1">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-        <Input
-          type="text"
-          placeholder={searchPlaceholder}
-          value={effectiveSearch}
-          onChange={(e) => onSearchChange(e.target.value)}
-          className={cn(
-            "pl-9 pr-9 h-9 text-xs bg-background border-border/80 rounded-lg",
-            inputClassName
-          )}
-        />
-        {searchTerm && (
-          <button
-            type="button"
-            onClick={() => onSearchChange("")}
-            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5 rounded-full transition-colors cursor-pointer"
-            title="Clear search"
-            aria-label="Clear search"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        )}
-      </div>
+    <div className={cn("flex min-w-0 flex-1 flex-wrap items-center gap-2", className)}>
+      <Input
+        type="text"
+        placeholder={searchPlaceholder}
+        value={effectiveSearch}
+        onChange={(e) => onSearchChange(e.target.value)}
+        className={cn("h-8 max-w-sm rounded-lg", inputClassName)}
+      />
 
-      {/* Right: Status Filter Tabs */}
       {tabs && tabs.length > 0 && activeTab && onTabChange && (
         <Tabs
           value={activeTab}
           onValueChange={(val) => onTabChange(val as T)}
-          className="w-auto shrink-0 max-w-full overflow-x-auto"
+          className="w-auto max-w-full overflow-x-auto"
         >
-          <TabsList className="h-9 p-1 bg-muted/80 flex flex-nowrap">
+          <TabsList className="h-8">
             {tabs.map((tab) => (
-              <TabsTrigger
-                key={tab.value}
-                value={tab.value}
-                className="text-xs font-semibold px-3 py-1 cursor-pointer whitespace-nowrap"
-              >
+              <TabsTrigger key={tab.value} value={tab.value} className="whitespace-nowrap">
                 {tab.label}
-                {tab.count !== undefined && (
-                  <span className="ml-1.5 opacity-80 text-[11px] font-bold">
-                    ({tab.count})
-                  </span>
+                {countsLoading ? (
+                  <Skeleton className="ml-1 h-3 w-4" />
+                ) : (
+                  tab.count !== undefined && (
+                    <span className="text-muted-foreground ml-1">{tab.count}</span>
+                  )
                 )}
               </TabsTrigger>
             ))}

@@ -21,7 +21,8 @@ import {
   Users,
   X
 } from "lucide-react";
-import { format, isValid, parseISO } from "date-fns";
+import { isValid, parseISO } from "date-fns";
+import { formatPortDate } from "@/lib/port-time";
 import { toast } from "sonner";
 
 import type { IManifestPassengerRecord, OperatorScheduleStatus } from "@/types";
@@ -197,8 +198,12 @@ function ManifestContent() {
   // Trip selection options for dropdown
   const tripOptions = React.useMemo(() => {
     return schedules.map((s) => {
-      const dep = parseISO(s.departureTime);
-      const timeStr = isValid(dep) ? format(dep, "dd MMM, hh:mm a") : s.departureTime;
+      // Dock local time at the departure port (spec 0003, AC-7).
+      const depZone = s.route?.departurePort?.timeZone;
+      const timeStr =
+        isValid(parseISO(s.departureTime)) && depZone
+          ? formatPortDate(s.departureTime, depZone, "dd MMM, hh:mm a")
+          : s.departureTime;
       const origin = s.route?.departurePort?.name ?? "Origin";
       const dest = s.route?.destinationPort?.name ?? "Dest";
       const ferry = s.ferry?.name ?? "Ferry";
@@ -267,8 +272,8 @@ function ManifestContent() {
             />
             {item.boardedAt && (
               <span className="text-[9px] text-muted-foreground font-mono">
-                {isValid(new Date(item.boardedAt))
-                  ? format(new Date(item.boardedAt), "hh:mm a")
+                {isValid(new Date(item.boardedAt)) && tripInfo
+                  ? formatPortDate(item.boardedAt, tripInfo.departureTimeZone, "hh:mm a")
                   : ""}
               </span>
             )}
@@ -441,7 +446,7 @@ function ManifestContent() {
                     <Clock className="h-3.5 w-3.5 text-emerald-600" />
                     Departure:{" "}
                     {isValid(new Date(tripInfo.departureTime))
-                      ? format(new Date(tripInfo.departureTime), "dd MMM yyyy, hh:mm a")
+                      ? formatPortDate(tripInfo.departureTime, tripInfo.departureTimeZone, "dd MMM yyyy, hh:mm a")
                       : String(tripInfo.departureTime)}
                   </span>
                 </div>

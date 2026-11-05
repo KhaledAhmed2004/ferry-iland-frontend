@@ -303,9 +303,6 @@ export function usePopularRoutesQuery(params?: IPopularRoutesParams) {
     queryFn: async ({ signal }) => {
       const cleanParams: Record<string, string | number> = {};
       if (params?.limit) cleanParams.limit = params.limit;
-      if (params?.category && params.category !== "all") {
-        cleanParams.category = params.category;
-      }
 
       const response = await get<ApiResponse<IPopularJourney[]>>("/routes/popular", {
         params: cleanParams,

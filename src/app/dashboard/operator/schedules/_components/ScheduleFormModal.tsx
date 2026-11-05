@@ -1,6 +1,6 @@
 import * as React from "react";
 import Link from "next/link";
-import { format, parseISO } from "date-fns";
+import { portZoneLabel, toWallTimeInput, wallTimeToDate } from "@/lib/port-time";
 import {
   AlertTriangle,
   Clock,
@@ -94,15 +94,11 @@ export function ScheduleFormModal({
     if (editingSchedule) {
       setRouteId(editingSchedule.routeId || "");
       setFerryId(editingSchedule.ferryId || "");
-      try {
-        const dep = parseISO(editingSchedule.departureTime);
-        const arr = parseISO(editingSchedule.arrivalTime);
-        setDepartureDateTime(format(dep, "yyyy-MM-dd'T'HH:mm"));
-        setArrivalDateTime(format(arr, "yyyy-MM-dd'T'HH:mm"));
-      } catch {
-        setDepartureDateTime(editingSchedule.departureTime.slice(0, 16));
-        setArrivalDateTime(editingSchedule.arrivalTime.slice(0, 16));
-      }
+      // The inputs show wall time at each port, never the operator's laptop zone (spec 0003, AC-6).
+      const depZone = editingSchedule.route?.departurePort?.timeZone;
+      const arrZone = editingSchedule.route?.destinationPort?.timeZone;
+      setDepartureDateTime(depZone ? toWallTimeInput(editingSchedule.departureTime, depZone) : "");
+      setArrivalDateTime(arrZone ? toWallTimeInput(editingSchedule.arrivalTime, arrZone) : "");
       setAdultFare(String(editingSchedule.adultFare));
       setChildFare(editingSchedule.childFare != null ? String(editingSchedule.childFare) : "");
       setStatus(editingSchedule.status || "ON_TIME");
@@ -145,6 +141,33 @@ export function ScheduleFormModal({
     return routes.find((r) => r.id === targetId);
   }, [routes, isEditing, editingSchedule?.routeId, routeId]);
 
+  // Departure is typed in the departure port's zone, arrival in the destination port's zone.
+  const departureZone = isEditing
+    ? editingSchedule?.route?.departurePort?.timeZone
+    : selectedRoute?.departurePort?.timeZone;
+  const arrivalZone = isEditing
+    ? editingSchedule?.route?.destinationPort?.timeZone
+    : selectedRoute?.destinationPort?.timeZone;
+  const departurePortName = isEditing
+    ? editingSchedule?.route?.departurePort?.name
+    : selectedRoute?.departurePort?.name;
+  const arrivalPortName = isEditing
+    ? editingSchedule?.route?.destinationPort?.name
+    : selectedRoute?.destinationPort?.name;
+
+  /** Arrival wall time at the destination port for a departure wall time plus the trip length. */
+  const arrivalFor = (
+    departureWall: string,
+    minutes: number,
+    fromZone: string | undefined,
+    toZone: string | undefined
+  ): string | null => {
+    if (!fromZone || !toZone) return null;
+    const departure = wallTimeToDate(departureWall, fromZone);
+    if (!departure) return null;
+    return toWallTimeInput(new Date(departure.getTime() + minutes * 60 * 1000), toZone);
+  };
+
   const selectedFerry = React.useMemo(() => {
     const targetId = isEditing ? editingSchedule?.ferryId : ferryId;
     return ferries.find((f) => f.id === targetId);
@@ -154,11 +177,8 @@ export function ScheduleFormModal({
   const handleDepartureChange = (value: string) => {
     setDepartureDateTime(value);
     if (value && selectedRoute?.durationMinutes) {
-      const depDate = new Date(value);
-      if (!isNaN(depDate.getTime())) {
-        const arrDate = new Date(depDate.getTime() + selectedRoute.durationMinutes * 60 * 1000);
-        setArrivalDateTime(format(arrDate, "yyyy-MM-dd'T'HH:mm"));
-      }
+      const arrival = arrivalFor(value, selectedRoute.durationMinutes, departureZone, arrivalZone);
+      if (arrival) setArrivalDateTime(arrival);
     }
   };
 
@@ -166,11 +186,13 @@ export function ScheduleFormModal({
     setRouteId(val);
     const chosenRoute = routes.find((r) => r.id === val);
     if (departureDateTime && chosenRoute?.durationMinutes) {
-      const depDate = new Date(departureDateTime);
-      if (!isNaN(depDate.getTime())) {
-        const arrDate = new Date(depDate.getTime() + chosenRoute.durationMinutes * 60 * 1000);
-        setArrivalDateTime(format(arrDate, "yyyy-MM-dd'T'HH:mm"));
-      }
+      const arrival = arrivalFor(
+        departureDateTime,
+        chosenRoute.durationMinutes,
+        chosenRoute.departurePort?.timeZone,
+        chosenRoute.destinationPort?.timeZone
+      );
+      if (arrival) setArrivalDateTime(arrival);
     }
   };
 
@@ -182,9 +204,10 @@ export function ScheduleFormModal({
       return;
     }
 
-    const depDate = new Date(departureDateTime);
-    const arrDate = new Date(arrivalDateTime);
-    if (arrDate <= depDate) {
+    // Compare the real moments at each port; the backend checks again (spec 0003, rule 8).
+    const depDate = departureZone ? wallTimeToDate(departureDateTime, departureZone) : null;
+    const arrDate = arrivalZone ? wallTimeToDate(arrivalDateTime, arrivalZone) : null;
+    if (depDate && arrDate && arrDate <= depDate) {
       toast.error("Arrival time must be later than departure time.");
       return;
     }
@@ -202,16 +225,17 @@ export function ScheduleFormModal({
       await onSubmitCreate({
         routeId,
         ferryId,
-        departureTime: depDate.toISOString(),
-        arrivalTime: arrDate.toISOString(),
+        // Local wall times; the backend reads them in the route's port zones (spec 0003, AC-6).
+        departureTime: departureDateTime,
+        arrivalTime: arrivalDateTime,
         adultFare: Number(adultFare) || 25,
         childFare: childFare ? Number(childFare) : undefined
       });
     } else if (editingSchedule) {
       await onSubmitUpdate({
         id: editingSchedule.id,
-        departureTime: depDate.toISOString(),
-        arrivalTime: arrDate.toISOString(),
+        departureTime: departureDateTime,
+        arrivalTime: arrivalDateTime,
         status,
         adultFare: Number(adultFare) || 25,
         childFare: childFare ? Number(childFare) : undefined
@@ -278,7 +302,7 @@ export function ScheduleFormModal({
               <span>
                 No ferries registered. Please register a ferry in{" "}
                 <Link href="/dashboard/operator/ferries" className="underline font-bold">
-                  Ferry Management
+                  Fleet
                 </Link>{" "}
                 before scheduling departures.
               </span>
@@ -387,6 +411,12 @@ export function ScheduleFormModal({
                   required
                   className="text-xs h-9 font-mono"
                 />
+                {departureZone && (
+                  <p className="text-[10px] text-muted-foreground">
+                    Times are in {departurePortName ?? "the departure port"} local time (
+                    {portZoneLabel(new Date(), departureZone)})
+                  </p>
+                )}
               </div>
 
               {/* Arrival DateTime */}
@@ -407,6 +437,12 @@ export function ScheduleFormModal({
                   required
                   className="text-xs h-9 font-mono"
                 />
+                {arrivalZone && (
+                  <p className="text-[10px] text-muted-foreground">
+                    Times are in {arrivalPortName ?? "the arrival port"} local time (
+                    {portZoneLabel(new Date(), arrivalZone)})
+                  </p>
+                )}
               </div>
 
               {/* Live Status when Editing */}

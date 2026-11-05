@@ -1,6 +1,7 @@
 export * from "./stat-card/StatCard";
 export * from "./stat-card/OverviewCard";
 export * from "./data-table/DashboardTableCard";
+export * from "./data-table/DataTable";
 export * from "./data-table/TablePagination";
 export * from "./data-table/TableSearchBar";
 export * from "./data-table/TableToolbar";
@@ -14,3 +15,9 @@ export * from "./admin/BookingDetailsModal";
 export * from "./operator/VesselImageUploader";
 export * from "./page-header/PageHeader";
 
+export * from "./skeletons/DashboardSkeletons";
+export * from "./data-table/DataTableColumnHeader";
+export * from "./data-table/DataTableViewOptions";
+export * from "./data-table/DataTablePagination";
+export * from "./data-table/DataTableRowActions";
+export * from "./data-table/DataTableSkeleton";

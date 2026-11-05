@@ -24,6 +24,15 @@ const ROUTE_STATUS_OPTIONS = [
   { value: "INACTIVE", label: "Inactive (Temporarily paused)" }
 ];
 
+type BundleFareKey = "adultRoundTripFare" | "childRoundTripFare" | "adultSameDayFare" | "childSameDayFare";
+
+const BUNDLE_FARE_FIELDS: { key: BundleFareKey; label: string }[] = [
+  { key: "adultRoundTripFare", label: "Round Trip · Adult ($)" },
+  { key: "childRoundTripFare", label: "Round Trip · Child ($)" },
+  { key: "adultSameDayFare", label: "Same Day Return · Adult ($)" },
+  { key: "childSameDayFare", label: "Same Day Return · Child ($)" }
+];
+
 export interface RouteFormModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -54,6 +63,21 @@ function RouteFormModalDialog({
     isBorderCrossing: routeToEdit?.isBorderCrossing ?? false,
     status: (routeToEdit?.status ?? "ACTIVE") as RouteStatus
   });
+
+  // Round trip / same day return fares per passenger. Empty = not offered on this route.
+  const [bundleFares, setBundleFares] = React.useState<Record<BundleFareKey, string>>(() => ({
+    adultRoundTripFare: routeToEdit?.adultRoundTripFare?.toString() ?? "",
+    childRoundTripFare: routeToEdit?.childRoundTripFare?.toString() ?? "",
+    adultSameDayFare: routeToEdit?.adultSameDayFare?.toString() ?? "",
+    childSameDayFare: routeToEdit?.childSameDayFare?.toString() ?? ""
+  }));
+  const bundleFarePayload = () =>
+    Object.fromEntries(
+      BUNDLE_FARE_FIELDS.map(({ key }) => {
+        const value = bundleFares[key].trim();
+        return [key, value === "" ? null : Number(value)];
+      })
+    ) as Record<BundleFareKey, number | null>;
 
   // Port select options
   const portOptions = React.useMemo(() => {
@@ -104,6 +128,15 @@ function RouteFormModalDialog({
       return;
     }
 
+    const invalidFare = BUNDLE_FARE_FIELDS.find(({ key }) => {
+      const value = bundleFares[key].trim();
+      return value !== "" && (isNaN(Number(value)) || Number(value) < 0);
+    });
+    if (invalidFare) {
+      toast.error(`${invalidFare.label} must be a positive amount, or empty if not offered.`);
+      return;
+    }
+
     try {
       if (isEdit && routeToEdit) {
         const payload: IUpdateRoutePayload = {
@@ -111,7 +144,8 @@ function RouteFormModalDialog({
           description: formData.description.trim(),
           imageUrl: formData.imageUrl.trim(),
           isBorderCrossing: formData.isBorderCrossing,
-          status: formData.status
+          status: formData.status,
+          ...bundleFarePayload()
         };
 
         const res = await updateMutation.mutateAsync({
@@ -130,7 +164,8 @@ function RouteFormModalDialog({
           description: formData.description.trim(),
           imageUrl: formData.imageUrl.trim(),
           isBorderCrossing: formData.isBorderCrossing,
-          status: formData.status
+          status: formData.status,
+          ...bundleFarePayload()
         };
 
         const res = await createMutation.mutateAsync(payload);
@@ -273,11 +308,40 @@ function RouteFormModalDialog({
                   id="route-description"
                   rows={2}
                   required
-                  placeholder="e.g. Direct scenic speed ferry connection between Malé and Maafushi with crystal blue lagoon views."
+                  placeholder="e.g. Direct scenic speed ferry connection between Blowing Point, Anguilla and Marigot, Saint Martin with crystal blue Caribbean views."
                   value={formData.description}
                   onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
                   className="border-input bg-background text-foreground placeholder:text-muted-foreground w-full resize-none rounded-xl border p-2.5 text-xs shadow-2xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                 />
+              </div>
+
+              {/* Round Trip & Same Day Return fares */}
+              <div className="space-y-2">
+                <div>
+                  <Label className="text-foreground text-xs font-semibold">Return Trip Fares (per passenger)</Label>
+                  <p className="text-muted-foreground text-[10px]">
+                    Leave a fare empty if that option is not offered on this route. One way fares are set on each schedule.
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  {BUNDLE_FARE_FIELDS.map(({ key, label }) => (
+                    <div key={key} className="space-y-1">
+                      <Label htmlFor={`route-${key}`} className="text-muted-foreground text-[11px] font-medium">
+                        {label}
+                      </Label>
+                      <Input
+                        id={`route-${key}`}
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="Not offered"
+                        value={bundleFares[key]}
+                        onChange={(e) => setBundleFares((prev) => ({ ...prev, [key]: e.target.value }))}
+                        className="h-9 text-xs"
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
 
               {/* Route Cover Photo Uploader */}

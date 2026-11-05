@@ -36,7 +36,8 @@ export interface StatCardProps extends React.HTMLAttributes<HTMLDivElement> {
   footerNode?: React.ReactNode;
 
   // Trend / Growth Analytics (Optional for Overview dashboards)
-  changePercent?: number;
+  /** null or undefined hides the trend chip (e.g. no earlier period to compare with). */
+  changePercent?: number | null;
   trend?: "up" | "down" | "neutral";
   comparisonText?: string;
   showWave?: boolean;
@@ -146,13 +147,14 @@ export function StatCard({
   variant,
   description,
   footerNode,
-  changePercent,
+  changePercent: rawChangePercent,
   trend,
   comparisonText,
   showWave = false,
   className,
   ...props
 }: StatCardProps) {
+  const changePercent = rawChangePercent ?? undefined;
   const displayTitle = title ?? label ?? "";
 
   // Resolve automatic variant if not explicitly supplied

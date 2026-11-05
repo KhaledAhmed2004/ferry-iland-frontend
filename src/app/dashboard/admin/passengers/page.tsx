@@ -1,9 +1,7 @@
 "use client";
 
 import * as React from "react";
-
 import {
-  AlertCircle,
   AlertTriangle,
   Ban,
   Check,
@@ -13,34 +11,23 @@ import {
   Loader2,
   Mail,
   Phone,
-  RefreshCw,
   Users,
   XCircle
 } from "lucide-react";
 import { toast } from "sonner";
 
-import { useDebounce } from "@/hooks/use-debounce";
-import { useTableSelection } from "@/hooks/use-table-selection";
+import { useRowSelection } from "@/hooks/use-row-selection";
+import { useTableState } from "@/hooks/use-table-state";
 import {
+  fetchAllUsers,
   useUpdateUserStatusMutation,
   useUsersQuery,
   useUserStatsQuery
 } from "@/hooks/use-users";
-
-import {
-  BulkActionToolbar,
-  DashboardTableCard,
-  PageHeader,
-  StatCard,
-  StatusBadge,
-  TablePagination,
-  TableToolbar,
-  UserDetailsModal,
-  type TableColumn
-} from "@/widgets";
+import { datedCsvName, downloadCsv } from "@/lib/csv";
+import type { IAdminUserItem } from "@/types";
 import {
   Button,
-  Checkbox,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -48,43 +35,96 @@ import {
   DialogHeader,
   DialogTitle
 } from "@/ui";
-import type { IAdminUserItem } from "@/types";
+import {
+  BulkActionToolbar,
+  DataTable,
+  PageHeader,
+  StatCard,
+  StatCardGridSkeleton,
+  StatusBadge,
+  TableToolbar,
+  UserDetailsModal,
+  type DataTableColumn,
+  DataTableRowActions
+} from "@/widgets";
+
+type StatusTab = "ALL" | "ACTIVE" | "SUSPENDED";
+type BulkAction = "activate" | "suspend" | "select-all";
+
+const getUserId = (user: IAdminUserItem) => user.id;
+
+const formatStatus = (status?: string) =>
+  status === "ACTIVE" ? "Active" : status === "SUSPENDED" ? "Suspended" : status || "Active";
+
+const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
+
+const TABLE_TITLES: Record<StatusTab, string> = {
+  ALL: "All Registered Passengers",
+  ACTIVE: "Active Passengers",
+  SUSPENDED: "Suspended Passengers"
+};
 
 export default function AdminPassengersPage() {
-  const [searchTerm, setSearchTerm] = React.useState("");
-  const debouncedSearch = useDebounce(searchTerm, 350);
+  const table = useTableState({
+    filters: { status: "ALL" },
+    defaultSort: { id: "createdAt", desc: true }
+  });
+  const statusTab = table.filters.status as StatusTab;
+  const filterParams = {
+    searchTerm: table.debouncedSearch.trim() || undefined,
+    role: "USER",
+    status: statusTab === "ALL" ? undefined : statusTab,
+    sortBy: table.sortBy,
+    sortOrder: table.sortOrder
+  };
 
-  const [statusTab, setStatusTab] = React.useState<"ALL" | "ACTIVE" | "SUSPENDED">("ALL");
-  const [page, setPage] = React.useState(1);
-  const [limit, setLimit] = React.useState(10);
+  const { data, isLoading, error, refetch, isFetching } = useUsersQuery({
+    ...filterParams,
+    page: table.page,
+    limit: table.pageSize
+  });
+  const { data: statsData, isLoading: isStatsLoading } = useUserStatsQuery();
 
-  // Selected user for details modal
+  const passengers = React.useMemo(() => data?.users ?? [], [data]);
+  const matchingCount = data?.meta?.total ?? 0;
+  const totalPages = data?.meta?.totalPages ?? data?.meta?.totalPage ?? 1;
+
+  // Platform-wide numbers for the cards and tab badges (independent of search/paging).
+  const totalPassengers = statsData?.totalPassengers ?? matchingCount;
+  const suspendedCount = statsData?.suspendedPassengers ?? 0;
+  const activeCount = Math.max(0, totalPassengers - suspendedCount);
+
+  const selection = useRowSelection({
+    data: passengers,
+    getRowId: getUserId,
+    resetKey: `${table.debouncedSearch}|${statusTab}`
+  });
+
+  // Details modal
   const [selectedUser, setSelectedUser] = React.useState<IAdminUserItem | null>(null);
   const [isModalOpen, setIsModalOpen] = React.useState(false);
 
-  // Single-passenger status confirmation modal state
+  // Single-passenger status confirmation
   const [passengerForStatusChange, setPassengerForStatusChange] = React.useState<{
     passenger: IAdminUserItem;
     targetStatus: "ACTIVE" | "SUSPENDED";
   } | null>(null);
   const [isUpdatingSingleStatus, setIsUpdatingSingleStatus] = React.useState(false);
 
+  const updateUserStatusMutation = useUpdateUserStatusMutation();
+  const [bulkAction, setBulkAction] = React.useState<BulkAction | null>(null);
+
   const handleConfirmSingleStatusChange = async () => {
     if (!passengerForStatusChange || isUpdatingSingleStatus) return;
     const { passenger, targetStatus } = passengerForStatusChange;
     setIsUpdatingSingleStatus(true);
     try {
-      await updateUserStatusMutation.mutateAsync({
-        userId: passenger.id,
-        status: targetStatus
-      });
+      await updateUserStatusMutation.mutateAsync({ userId: passenger.id, status: targetStatus });
       toast.success(
-        targetStatus === "SUSPENDED"
-          ? `Suspended account for ${passenger.name || passenger.email}`
-          : `Activated account for ${passenger.name || passenger.email}`
+        `${targetStatus === "SUSPENDED" ? "Suspended" : "Activated"} account for ${passenger.name || passenger.email}`
       );
       setPassengerForStatusChange(null);
-      refetch();
+      void refetch();
     } catch {
       toast.error("Failed to update passenger status");
     } finally {
@@ -92,443 +132,267 @@ export default function AdminPassengersPage() {
     }
   };
 
-  // Reset page when filters change
-  React.useEffect(() => {
-    setPage(1);
-  }, [debouncedSearch, statusTab]);
-
-  const { data, isLoading, isError, error, refetch, isFetching } = useUsersQuery({
-    page,
-    limit,
-    searchTerm: debouncedSearch.trim() || undefined,
-    role: "USER",
-    status: statusTab === "ALL" ? undefined : statusTab
-  });
-
-  // Dedicated real-time platform statistics from /api/v1/users/stats
-  const { data: statsData } = useUserStatsQuery();
-
-  // Filter out any non-passenger users from the directory
-  const rawUsers = data?.users ?? [];
-  const passengers = rawUsers.filter((u) => u.role !== "ADMIN" && u.role !== "OPERATOR");
-
-  const meta = data?.meta ?? {
-    page: 1,
-    limit: 10,
-    total: 0,
-    totalPages: 1
-  };
-
-  // Real-time dedicated platform statistics from /api/v1/users/stats (with fallback)
-  const totalCount =
-    statsData?.totalPassengers ??
-    meta.total ??
-    passengers.length;
-
-  const suspendedCount =
-    statsData?.suspendedPassengers ??
-    passengers.filter((u) => u.status === "SUSPENDED").length;
-
-  const activeCount = Math.max(0, totalCount - suspendedCount);
-
-  const totalPages = Math.max(
-    1,
-    meta.totalPages ?? meta.totalPage ?? Math.ceil((meta.total ?? totalCount) / limit)
-  );
-  const currentPage = Math.min(Math.max(page, 1), totalPages);
-
-  // Keep page clamped if items are deleted or filtered
-  React.useEffect(() => {
-    if (page > totalPages && totalPages > 0) {
-      setPage(totalPages);
-    }
-  }, [page, totalPages]);
-
-  // Sliced passengers for resilience if backend sends all users
-  const displayedPassengers = React.useMemo(() => {
-    if (passengers.length > limit) {
-      const start = (currentPage - 1) * limit;
-      return passengers.slice(start, start + limit);
-    }
-    return passengers;
-  }, [passengers, currentPage, limit]);
-
-  // Headless Bulk Selection Hook
-  const {
-    selectedIds: selectedPassengerIds,
-    selectedCount,
-    isAllCurrentPageSelected,
-    isSomeCurrentPageSelected,
-    toggleRow: toggleSelectRow,
-    toggleSelectAllCurrentPage,
-    toggleSelectAllAcrossPages,
-    clearSelection,
-    selectedItems
-  } = useTableSelection<IAdminUserItem>({
-    items: displayedPassengers,
-    allPageItems: passengers,
-    idKey: "id"
-  });
-
-  const [isBulkOperating, setIsBulkOperating] = React.useState(false);
-  const [bulkActionType, setBulkActionType] = React.useState<"activate" | "suspend" | null>(null);
-
-  const updateUserStatusMutation = useUpdateUserStatusMutation();
-
-  // Reset selection on page, tab, or search change
-  React.useEffect(() => {
-    clearSelection();
-  }, [page, statusTab, debouncedSearch, clearSelection]);
-
-  // Bulk Status Update Handler
-  const handleBulkStatusChange = async (targetStatus: "ACTIVE" | "SUSPENDED") => {
-    if (selectedCount === 0 || isBulkOperating) return;
-    setIsBulkOperating(true);
-    setBulkActionType(targetStatus === "ACTIVE" ? "activate" : "suspend");
-
-    const ids = Array.from(selectedPassengerIds);
-    let successCount = 0;
-
+  const handleBulkStatusChange = async (status: "ACTIVE" | "SUSPENDED") => {
+    if (selection.selectedCount === 0 || bulkAction) return;
+    setBulkAction(status === "ACTIVE" ? "activate" : "suspend");
     try {
       const results = await Promise.allSettled(
-        ids.map((id) =>
-          updateUserStatusMutation.mutateAsync({
-            userId: id,
-            status: targetStatus
-          })
-        )
+        selection.selectedIds.map((userId) => updateUserStatusMutation.mutateAsync({ userId, status }))
       );
-
-      results.forEach((r) => {
-        if (r.status === "fulfilled") successCount++;
-      });
-
-      if (successCount > 0) {
+      const succeeded = results.filter((r) => r.status === "fulfilled").length;
+      const failed = results.length - succeeded;
+      if (succeeded > 0) {
         toast.success(
-          `Successfully updated ${successCount} ${successCount === 1 ? "passenger" : "passengers"} to ${
-            targetStatus === "ACTIVE" ? "Active" : "Suspended"
-          }`
+          `${status === "ACTIVE" ? "Activated" : "Suspended"} ${plural(succeeded, "passenger", "passengers")}`
         );
-        refetch();
-        clearSelection();
-      } else {
-        toast.error("Failed to update selected passengers.");
       }
-    } catch {
-      toast.error("An error occurred during bulk update.");
+      if (failed > 0) toast.error(`Failed to update ${plural(failed, "passenger", "passengers")}`);
+      selection.clearSelection();
+      void refetch();
     } finally {
-      setIsBulkOperating(false);
-      setBulkActionType(null);
+      setBulkAction(null);
     }
   };
 
-  // Bulk CSV Export Handler
-  const handleBulkExportCSV = () => {
-    if (selectedItems.length === 0) return;
+  const handleSelectAllMatching = async () => {
+    setBulkAction("select-all");
+    try {
+      selection.selectRows(await fetchAllUsers(filterParams));
+    } catch {
+      toast.error("Could not load every matching passenger.");
+    } finally {
+      setBulkAction(null);
+    }
+  };
 
-    const headers = [
-      "Passenger Name",
-      "Email",
-      "Phone",
-      "Status",
-      "Email Verified",
-      "Registered Date"
-    ];
-    const rows = selectedItems.map((p) => [
-      `"${(p.name || "").replace(/"/g, '""')}"`,
-      `"${(p.email || "").replace(/"/g, '""')}"`,
-      `"${(p.phoneNumber || p.phone || "").replace(/"/g, '""')}"`,
-      `"${p.status || "ACTIVE"}"`,
-      p.isEmailVerified ? "Verified" : "Pending",
-      `"${new Date(p.createdAt).toLocaleDateString()}"`
-    ]);
-
-    const csvContent =
-      "data:text/csv;charset=utf-8," +
-      [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute(
-      "download",
-      `passengers_export_${new Date().toISOString().split("T")[0]}.csv`
+  const handleExportCsv = () => {
+    const rows = selection.selectedRows;
+    if (rows.length === 0) return;
+    downloadCsv(
+      datedCsvName("passengers_export"),
+      ["Passenger Name", "Email", "Phone", "Status", "Email Verified", "Registered Date"],
+      rows.map((p) => [
+        p.name,
+        p.email,
+        p.phoneNumber || p.phone,
+        p.status || "ACTIVE",
+        p.isEmailVerified ? "Verified" : "Pending",
+        new Date(p.createdAt).toLocaleDateString()
+      ])
     );
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast.success(`Exported ${selectedItems.length} passengers to CSV`);
+    toast.success(`Exported ${plural(rows.length, "passenger", "passengers")} to CSV`);
   };
 
-  const handleOpenDetails = (user: IAdminUserItem) => {
-    setSelectedUser(user);
-    setIsModalOpen(true);
-  };
-
-  const passengerColumns: TableColumn<IAdminUserItem>[] = [
-    {
-      header: (
-        <div className="flex items-center justify-center">
-          <Checkbox
-            checked={
-              isAllCurrentPageSelected ? true : isSomeCurrentPageSelected ? "indeterminate" : false
-            }
-            onCheckedChange={toggleSelectAllCurrentPage}
-            aria-label="Select all passengers on current page"
-          />
-        </div>
-      ),
-      headerClassName: "w-10 px-3 text-center",
-      className: "w-10 px-3 text-center",
-      align: "center",
-      cell: (item) => {
-        const isChecked = selectedPassengerIds.has(item.id);
-        return (
-          <div className="flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
-            <Checkbox
-              checked={isChecked}
-              onCheckedChange={() => toggleSelectRow(item.id)}
-              aria-label={`Select passenger ${item.name || item.email}`}
-            />
-          </div>
-        );
-      }
-    },
-    {
-      header: "PASSENGER",
-      cell: (item) => {
-        const initials = item.name
-          ? item.name.charAt(0).toUpperCase()
-          : item.email.charAt(0).toUpperCase();
-        return (
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-500/10 text-sm font-bold text-blue-600 dark:text-blue-400">
-              {initials}
-            </div>
-            <div className="overflow-hidden">
-              <div className="flex items-center gap-2">
-                <span className="text-foreground truncate text-xs font-bold sm:text-sm">
+  // Column ids double as the backend sort fields.
+  const columns = React.useMemo<DataTableColumn<IAdminUserItem>[]>(
+    () => [
+      {
+        id: "name",
+        header: "Passenger",
+        accessorKey: "name",
+        enableHiding: false,
+        cell: ({ row }) => {
+          const item = row.original;
+          return (
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-500/10 text-sm font-bold text-blue-600 dark:text-blue-400">
+                {(item.name || item.email).charAt(0).toUpperCase()}
+              </div>
+              <div className="overflow-hidden">
+                <div className="text-foreground truncate text-xs font-bold sm:text-sm">
                   {item.name || "Unnamed Passenger"}
-                </span>
-              </div>
-              <div className="text-muted-foreground mt-0.5 flex items-center gap-1.5 truncate text-[11px]">
-                <Mail className="h-3 w-3 shrink-0" />
-                <span className="truncate">{item.email}</span>
+                </div>
+                <div className="text-muted-foreground mt-0.5 flex items-center gap-1.5 truncate text-[11px]">
+                  <Mail className="h-3 w-3 shrink-0" />
+                  <span className="truncate">{item.email}</span>
+                </div>
               </div>
             </div>
-          </div>
-        );
-      }
-    },
-    {
-      header: "PHONE NUMBER",
-      cell: (item) => {
-        const phone = item.phoneNumber || item.phone;
-        return (
-          <div className="text-muted-foreground flex items-center gap-1.5 font-mono text-xs">
-            {phone ? (
-              <>
-                <Phone className="h-3.5 w-3.5 shrink-0 text-slate-400" />
-                <span>{phone}</span>
-              </>
-            ) : (
-              <span className="text-muted-foreground/60">—</span>
-            )}
-          </div>
-        );
-      }
-    },
-    {
-      header: "VERIFICATION",
-      align: "center",
-      headerClassName: "text-center",
-      cell: (item) => {
-        return item.isEmailVerified ? (
-          <div className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
-            <CheckCircle2 className="h-3.5 w-3.5" />
-            <span>Verified</span>
-          </div>
-        ) : (
-          <div className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-600 dark:text-amber-400">
-            <XCircle className="h-3.5 w-3.5" />
-            <span>Pending</span>
-          </div>
-        );
-      }
-    },
-    {
-      header: "STATUS",
-      cell: (item) => {
-        const rawStatus = item.status;
-        const formattedStatus =
-          rawStatus === "ACTIVE"
-            ? "Active"
-            : rawStatus === "SUSPENDED"
-              ? "Suspended"
-              : rawStatus || "Active";
-        return <StatusBadge status={formattedStatus} />;
-      }
-    },
-    {
-      header: "REGISTERED",
-      cell: (item) => (
-        <span className="text-muted-foreground font-mono text-xs">
-          {new Date(item.createdAt).toLocaleDateString()}
-        </span>
-      )
-    },
-    {
-      header: "ACTION",
-      align: "right",
-      headerClassName: "text-right",
-      cell: (item) => (
-        <div className="flex items-center justify-end gap-1.5">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => handleOpenDetails(item)}
-            className="bg-primary/10 text-primary hover:bg-primary/20 h-8 cursor-pointer gap-1.5 rounded-lg px-2.5 text-xs font-semibold transition-colors"
-          >
-            <Eye className="h-3.5 w-3.5" />
-            <span>Details</span>
-          </Button>
-
-          {item.status === "ACTIVE" ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                setPassengerForStatusChange({
-                  passenger: item,
-                  targetStatus: "SUSPENDED"
-                });
-              }}
-              className="h-8 cursor-pointer gap-1 rounded-lg px-2.5 text-xs font-semibold text-rose-600 transition-colors hover:bg-rose-500/10 hover:text-rose-700"
-              title="Suspend Passenger"
-            >
-              <Ban className="h-3.5 w-3.5" />
-              <span>Suspend</span>
-            </Button>
+          );
+        }
+      },
+      {
+        id: "phoneNumber",
+        header: "Phone Number",
+        accessorFn: (item) => item.phoneNumber || item.phone,
+        cell: ({ row }) => {
+          const phone = row.original.phoneNumber || row.original.phone;
+          return phone ? (
+            <span className="text-muted-foreground inline-flex items-center gap-1.5 font-mono">
+              <Phone className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+              {phone}
+            </span>
           ) : (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                setPassengerForStatusChange({
-                  passenger: item,
-                  targetStatus: "ACTIVE"
-                });
-              }}
-              className="h-8 cursor-pointer gap-1 rounded-lg px-2.5 text-xs font-semibold text-emerald-600 transition-colors hover:bg-emerald-500/10 hover:text-emerald-700"
-              title="Activate Passenger"
-            >
+            <span className="text-muted-foreground/60">—</span>
+          );
+        }
+      },
+      {
+        id: "isEmailVerified",
+        header: "Verification",
+        accessorKey: "isEmailVerified",
+        meta: { align: "center" },
+        cell: ({ row }) =>
+          row.original.isEmailVerified ? (
+            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
               <CheckCircle2 className="h-3.5 w-3.5" />
-              <span>Activate</span>
-            </Button>
-          )}
-        </div>
-      )
-    }
-  ];
+              Verified
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-600 dark:text-amber-400">
+              <XCircle className="h-3.5 w-3.5" />
+              Pending
+            </span>
+          )
+      },
+      {
+        id: "status",
+        header: "Status",
+        accessorKey: "status",
+        cell: ({ row }) => <StatusBadge status={formatStatus(row.original.status)} />
+      },
+      {
+        id: "createdAt",
+        header: "Registered",
+        accessorKey: "createdAt",
+        cell: ({ row }) => (
+          <span className="text-muted-foreground font-mono">
+            {new Date(row.original.createdAt).toLocaleDateString()}
+          </span>
+        )
+      },
+      {
+        id: "actions",
+        header: "Action",
+        enableSorting: false,
+        enableHiding: false,
+        meta: { align: "right" },
+        cell: ({ row }) => {
+          const item = row.original;
+          const isActive = item.status === "ACTIVE";
+          return (
+            <DataTableRowActions
+              actions={[
+                {
+                  label: "View details",
+                  icon: Eye,
+                  onSelect: () => {
+                    setSelectedUser(item);
+                    setIsModalOpen(true);
+                  }
+                },
+                {
+                  label: isActive ? "Suspend passenger" : "Activate passenger",
+                  icon: isActive ? Ban : CheckCircle2,
+                  destructive: isActive,
+                  separatorBefore: true,
+                  onSelect: () =>
+                    setPassengerForStatusChange({
+                      passenger: item,
+                      targetStatus: isActive ? "SUSPENDED" : "ACTIVE"
+                    })
+                }
+              ]}
+            />
+          );
+        }
+      }
+    ],
+    []
+  );
+
+  const isFiltered = Boolean(table.debouncedSearch) || statusTab !== "ALL";
 
   return (
     <div className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8">
-      {/* Page Header */}
       <PageHeader
         title="Passenger Management"
         description="Directory of registered travelers, ticket buyers, and passenger accounts."
       />
 
-      {/* Metric Stat Cards */}
+      {isStatsLoading ? (
+        <StatCardGridSkeleton count={2} className="grid grid-cols-1 gap-4 sm:grid-cols-2" />
+      ) : (
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <StatCard
           label="Total Passengers"
-          value={`${totalCount} ${totalCount === 1 ? "Passenger" : "Passengers"}`}
+          value={plural(totalPassengers, "Passenger", "Passengers")}
           description="Registered traveler accounts"
           icon={Users}
           variant="blue"
         />
         <StatCard
           label="Suspended Passengers"
-          value={`${suspendedCount} ${suspendedCount === 1 ? "Passenger" : "Passengers"}`}
+          value={plural(suspendedCount, "Passenger", "Passengers")}
           description="Restricted from booking"
           icon={XCircle}
           variant="rose"
           colorValue
         />
       </div>
-
-      {/* Reusable Search & Status Toolbar */}
-      <TableToolbar
-        searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
-        searchPlaceholder="Search by passenger name, email, or phone number..."
-        activeTab={statusTab}
-        onTabChange={setStatusTab}
-        tabs={[
-          { value: "ALL", label: "All Passengers", count: totalCount },
-          { value: "ACTIVE", label: "Active", count: activeCount },
-          { value: "SUSPENDED", label: "Suspended", count: suspendedCount }
-        ]}
-      />
-
-      {/* Error State */}
-      {isError && (
-        <div className="border-destructive/20 bg-destructive/10 space-y-3 rounded-xl border p-6 text-center">
-          <AlertCircle className="text-destructive mx-auto h-8 w-8" />
-          <h2 className="text-foreground text-base font-bold">Failed to Load Passengers</h2>
-          <p className="text-muted-foreground mx-auto max-w-md text-xs">
-            {error?.message || "Could not retrieve passenger directory from the server."}
-          </p>
-          <div className="flex items-center justify-center gap-2 pt-2">
-            <Button onClick={() => refetch()} variant="outline" size="sm" className="gap-2 text-xs">
-              <RefreshCw className="h-4 w-4" /> Try Again
-            </Button>
-            {error?.message?.toLowerCase().includes("token") ||
-            error?.message?.toLowerCase().includes("unauthorized") ? (
-              <Button
-                size="sm"
-                onClick={() => (window.location.href = "/login")}
-                className="bg-primary text-primary-foreground text-xs"
-              >
-                Log In as Admin
-              </Button>
-            ) : null}
-          </div>
-        </div>
       )}
 
-      {/* Loading Skeleton */}
-      {isLoading ? (
-        <div className="border-border/80 bg-card animate-pulse space-y-3 rounded-xl border p-6 shadow-xs">
-          <div className="bg-muted mb-4 h-5 w-48 rounded" />
-          <div className="bg-muted/60 h-12 w-full rounded-lg" />
-          <div className="bg-muted/40 h-12 w-full rounded-lg" />
-          <div className="bg-muted/60 h-12 w-full rounded-lg" />
-          <div className="bg-muted/40 h-12 w-full rounded-lg" />
-        </div>
-      ) : (
-        /* Passengers Table Card */
-        <div className="space-y-3">
-          {/* Standard Bulk Action Floating Toolbar */}
+      <DataTable
+        title={TABLE_TITLES[statusTab] ?? TABLE_TITLES.ALL}
+        itemName="passengers"
+        columns={columns}
+        data={passengers}
+        getRowId={getUserId}
+        isLoading={isLoading}
+        isFetching={isFetching}
+        error={error}
+        onRetry={() => refetch()}
+        emptyMessage={
+          isFiltered
+            ? "No passengers match the search criteria or selected status filter."
+            : "No registered passengers found in the system."
+        }
+        sorting={table.sorting}
+        onSortingChange={table.setSorting}
+        enableColumnVisibility
+        storageKey="admin-passengers"
+        enableRowSelection
+        rowSelection={selection.rowSelection}
+        onRowSelectionChange={selection.onRowSelectionChange}
+        toolbar={
+          <TableToolbar<StatusTab>
+            countsLoading={isLoading || isStatsLoading}
+            searchTerm={table.search}
+            onSearchChange={table.setSearch}
+            searchPlaceholder="Search by passenger name, email, or phone number..."
+            activeTab={statusTab}
+            onTabChange={(tab) => table.setFilter("status", tab)}
+            tabs={[
+              { value: "ALL", label: "All Passengers", count: totalPassengers },
+              { value: "ACTIVE", label: "Active", count: activeCount },
+              { value: "SUSPENDED", label: "Suspended", count: suspendedCount }
+            ]}
+          />
+        }
+        bulkActions={
           <BulkActionToolbar
-            selectedCount={selectedCount}
-            totalCount={totalCount}
-            displayedCount={displayedPassengers.length}
+            selectedCount={selection.selectedCount}
+            totalCount={matchingCount}
+            displayedCount={passengers.length}
             itemLabel="passengers"
             badgeColor="blue"
-            isOperating={isBulkOperating}
-            operatingLabel={bulkActionType === "activate" ? "Activating..." : "Suspending..."}
-            onClearSelection={clearSelection}
-            onSelectAllAcrossPages={toggleSelectAllAcrossPages}
-            isAllAcrossPagesSelected={selectedCount === totalCount && totalCount > 0}
+            isOperating={bulkAction !== null}
+            operatingLabel={
+              bulkAction === "activate"
+                ? "Activating..."
+                : bulkAction === "suspend"
+                  ? "Suspending..."
+                  : "Selecting..."
+            }
+            onClearSelection={selection.clearSelection}
+            onSelectAllAcrossPages={handleSelectAllMatching}
+            isAllAcrossPagesSelected={selection.selectedCount >= matchingCount && matchingCount > 0}
             actions={[
               {
                 label: "Activate",
                 icon: <Check className="h-3.5 w-3.5 stroke-[2.5]" />,
                 onClick: () => handleBulkStatusChange("ACTIVE"),
-                isLoading: isBulkOperating && bulkActionType === "activate",
+                isLoading: bulkAction === "activate",
                 className:
                   "border-emerald-200 bg-emerald-50/50 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/60"
               },
@@ -536,51 +400,29 @@ export default function AdminPassengersPage() {
                 label: "Suspend",
                 icon: <AlertTriangle className="h-3.5 w-3.5" />,
                 onClick: () => handleBulkStatusChange("SUSPENDED"),
-                isLoading: isBulkOperating && bulkActionType === "suspend",
+                isLoading: bulkAction === "suspend",
                 className:
                   "border-amber-200 bg-amber-50/50 text-amber-700 hover:bg-amber-100 hover:text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-900/60"
               },
               {
                 label: "Export CSV",
                 icon: <Download className="h-3.5 w-3.5" />,
-                onClick: handleBulkExportCSV,
+                onClick: handleExportCsv,
                 className:
                   "border-blue-200 bg-blue-50/50 text-blue-700 hover:bg-blue-100 hover:text-blue-800 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300 dark:hover:bg-blue-900/60"
               }
             ]}
           />
-
-          <DashboardTableCard
-            title={
-              statusTab === "ALL"
-                ? "All Registered Passengers"
-                : statusTab === "ACTIVE"
-                  ? "Active Passengers"
-                  : "Suspended Passengers"
-            }
-            columns={passengerColumns}
-            data={displayedPassengers}
-            keyExtractor={(item) => item.id}
-            emptyMessage={
-              searchTerm || statusTab !== "ALL"
-                ? "No passengers match the search criteria or selected status filter."
-                : "No registered passengers found in the system."
-            }
-          />
-
-          {/* Reusable Pagination Controls */}
-          <TablePagination
-            page={currentPage}
-            totalPages={totalPages}
-            totalCount={totalCount}
-            pageSize={limit}
-            onPageChange={setPage}
-            onPageSizeChange={setLimit}
-            itemName="passengers"
-            isLoading={isFetching}
-          />
-        </div>
-      )}
+        }
+        pagination={{
+          page: table.page,
+          pageSize: table.pageSize,
+          totalCount: matchingCount,
+          totalPages,
+          onPageChange: table.setPage,
+          onPageSizeChange: table.setPageSize
+        }}
+      />
 
       {/* User Details Modal Dialog */}
       <UserDetailsModal

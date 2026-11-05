@@ -3,7 +3,7 @@ import Link from "next/link";
 
 import { cn } from "@/lib/utils";
 
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/ui";
+import { DataTable, type DataTableColumn, type DataTablePagination } from "./DataTable";
 
 export type StatusType =
   | "Confirmed"
@@ -105,6 +105,8 @@ export interface TableColumn<T> {
   className?: string;
   align?: "left" | "center" | "right";
   cell?: (item: T, index: number) => React.ReactNode;
+  /** Value used for header-menu sorting when the column renders a custom cell. */
+  sortValue?: (item: T) => string | number | Date | null | undefined;
 }
 
 export interface DashboardTableCardProps<T> {
@@ -119,8 +121,40 @@ export interface DashboardTableCardProps<T> {
   emptyMessage?: string;
   className?: string;
   rowClassName?: (item: T, index: number) => string | undefined;
+  /** Show skeleton rows in place of data / the empty message. */
+  isLoading?: boolean;
+  /** @deprecated Skeleton rows follow the shared DataTable default. */
+  skeletonRows?: number;
+  /** Show the shadcn "View" menu for hiding columns. */
+  enableColumnVisibility?: boolean;
+  /** Background refetch: dims rows and shows a thin progress bar. */
+  isFetching?: boolean;
+  /** Filter row above the table (replaces the title, like the shadcn demo). */
+  toolbar?: React.ReactNode;
+  /** Shown between the toolbar and the table, e.g. a bulk-action bar. */
+  bulkActions?: React.ReactNode;
+  /** Footer with "x–y of n" and Previous / Next. */
+  pagination?: DataTablePagination;
+  /** Noun used in the footer, e.g. "ports" in "1–6 of 6 ports." */
+  itemName?: string;
 }
 
+/** "BOOKING REFERENCE" -> "Booking Reference" so card headers read like shadcn's data table. */
+function toHeaderCase(header: React.ReactNode): React.ReactNode {
+  if (typeof header !== "string" || header !== header.toUpperCase()) return header;
+  return header
+    .toLowerCase()
+    .replace(/(^|[\s/&(-])([a-z])/g, (_m, sep: string, ch: string) => sep + ch.toUpperCase());
+}
+
+function isSortableValue(value: unknown) {
+  return typeof value === "string" || typeof value === "number" || value instanceof Date;
+}
+
+/**
+ * Card-style table built on the shared shadcn `DataTable` (TanStack Table).
+ * Columns with an `accessorKey` holding plain text, numbers or dates sort from the header menu.
+ */
 export function DashboardTableCard<T>({
   title,
   viewAllHref,
@@ -132,108 +166,98 @@ export function DashboardTableCard<T>({
   keyExtractor,
   emptyMessage = "No data available.",
   className,
-  rowClassName
+  rowClassName,
+  isLoading = false,
+  isFetching = false,
+  enableColumnVisibility = false,
+  toolbar,
+  bulkActions,
+  pagination,
+  itemName
 }: DashboardTableCardProps<T>) {
-  return (
-    <div
-      className={cn(
-        "bg-card text-card-foreground border-border/80 flex flex-col justify-between overflow-hidden rounded-xl border shadow-xs transition-all",
-        className
-      )}
+  const columnDefs = React.useMemo<DataTableColumn<T>[]>(
+    () =>
+      columns.map((col, colIdx) => {
+        const key = col.accessorKey;
+        const getValue: ((item: T) => unknown) | undefined =
+          col.sortValue ?? (key !== undefined ? (item: T) => item[key] : undefined);
+        const isSelectColumn = typeof col.header !== "string";
+        const sortable = getValue !== undefined && data.some((item) => isSortableValue(getValue(item)));
+        return {
+          id: key ? String(key) : `col_${colIdx}`,
+          ...(getValue ? { accessorFn: getValue } : {}),
+          header: () => toHeaderCase(col.header),
+          cell: ({ row }) =>
+            col.cell
+              ? col.cell(row.original, row.index)
+              : key
+                ? (row.original[key] as React.ReactNode)
+                : null,
+          enableSorting: sortable,
+          // Like the shadcn demo, the actions / select columns can't be hidden.
+          enableHiding: !(
+            typeof col.header !== "string" || /^actions?$/i.test(col.header.trim())
+          ),
+          sortUndefined: "last",
+          meta: {
+            align: col.align,
+            // Select columns use the table's own checkbox spacing so every table lines up.
+            className: isSelectColumn ? "w-10" : col.className,
+            headerClassName: isSelectColumn ? "w-10" : col.headerClassName,
+            label: typeof col.header === "string" ? col.header : key ? String(key) : undefined,
+            // A non-text header here is the page's own select-all checkbox.
+            skeleton:
+              typeof col.header !== "string"
+                ? "select"
+                : /^actions?$/i.test(col.header.trim())
+                  ? "actions"
+                  : "text"
+          }
+        } satisfies DataTableColumn<T>;
+      }),
+    [columns, data]
+  );
+
+  const viewAll = headerRight ?? (viewAllHref ? (
+    <Link
+      href={viewAllHref}
+      className="text-primary hover:text-primary/80 text-xs font-semibold transition-colors hover:underline"
     >
-      {/* Header inside the Card with uniform height */}
-      <div className="border-border/40 flex min-h-[58px] items-center justify-between gap-3 border-b px-5 py-4 md:px-6">
-        {typeof title === "string" ? (
-          <h3 className="text-foreground text-base font-bold tracking-tight">{title}</h3>
-        ) : (
-          title
-        )}
-        {headerRight ? (
-          headerRight
-        ) : viewAllHref ? (
-          <Link
-            href={viewAllHref}
-            className="text-primary hover:text-primary/80 text-xs font-semibold transition-colors hover:underline"
-          >
-            {viewAllLabel}
-          </Link>
-        ) : onViewAll ? (
-          <button
-            type="button"
-            onClick={onViewAll}
-            className="text-primary hover:text-primary/80 cursor-pointer text-xs font-semibold transition-colors hover:underline"
-          >
-            {viewAllLabel}
-          </button>
-        ) : null}
-      </div>
+      {viewAllLabel}
+    </Link>
+  ) : onViewAll ? (
+    <button
+      type="button"
+      onClick={onViewAll}
+      className="text-primary hover:text-primary/80 cursor-pointer text-xs font-semibold transition-colors hover:underline"
+    >
+      {viewAllLabel}
+    </button>
+  ) : null);
 
-      {/* Table with Header and Rows */}
-      <div className="flex-1 overflow-x-auto">
-        <Table>
-          <TableHeader className="bg-muted/40 border-border/80 border-b">
-            <TableRow className="h-10 border-none hover:bg-transparent">
-              {columns.map((col, idx) => (
-                <TableHead
-                  key={idx}
-                  className={cn(
-                    "text-muted-foreground h-10 px-4 text-[10px] font-extrabold tracking-wider whitespace-nowrap uppercase md:px-6 md:text-[11px]",
-                    col.align === "center" && "text-center",
-                    col.align === "right" && "text-right",
-                    col.headerClassName
-                  )}
-                >
-                  {col.header}
-                </TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {data.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="text-muted-foreground h-24 text-center text-xs font-medium"
-                >
-                  {emptyMessage}
-                </TableCell>
-              </TableRow>
-            ) : (
-              data.map((item, rowIdx) => {
-                const key = keyExtractor ? keyExtractor(item, rowIdx) : rowIdx;
+  // Index-based ids keep keys stable when no keyExtractor is given.
+  const indexOf = React.useMemo(() => new Map(data.map((item, idx) => [item, idx])), [data]);
 
-                return (
-                  <TableRow
-                    key={key}
-                    className={cn(
-                      "border-border/60 hover:bg-muted/30 h-[54px] transition-colors",
-                      rowClassName?.(item, rowIdx)
-                    )}
-                  >
-                    {columns.map((col, colIdx) => (
-                      <TableCell
-                        key={colIdx}
-                        className={cn(
-                          "text-foreground px-4 py-3 align-middle text-xs font-normal whitespace-nowrap md:px-6",
-                          col.align === "center" && "text-center",
-                          col.align === "right" && "text-right",
-                          col.className
-                        )}
-                      >
-                        {col.cell
-                          ? col.cell(item, rowIdx)
-                          : col.accessorKey
-                            ? (item[col.accessorKey] as React.ReactNode)
-                            : null}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                );
-              })
-            )}
-          </TableBody>
-        </Table>
-      </div>
-    </div>
+  return (
+    <DataTable
+      className={className}
+      title={title}
+      headerRight={viewAll}
+      columns={columnDefs}
+      data={data}
+      getRowId={(item) => {
+        const idx = indexOf.get(item) ?? 0;
+        return String(keyExtractor ? keyExtractor(item, idx) : idx);
+      }}
+      rowClassName={rowClassName ? (item) => rowClassName(item, indexOf.get(item) ?? 0) : undefined}
+      emptyMessage={emptyMessage}
+      isLoading={isLoading}
+      isFetching={isFetching}
+      enableColumnVisibility={enableColumnVisibility}
+      toolbar={toolbar}
+      bulkActions={bulkActions}
+      pagination={pagination}
+      itemName={itemName}
+    />
   );
 }

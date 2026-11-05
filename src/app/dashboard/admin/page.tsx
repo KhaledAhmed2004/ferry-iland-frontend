@@ -8,6 +8,7 @@ import { useAdminAnalyticsQuery, useAdminBookingByRefQuery } from "@/hooks/use-a
 
 import {
   BookingDetailsModal,
+  BookingStatusDonutChart,
   BookingsVolumeChart,
   DashboardTableCard,
   PageHeader,
@@ -21,7 +22,8 @@ import { ChartEmptyState } from "./_components/ChartEmptyState";
 import { AdminOverviewCards } from "./_components/AdminOverviewCards";
 import { getRecentBookingColumns } from "./_components/overview-columns";
 
-export type TimeRangeFilter = "7d" | "15d" | "30d" | "month";
+export type { TimeRangeFilter } from "@/data";
+import type { TimeRangeFilter } from "@/data";
 
 export default function AdminPage() {
   const [globalTimeRange, setGlobalTimeRange] = React.useState<TimeRangeFilter>("30d");
@@ -48,6 +50,11 @@ export default function AdminPage() {
   // Chart series come only from the backend. No made up split when they are missing (AGENTS.md: no mock data).
   const revenueChartData = analytics?.charts?.revenueTrend?.revenue ?? [];
   const bookingsChartData = analytics?.charts?.revenueTrend?.bookings ?? [];
+  const bookingBreakdown = analytics?.breakdowns?.bookings;
+  const bookingStatusTotal =
+    (bookingBreakdown?.confirmed ?? 0) +
+    (bookingBreakdown?.checkedIn ?? 0) +
+    (bookingBreakdown?.cancelled ?? 0);
 
   if (isError) {
     return (
@@ -90,32 +97,47 @@ export default function AdminPage() {
       <AdminOverviewCards analytics={analytics} isLoading={isLoading} />
 
       {/* Analytical Charts Row */}
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         {revenueChartData.length > 0 ? (
-          <RevenueAnalyticsChart data={revenueChartData} />
+          <RevenueAnalyticsChart
+            className="xl:col-span-2"
+            data={revenueChartData}
+            changePercent={analytics?.breakdowns?.financials?.changePercent}
+          />
         ) : (
-          <ChartEmptyState title="Revenue Analytics" isLoading={isLoading} />
+          <div className="xl:col-span-2">
+            <ChartEmptyState title="Revenue Analytics" isLoading={isLoading} />
+          </div>
+        )}
+        {bookingStatusTotal > 0 ? (
+          <BookingStatusDonutChart
+            confirmed={bookingBreakdown?.confirmed ?? 0}
+            checkedIn={bookingBreakdown?.checkedIn ?? 0}
+            cancelled={bookingBreakdown?.cancelled ?? 0}
+            periodLabel={analytics?.period?.label}
+          />
+        ) : (
+          <ChartEmptyState title="Booking Status Mix" isLoading={isLoading} />
         )}
         {bookingsChartData.length > 0 ? (
-          <BookingsVolumeChart data={bookingsChartData} />
+          <BookingsVolumeChart className="xl:col-span-3" data={bookingsChartData} />
         ) : (
-          <ChartEmptyState title="Bookings Volume" isLoading={isLoading} />
+          <div className="xl:col-span-3">
+            <ChartEmptyState title="Bookings Volume" isLoading={isLoading} />
+          </div>
         )}
       </div>
 
       {/* Recent Bookings Table */}
-      {isLoading ? (
-        <div className="border-border/60 bg-muted/20 h-72 animate-pulse rounded-xl border p-4" />
-      ) : (
-        <DashboardTableCard
-          title="Recent Bookings"
-          viewAllHref="/dashboard/admin/bookings"
-          columns={bookingColumns}
-          data={analytics?.recent?.bookings ?? []}
-          keyExtractor={(item) => item.id}
-          emptyMessage="No recent bookings found."
-        />
-      )}
+      <DashboardTableCard
+        title="Recent Bookings"
+        viewAllHref="/dashboard/admin/bookings"
+        columns={bookingColumns}
+        data={analytics?.recent?.bookings ?? []}
+        keyExtractor={(item) => item.id}
+        emptyMessage="No recent bookings found."
+        isLoading={isLoading}
+      />
 
       {/* In-Place Quick-View Modal */}
       <BookingDetailsModal

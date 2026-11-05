@@ -16,9 +16,9 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks";
+import { useOperatorSettingsQuery } from "@/hooks/use-operator";
 import { Button } from "@/ui";
 import { BrandLogo } from "@/widgets";
-import { PROVIDER_MOCK_DATA } from "@/data";
 
 export interface ProviderNavItem {
   name: string;
@@ -76,8 +76,25 @@ interface ProviderSidebarProps {
 
 export function ProviderSidebar({ onItemClick, className }: ProviderSidebarProps) {
   const pathname = usePathname();
-  const { logout } = useAuth();
-  const { profile } = PROVIDER_MOCK_DATA;
+  const { user, logout } = useAuth();
+  const { data: operatorSettings } = useOperatorSettingsQuery();
+
+  const companyName =
+    operatorSettings?.companyName ||
+    user?.operatorProfile?.companyName ||
+    "Makana Ferry Service";
+
+  const contactPerson =
+    operatorSettings?.contactPersonName ||
+    user?.operatorProfile?.contactPersonName ||
+    user?.name ||
+    "Operator Admin";
+
+  const contactEmail =
+    operatorSettings?.contactEmail ||
+    user?.operatorProfile?.contactEmail ||
+    user?.email ||
+    "operator@ferrygo.com";
 
   const isItemActive = (item: ProviderNavItem) => {
     if (item.name === "Overview") {
@@ -97,17 +114,22 @@ export function ProviderSidebar({ onItemClick, className }: ProviderSidebarProps
       )}
     >
       {/* Brand & Provider Portal Header */}
-      <div className="border-border/80 flex h-16 items-center justify-between border-b px-6">
+      <div className="border-border/80 flex h-16 items-center justify-between border-b px-4 sm:px-5">
         <BrandLogo
           size="md"
           href="/dashboard/operator"
+          logoSrc="/operators/makana-ferry.png"
+          iconClassName="rounded-full ring-2 ring-sky-400/60 shadow-xs overflow-hidden shrink-0"
           onClick={onItemClick}
           title={
-            <span className="truncate max-w-[150px] block" title={profile.companyName}>
-              {profile.companyName}
+            <span
+              className="block truncate max-w-[175px] font-extrabold text-xs sm:text-sm tracking-tight leading-tight text-foreground"
+              title={companyName}
+            >
+              {companyName}
             </span>
           }
-          subtitle="Operator Portal"
+          subtitle="OPERATOR PORTAL"
         />
       </div>
 
@@ -151,14 +173,14 @@ export function ProviderSidebar({ onItemClick, className }: ProviderSidebarProps
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3 overflow-hidden">
             <div className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex h-9 w-9 shrink-0 items-center justify-center rounded-full font-bold text-sm">
-              {profile.contactPerson.charAt(0)}
+              {contactPerson ? contactPerson.charAt(0).toUpperCase() : "O"}
             </div>
-            <div className="flex flex-col overflow-hidden">
-              <span className="truncate text-sm font-bold text-foreground">
-                {profile.contactPerson}
+            <div className="flex flex-col overflow-hidden min-w-0">
+              <span className="truncate text-sm font-bold text-foreground" title={contactPerson}>
+                {contactPerson}
               </span>
-              <span className="truncate text-xs text-muted-foreground">
-                {profile.email}
+              <span className="truncate text-xs text-muted-foreground" title={contactEmail}>
+                {contactEmail}
               </span>
             </div>
           </div>

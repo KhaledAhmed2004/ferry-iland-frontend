@@ -3,11 +3,12 @@
 import { useEffect, useMemo } from "react";
 import { addDays, format, isBefore, parseISO } from "date-fns";
 import { Anchor, ArrowLeftRight, ArrowRight, ArrowUpDown, Calendar, MapPin, Users } from "lucide-react";
-import { useQueryStates } from "nuqs";
+import { useQueryState, useQueryStates } from "nuqs";
 
-import { bookingSearchParamsParsers } from "@/schemas/booking-params";
+import { bookingSearchParamsParsers, getTodayDateString } from "@/schemas/booking-params";
 import { cn } from "@/lib/utils";
 import { Button, Card, CardContent, DatePicker, Label } from "@/ui";
+import { searchDepartureDate, useIsClient, usePortToday } from "@/hooks/use-port-today";
 import { useConnectedPortsQuery } from "@/hooks/use-routes";
 import { getUniquePorts } from "@/data/ports";
 
@@ -20,6 +21,15 @@ export function BookingSearchFilterBar() {
   });
 
   const { data: connectedPorts = [], isLoading: isLoadingPorts } = useConnectedPortsQuery();
+  // Earliest searchable day is today at the chosen departure port (spec 0003, AC-10).
+  const portTodayYmd = usePortToday(params.from);
+  // The date the URL actually carries (null when absent), not the parser's browser today default,
+  // so an unset date follows the port's today (spec 0003, AC-10). "Now" is read in the browser only.
+  const [departureDateInUrl] = useQueryState("departureDate");
+  const isClient = useIsClient();
+  const departureDateValue = isClient
+    ? searchDepartureDate(departureDateInUrl ?? "", getTodayDateString(), portTodayYmd)
+    : (departureDateInUrl ?? "");
 
   const departureOptions: PortOption[] = useMemo(() => {
     if (connectedPorts && connectedPorts.length > 0) {
@@ -152,7 +162,7 @@ export function BookingSearchFilterBar() {
       tripType: params.tripType,
       from: params.from,
       to: params.to,
-      departureDate: params.departureDate,
+      departureDate: departureDateValue,
       returnDate: params.tripType === "round-trip" ? nextReturn : null,
       adults: String(adults),
       children: String(childrenCount),
@@ -210,6 +220,24 @@ export function BookingSearchFilterBar() {
               )}
             >
               Round trip
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                // Same day return comes back on the departure date: no return date to pick.
+                void setParams({
+                  tripType: "same-day-return",
+                  returnDate: null
+                });
+              }}
+              className={cn(
+                "cursor-pointer rounded-full px-4 py-1.5 text-xs font-bold transition-all duration-200 sm:px-5",
+                params.tripType === "same-day-return"
+                  ? "bg-blue-600 text-white shadow-xs"
+                  : "text-muted-foreground hover:bg-background/50 hover:text-foreground"
+              )}
+            >
+              Same day return
             </button>
           </div>
         </div>
@@ -287,9 +315,9 @@ export function BookingSearchFilterBar() {
               <span>DEPARTURE DATE</span>
             </Label>
             <DatePicker
-              value={params.departureDate}
+              value={departureDateValue}
               onChange={handleDepartureDateChange}
-              minDate={new Date()}
+              minDate={portTodayYmd ?? new Date()}
               placeholder="Departure date"
               className="border border-input bg-muted/40 hover:bg-muted/60 text-foreground h-11 w-full rounded-xl px-3.5 text-xs font-bold shadow-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
             />
@@ -305,7 +333,7 @@ export function BookingSearchFilterBar() {
               <DatePicker
                 value={params.returnDate || ""}
                 onChange={(val) => void setParams({ returnDate: val })}
-                minDate={params.departureDate ? new Date(params.departureDate) : new Date()}
+                minDate={departureDateValue || portTodayYmd || new Date()}
                 placeholder="Return date"
                 className="border border-input bg-muted/40 hover:bg-muted/60 text-foreground h-11 w-full rounded-xl px-3.5 text-xs font-bold shadow-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
               />

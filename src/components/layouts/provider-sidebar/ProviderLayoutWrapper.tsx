@@ -90,7 +90,8 @@ export function ProviderLayoutWrapper({ children }: ProviderLayoutWrapperProps) 
       )}
 
       {/* Main Content Area */}
-      <div className="flex flex-1 flex-col md:pl-64">
+      {/* min-w-0: let this column shrink to the screen so wide tables scroll inside their card, not the page. */}
+      <div className="flex min-w-0 flex-1 flex-col md:pl-64">
         <ProviderHeader
           isMobileMenuOpen={mobileMenuOpen}
           onToggleMobileMenu={() => setMobileMenuOpen((prev) => !prev)}

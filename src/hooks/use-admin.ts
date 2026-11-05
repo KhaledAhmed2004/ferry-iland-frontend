@@ -17,6 +17,7 @@ import type {
 } from "@/types";
 
 import { del, get, patch, post } from "@/lib/api";
+import { fetchAllPages } from "@/lib/fetch-all-pages";
 
 /**
  * Admin Query Key Factory
@@ -67,53 +68,64 @@ export function useAdminAnalyticsQuery(periodOrDays: string | number = "30d") {
 /**
  * 2. Query: Fetch Paginated & Filtered Registered Ferry Providers
  */
+async function fetchAdminProvidersPage(params?: ProviderFilterParams, signal?: AbortSignal) {
+  const cleanParams: Record<string, string | number> = {};
+  if (params?.searchTerm && params.searchTerm.trim()) {
+    cleanParams.searchTerm = params.searchTerm.trim();
+  }
+  if (params?.status && params.status !== "ALL" && params.status !== "all" && params.status.trim()) {
+    cleanParams.status = params.status;
+  }
+  if (params?.page) cleanParams.page = params.page;
+  if (params?.limit) cleanParams.limit = Math.min(params.limit, 100);
+  if (params?.sortBy) cleanParams.sortBy = params.sortBy;
+  if (params?.sortOrder) cleanParams.sortOrder = params.sortOrder;
+
+  const response = await get<
+    ApiResponse<IAdminProviderItem[]> & {
+      pagination?: {
+        page: number;
+        limit: number;
+        total: number;
+        totalPage?: number;
+        totalPages?: number;
+      };
+    }
+  >("/admin/providers", {
+    params: cleanParams,
+    signal
+  });
+
+  const pagination = response.pagination;
+  const normalizedMeta = pagination
+    ? {
+        page: pagination.page,
+        limit: pagination.limit,
+        total: pagination.total,
+        totalPages: pagination.totalPages ?? pagination.totalPage ?? 1
+      }
+    : response.meta;
+
+  return {
+    providers: response.data ?? [],
+    meta: normalizedMeta
+  };
+}
+
 export function useAdminProvidersQuery(params?: ProviderFilterParams) {
   return useQuery({
     queryKey: adminKeys.providerList(params),
-    queryFn: async ({ signal }) => {
-      const cleanParams: Record<string, string | number> = {};
-      if (params?.searchTerm && params.searchTerm.trim()) {
-        cleanParams.searchTerm = params.searchTerm.trim();
-      }
-      if (params?.status && params.status !== "ALL" && params.status !== "all" && params.status.trim()) {
-        cleanParams.status = params.status;
-      }
-      if (params?.page) cleanParams.page = params.page;
-      if (params?.limit) cleanParams.limit = params.limit;
-      if (params?.sortOrder) cleanParams.sortOrder = params.sortOrder;
-
-      const response = await get<
-        ApiResponse<IAdminProviderItem[]> & {
-          pagination?: {
-            page: number;
-            limit: number;
-            total: number;
-            totalPage?: number;
-            totalPages?: number;
-          };
-        }
-      >("/admin/providers", {
-        params: cleanParams,
-        signal
-      });
-
-      const pagination = response.pagination;
-      const normalizedMeta = pagination
-        ? {
-            page: pagination.page,
-            limit: pagination.limit,
-            total: pagination.total,
-            totalPages: pagination.totalPages ?? pagination.totalPage ?? 1
-          }
-        : response.meta;
-
-      return {
-        providers: response.data ?? [],
-        meta: normalizedMeta
-      };
-    },
+    queryFn: ({ signal }) => fetchAdminProvidersPage(params, signal),
     staleTime: 0,
     placeholderData: (previousData) => previousData
+  });
+}
+
+/** Every operator matching the filters (ignores page/limit) — for "select all across pages". */
+export function fetchAllAdminProviders(params?: Omit<ProviderFilterParams, "page" | "limit">) {
+  return fetchAllPages(async (page, limit) => {
+    const { providers, meta } = await fetchAdminProvidersPage({ ...params, page, limit });
+    return { items: providers, totalPages: meta?.totalPages ?? meta?.totalPage ?? 1 };
   });
 }
 
@@ -284,6 +296,8 @@ export function useAdminPaymentsQuery(params?: IAdminPaymentsFilterParams) {
       }
       if (params?.page) cleanParams.page = params.page;
       if (params?.limit) cleanParams.limit = params.limit;
+      if (params?.sortBy) cleanParams.sortBy = params.sortBy;
+      if (params?.sortOrder) cleanParams.sortOrder = params.sortOrder;
 
       const response = await get<ApiResponse<IAdminPaymentsResponseData>>("/admin/payments", {
         params: cleanParams,

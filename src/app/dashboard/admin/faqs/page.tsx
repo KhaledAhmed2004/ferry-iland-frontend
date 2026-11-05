@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { DashboardPageSkeleton } from "@/widgets/dashboard/skeletons/DashboardSkeletons";
 import { FaqManagementView } from "./_components/FaqManagementView";
 
 export const metadata: Metadata = {
@@ -10,11 +11,7 @@ export const metadata: Metadata = {
 export default function AdminFaqsPage() {
   return (
     <Suspense
-      fallback={
-        <div className="p-8 text-xs text-muted-foreground animate-pulse">
-          Loading FAQ Management...
-        </div>
-      }
+      fallback={<DashboardPageSkeleton statCount={0} />}
     >
       <FaqManagementView />
     </Suspense>

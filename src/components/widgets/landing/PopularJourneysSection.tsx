@@ -1,66 +1,17 @@
 "use client";
 
-import * as React from "react";
 import Link from "next/link";
 import { ArrowRight, Compass } from "lucide-react";
 
-import { POPULAR_ROUTES } from "@/data/routes";
 import { usePopularRoutesQuery } from "@/hooks";
-import type { IPopularJourney } from "@/types";
 import { Button } from "@/ui";
-import { RouteCard, type RouteCardItem } from "@/components/widgets/booking/RouteCard";
-
-// Static fallback items structured for RouteCard
-export const POPULAR_JOURNEYS: RouteCardItem[] = POPULAR_ROUTES.slice(0, 4).map((r, idx) => ({
-  id: r.id,
-  from: r.from,
-  to: r.to,
-  description: r.description,
-  duration: r.duration,
-  trips: r.trips,
-  frequency: r.trips,
-  image: r.image,
-  startingPrice: 30,
-  price: 30,
-  highlights: ["Air Conditioned", "Fast Speedboat", "Free 20kg Bag"],
-  tag: idx === 0 ? "Most Popular" : "Popular Route",
-  tagColor: idx === 0 ? "bg-[#003B95] text-white" : "bg-emerald-600 text-white",
-  category: "speedboat"
-}));
+import { RouteCard } from "@/components/widgets/booking/RouteCard";
 
 export function PopularJourneysSection() {
-  const { data: popularRoutes, isLoading } = usePopularRoutesQuery({ limit: 4 });
+  const { data: journeys = [], isLoading, isError, refetch } = usePopularRoutesQuery({ limit: 4 });
 
-  // Map live API data to RouteCardItem, falling back to static routes if empty
-  const journeys = React.useMemo<RouteCardItem[]>(() => {
-    if (popularRoutes && popularRoutes.length > 0) {
-      return popularRoutes.slice(0, 4).map((route: IPopularJourney, index: number) => ({
-        id: route.id || route.routeId || `popular-${index}`,
-        from: route.from,
-        to: route.to,
-        description:
-          route.description ||
-          `Regular departures connecting ${route.from} and ${route.to} with fast, comfortable marine transfers.`,
-        duration: route.duration || `${route.durationMinutes || 45} min`,
-        durationMinutes: route.durationMinutes,
-        price: route.startingPrice ?? route.price ?? 30,
-        startingPrice: route.startingPrice ?? route.price ?? 30,
-        frequency: route.frequency || `${route.dailyTripsCount || 4} Daily Trips`,
-        dailyTripsCount: route.dailyTripsCount,
-        tag: route.tag || (index === 0 ? "Most Popular" : "Popular Route"),
-        tagColor: route.tagColor || (index === 0 ? "bg-[#003B95] text-white" : "bg-emerald-600 text-white"),
-        highlights:
-          route.highlights && route.highlights.length > 0
-            ? route.highlights
-            : ["Fast Speedboat", "Air Conditioned", "Instant QR Pass"],
-        imageUrl: route.imageUrl,
-        category: route.category || "speedboat",
-        departurePort: route.departurePort,
-        destinationPort: route.destinationPort
-      }));
-    }
-    return POPULAR_JOURNEYS;
-  }, [popularRoutes]);
+  // Nothing real to show (no active routes) — hide the section instead of showing placeholders.
+  if (!isLoading && !isError && journeys.length === 0) return null;
 
   return (
     <section id="schedules" className="pt-16 pb-6 md:pt-20 md:pb-8">
@@ -73,7 +24,7 @@ export function PopularJourneysSection() {
               <span>POPULAR JOURNEYS</span>
             </div>
             <h2 className="mt-3 text-3xl font-black tracking-tight text-foreground sm:text-4xl lg:text-5xl">
-              Where are you heading?
+              Explore our neighboring islands
             </h2>
             <p className="mt-4 text-xs text-muted-foreground sm:text-sm md:text-base leading-relaxed">
               Discover frequently travelled routes, guaranteed daily departures, and transparent fixed fares with no hidden booking fees.
@@ -95,9 +46,18 @@ export function PopularJourneysSection() {
           </div>
         </div>
 
+        {isError && (
+          <div className="rounded-3xl border border-border/80 bg-card px-4 py-10 text-center">
+            <p className="text-sm font-semibold text-foreground">We couldn&apos;t load routes right now.</p>
+            <Button variant="outline" size="sm" onClick={() => refetch()} className="mt-3 rounded-xl text-xs">
+              Try again
+            </Button>
+          </div>
+        )}
+
         {/* Cards Grid using RouteCard from /routes */}
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {isLoading && journeys.length === 0
+          {isLoading
             ? Array.from({ length: 4 }).map((_, i) => (
                 <div
                   key={`skeleton-${i}`}
@@ -114,8 +74,8 @@ export function PopularJourneysSection() {
                   </div>
                 </div>
               ))
-            : journeys.map((route, idx) => (
-                <RouteCard key={route.id} route={route} index={idx} />
+            : journeys.map((route) => (
+                <RouteCard key={route.id} route={route} />
               ))}
         </div>
       </div>

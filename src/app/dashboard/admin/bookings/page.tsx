@@ -1,45 +1,30 @@
 "use client";
 
 import * as React from "react";
-
-import {
-  AlertCircle,
-  Copy,
-  Eye,
-  Loader2,
-  Mail,
-  MapPin,
-  Phone,
-  RefreshCw,
-  Ship,
-  Ticket
-} from "lucide-react";
-import { format } from "date-fns";
 import { useSearchParams } from "next/navigation";
+
+import { AlertCircle, Copy, Eye, Mail, MapPin, Phone, RefreshCw, Ship, Ticket } from "lucide-react";
+import { format } from "date-fns";
 import { toast } from "sonner";
 
 import { useAdminBookingsQuery, useDebounce } from "@/hooks";
 
 import {
   BookingDetailsModal,
+  DashboardPageSkeleton,
   DashboardTableCard,
+  DataTableRowActions,
   PageHeader,
   StatusBadge,
-  TablePagination,
   TableToolbar,
   type TableColumn
 } from "@/widgets";
-import { Badge, Button } from "@/ui";
+import { Badge, Button, Skeleton } from "@/ui";
 import type { IAdminBookingItem } from "@/types";
+
 import { BookingKpiGrid } from "./_components/BookingKpiGrid";
 
-const PAGE_SIZE_OPTIONS = [
-  { value: "10", label: "10 per page" },
-  { value: "20", label: "20 per page" },
-  { value: "50", label: "50 per page" }
-];
-
-type BookingStatusTab = "ALL" | "CONFIRMED" | "CHECKED_IN" | "COMPLETED" | "CANCELLED" | "PENDING";
+type BookingStatusTab = "ALL" | "CONFIRMED" | "CHECKED_IN" | "CANCELLED" | "PENDING" | "EXPIRED";
 
 function AdminBookingsContent() {
   const searchParams = useSearchParams();
@@ -50,7 +35,7 @@ function AdminBookingsContent() {
 
   const [activeTab, setActiveTab] = React.useState<BookingStatusTab>("ALL");
   const [page, setPage] = React.useState(1);
-  const [limit, setLimit] = React.useState(10);
+  const limit = 10;
   const [selectedBooking, setSelectedBooking] = React.useState<IAdminBookingItem | null>(null);
 
   // Sync if URL search query changes
@@ -95,11 +80,16 @@ function AdminBookingsContent() {
   const totalCount = meta.total ?? bookings.length;
   const totalPages = Math.max(1, meta.totalPages ?? Math.ceil(totalCount / limit));
 
-  // Quick stat counts from the current page/dataset
-  const confirmedCount = bookings.filter((b) => b.status === "CONFIRMED").length;
-  const checkedInCount = bookings.filter((b) => b.status === "CHECKED_IN").length;
-  const cancelledCount = bookings.filter((b) => b.status === "CANCELLED").length;
-  const pendingCount = bookings.filter((b) => b.status === "PENDING").length;
+  // Platform-wide counts per status from the API (not just the rows on this page).
+  const statusCounts = meta.statusCounts ?? {};
+  const confirmedCount = statusCounts.CONFIRMED ?? 0;
+  const checkedInCount = statusCounts.CHECKED_IN ?? 0;
+  const cancelledCount = statusCounts.CANCELLED ?? 0;
+  const pendingCount = statusCounts.PENDING ?? 0;
+  const expiredCount = statusCounts.EXPIRED ?? 0;
+  const allStatusesCount = meta.statusCounts
+    ? Object.values(meta.statusCounts).reduce((sum, n) => sum + (n ?? 0), 0)
+    : totalCount;
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
@@ -109,6 +99,7 @@ function AdminBookingsContent() {
   const bookingColumns: TableColumn<IAdminBookingItem>[] = [
     {
       header: "BOOKING REFERENCE",
+      sortValue: (item) => item.reference,
       cell: (item) => (
         <div className="flex items-center gap-2">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
@@ -135,6 +126,7 @@ function AdminBookingsContent() {
     },
     {
       header: "PASSENGER",
+      sortValue: (item) => item.leadPassengerName,
       cell: (item) => (
         <div className="max-w-[180px] space-y-0.5">
           <div className="text-foreground truncate text-xs font-bold">{item.leadPassengerName}</div>
@@ -155,7 +147,7 @@ function AdminBookingsContent() {
       header: "ROUTE & PORTS",
       cell: (item) => {
         const schedule = item.schedule;
-        const dep = schedule?.route?.departurePort?.name || "Malé Terminal";
+        const dep = schedule?.route?.departurePort?.name || "Departure Port";
         const arr = schedule?.route?.destinationPort?.name || "Island Jetty";
         return (
           <div className="max-w-[190px] space-y-0.5">
@@ -190,6 +182,8 @@ function AdminBookingsContent() {
     },
     {
       header: "TRAVEL TIME",
+      sortValue: (item) =>
+        item.schedule?.departureTime ? new Date(item.schedule.departureTime) : undefined,
       cell: (item) => {
         const time = item.schedule?.departureTime;
         if (!time) return <span className="text-muted-foreground text-xs">—</span>;
@@ -208,6 +202,7 @@ function AdminBookingsContent() {
     },
     {
       header: "PAX",
+      sortValue: (item) => item.adultsCount + item.childrenCount,
       align: "center",
       headerClassName: "text-center",
       cell: (item) => (
@@ -223,6 +218,7 @@ function AdminBookingsContent() {
     },
     {
       header: "AMOUNT",
+      sortValue: (item) => Number(item.totalAmount),
       cell: (item) => (
         <div className="text-foreground text-xs font-black">
           ${Number(item.totalAmount).toFixed(2)}
@@ -234,6 +230,7 @@ function AdminBookingsContent() {
     },
     {
       header: "STATUS",
+      sortValue: (item) => item.status,
       cell: (item) => <StatusBadge status={item.status} />
     },
     {
@@ -241,18 +238,17 @@ function AdminBookingsContent() {
       align: "right",
       headerClassName: "text-right",
       cell: (item) => (
-        <div className="flex justify-end">
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={() => setSelectedBooking(item)}
-            className="hover:bg-primary/10 hover:text-primary h-8 cursor-pointer gap-1.5 px-3 text-xs font-semibold transition-colors"
-          >
-            <Eye className="h-3.5 w-3.5" />
-            <span>View</span>
-          </Button>
-        </div>
+        <DataTableRowActions
+          actions={[
+            { label: "View details", icon: Eye, onSelect: () => setSelectedBooking(item) },
+            {
+              label: "Copy reference",
+              icon: Copy,
+              onSelect: () => copyToClipboard(item.reference, "Reference"),
+              separatorBefore: true
+            }
+          ]}
+        />
       )
     }
   ];
@@ -263,19 +259,23 @@ function AdminBookingsContent() {
       <PageHeader
         title="Platform Bookings"
         badge={
-          <Badge
-            variant="outline"
-            className="text-primary border-primary/30 bg-primary/5 font-mono text-xs font-bold"
-          >
-            {totalCount} Total
-          </Badge>
+          isLoading ? (
+            <Skeleton className="h-6 w-16" />
+          ) : (
+            <Badge
+              variant="outline"
+              className="text-primary border-primary/30 bg-primary/5 font-mono text-xs font-bold"
+            >
+              {allStatusesCount} Total
+            </Badge>
+          )
         }
         description="Live centralized reservation manifest across all island transfer routes and operators."
       />
 
       {/* KPI Metric Summary Cards */}
       <BookingKpiGrid
-        totalCount={totalCount}
+        totalCount={allStatusesCount}
         confirmedCount={confirmedCount}
         checkedInCount={checkedInCount}
         cancelledCount={cancelledCount}
@@ -283,21 +283,6 @@ function AdminBookingsContent() {
       />
 
       {/* Reusable Search & Status Toolbar */}
-      <TableToolbar
-        searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
-        searchPlaceholder="Search reference, passenger, or email..."
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        tabs={[
-          { value: "ALL", label: "All Bookings", count: totalCount },
-          { value: "CONFIRMED", label: "Confirmed", count: confirmedCount },
-          { value: "CHECKED_IN", label: "Checked In", count: checkedInCount },
-          { value: "COMPLETED", label: "Completed" },
-          { value: "CANCELLED", label: "Cancelled", count: cancelledCount },
-          { value: "PENDING", label: "Pending", count: pendingCount }
-        ]}
-      />
 
       {/* Bookings Data Table Card */}
       {isError ? (
@@ -312,42 +297,49 @@ function AdminBookingsContent() {
             <RefreshCw className="h-4 w-4" /> Try Again
           </Button>
         </div>
-      ) : isLoading ? (
-        <div className="border-border/60 bg-muted/20 flex h-96 animate-pulse flex-col items-center justify-center gap-3 rounded-2xl border">
-          <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-          <span className="text-muted-foreground text-xs font-medium">
-            Retrieving live platform bookings...
-          </span>
-        </div>
       ) : (
-        <div className="space-y-4">
-          <DashboardTableCard
-            title="Platform Bookings Manifest"
-            columns={bookingColumns}
-            data={bookings}
-            keyExtractor={(item) => item.id}
-            emptyMessage={
-              searchTerm
-                ? `No bookings matched your search query "${searchTerm}".`
-                : activeTab !== "ALL"
-                  ? `No ${activeTab.toLowerCase()} bookings found.`
-                  : "No platform bookings have been recorded yet."
-            }
-          />
-
-          {/* Reusable Pagination Controls */}
-          <TablePagination
-            page={page}
-            totalPages={totalPages}
-            totalCount={totalCount}
-            pageSize={limit}
-            onPageChange={setPage}
-            onPageSizeChange={setLimit}
-            pageSizeOptions={PAGE_SIZE_OPTIONS}
-            itemName="bookings"
-            isLoading={isFetching}
-          />
-        </div>
+        <DashboardTableCard
+          itemName="bookings"
+          toolbar={
+            <TableToolbar
+              countsLoading={isLoading}
+              searchTerm={searchTerm}
+              onSearchChange={setSearchTerm}
+              searchPlaceholder="Search reference, passenger, or email..."
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+              tabs={[
+                { value: "ALL", label: "All Bookings", count: allStatusesCount },
+                { value: "CONFIRMED", label: "Confirmed", count: confirmedCount },
+                { value: "CHECKED_IN", label: "Checked In", count: checkedInCount },
+                { value: "CANCELLED", label: "Cancelled", count: cancelledCount },
+                { value: "PENDING", label: "Pending", count: pendingCount },
+                { value: "EXPIRED", label: "Expired", count: expiredCount }
+              ]}
+            />
+          }
+          pagination={{
+            page,
+            pageSize: limit,
+            totalCount,
+            totalPages,
+            onPageChange: setPage
+          }}
+          enableColumnVisibility
+          title="Platform Bookings Manifest"
+          columns={bookingColumns}
+          data={bookings}
+          isLoading={isLoading}
+          isFetching={isFetching}
+          keyExtractor={(item) => item.id}
+          emptyMessage={
+            searchTerm
+              ? `No bookings matched your search query "${searchTerm}".`
+              : activeTab !== "ALL"
+                ? `No ${activeTab.toLowerCase()} bookings found.`
+                : "No platform bookings have been recorded yet."
+          }
+        />
       )}
 
       {/* Booking Details Modal */}
@@ -369,13 +361,13 @@ export default function AdminBookingsPage() {
   return (
     <React.Suspense
       fallback={
-        <div className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8">
-          <div className="border-border/60 bg-muted/20 h-72 animate-pulse rounded-xl border p-4" />
-        </div>
+        <DashboardPageSkeleton
+          statCount={4}
+          statGridClassName="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"
+        />
       }
     >
       <AdminBookingsContent />
     </React.Suspense>
   );
 }
-

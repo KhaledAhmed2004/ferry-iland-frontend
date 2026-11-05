@@ -6,6 +6,7 @@ import { ArrowLeft, ArrowRight, Luggage, Mail, Phone, ShieldCheck, User } from "
 import { parseAsInteger, parseAsString, useQueryState } from "nuqs";
 
 import { useTripDetailsQuery } from "@/hooks/use-trips";
+import { formatTripDate, formatTripTime, tripDateDisplay, useTripLegs } from "@/hooks/use-trip-legs";
 import { BookingStepperNav, BookingSummarySidebar } from "@/widgets";
 import { AnimatedSection, Button, Card, CardContent, Input, Label } from "@/ui";
 
@@ -32,6 +33,7 @@ export default function Step2PassengersPage({ params }: Step2PassengersPageProps
   const [toPort] = useQueryState("to", parseAsString.withDefault(""));
 
   const { data: trip } = useTripDetailsQuery(tripId);
+  const legs = useTripLegs(trip);
 
   // Dynamic passengers state based on count
   const [passengers, setPassengers] = useState<DetailedPassengerInput[]>(() =>
@@ -91,38 +93,27 @@ export default function Step2PassengersPage({ params }: Step2PassengersPageProps
       router.push(
         `/book/${tripId}/payment?passengers=${passengerCount}&departureDate=${encodeURIComponent(
           departureDate
-        )}&from=${encodeURIComponent(fromPort)}&to=${encodeURIComponent(toPort)}`
+        )}&from=${encodeURIComponent(fromPort)}&to=${encodeURIComponent(toPort)}&${legs.legQuery}`
       );
     });
   };
 
   // Format date display
-  const effectiveDate = departureDate || (trip?.departureTime ? trip.departureTime.split("T")[0] : "");
-  let formattedDate = effectiveDate;
-  try {
-    const d = new Date(effectiveDate);
-    if (!isNaN(d.getTime())) {
-      formattedDate = d.toLocaleDateString("en-US", {
-        weekday: "short",
-        day: "numeric",
-        month: "short",
-        year: "numeric"
-      });
-    }
-  } catch {
-    formattedDate = effectiveDate;
-  }
+  const { effectiveDate, formattedDate, depTimeDisplay } = tripDateDisplay(
+    trip,
+    departureDate
+  );
 
-  const depTimeDisplay = trip?.departureTime
-    ? new Date(trip.departureTime).toLocaleTimeString("en-US", {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: true
-      })
-    : "";
+  const returnLegSummary = legs.returnTrip
+    ? {
+        route: `${legs.returnTrip.departurePort} → ${legs.returnTrip.destinationPort}`,
+        date: formatTripDate(legs.returnTrip.departureTime, legs.returnTrip.departureTimeZone),
+        departureTime: formatTripTime(legs.returnTrip.departureTime, legs.returnTrip.departureTimeZone),
+      }
+    : null;
 
   const sidebarTripData = {
-    adultFare: trip?.adultFare ?? 25,
+    adultFare: legs.fare?.adultFare ?? trip?.adultFare ?? 25,
     departurePort: trip?.departurePort || fromPort || "Departure Port",
     arrivalPort: trip?.destinationPort || toPort || "Destination Port",
     departureTime: depTimeDisplay,
@@ -302,6 +293,8 @@ export default function Step2PassengersPage({ params }: Step2PassengersPageProps
                 trip={sidebarTripData}
                 passengerCount={passengerCount}
                 departureDate={formattedDate}
+                tripTypeLabel={legs.tripTypeLabel}
+                returnLeg={returnLegSummary}
                 actionButton={
                   <Button
                     type="submit"
@@ -319,7 +312,7 @@ export default function Step2PassengersPage({ params }: Step2PassengersPageProps
                       router.push(
                         `/book/${tripId}/review?passengers=${passengerCount}&departureDate=${encodeURIComponent(
                           departureDate
-                        )}`
+                        )}&${legs.legQuery}`
                       )
                     }
                     className="border-border/80 text-muted-foreground hover:text-foreground h-11 w-full rounded-xl text-xs font-semibold"

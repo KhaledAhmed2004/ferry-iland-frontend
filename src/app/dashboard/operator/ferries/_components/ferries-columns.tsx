@@ -116,7 +116,7 @@ export function getFerryImage(ferry: IFerry): string {
   ) {
     return ferry.imageUrl.trim();
   }
-  return getDynamicVesselImage(ferry.type, ferry.name || ferry.registration || ferry.id);
+  return getDynamicVesselImage(ferry.type, ferry.name || ferry.id);
 }
 
 export function formatFerryType(type: VesselType | string): string {
@@ -227,11 +227,6 @@ export function getFerryColumns({
           </div>
         );
       }
-    },
-    {
-      header: "REGISTRATION NO.",
-      accessorKey: "registration",
-      className: "font-mono font-medium text-slate-700 dark:text-slate-300 text-xs"
     },
     {
       header: "FERRY TYPE",

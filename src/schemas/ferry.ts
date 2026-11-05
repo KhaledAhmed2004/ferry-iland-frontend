@@ -11,7 +11,6 @@ export const vesselStatusEnum = z.enum(["IN_SERVICE", "MAINTENANCE", "OUT_OF_SER
  */
 export const createFerrySchema = z.object({
   name: z.string().min(2, "Ferry name must be at least 2 characters"),
-  registration: z.string().min(2, "Registration number is required"),
   capacity: z.coerce.number().int().positive("Capacity must be at least 1 passenger"),
   type: vesselTypeEnum.default("CATAMARAN"),
   status: vesselStatusEnum.default("IN_SERVICE"),

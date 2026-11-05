@@ -69,7 +69,7 @@ export function useAdminFaqsQuery(params?: IFaqFilterParams) {
         cleanParams.isPublished = params.isPublished;
       }
       if (params?.page) cleanParams.page = params.page;
-      if (params?.limit) cleanParams.limit = params.limit;
+      if (params?.limit !== undefined) cleanParams.limit = params.limit;
       if (params?.sortBy) cleanParams.sortBy = params.sortBy;
       if (params?.sortOrder) cleanParams.sortOrder = params.sortOrder;
 

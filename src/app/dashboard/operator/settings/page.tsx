@@ -1,30 +1,127 @@
 "use client";
 
 import * as React from "react";
-import { Building2 } from "lucide-react";
+import { Building2, Loader2, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
+import { Avatar, AvatarFallback, AvatarImage, Button, Input, Label } from "@/ui";
+
 import {
-  Button,
-  Input,
-  Label
-} from "@/ui";
+  OPERATOR_LOGO_MAX_MB,
+  OPERATOR_LOGO_TYPES,
+  useOperatorLogoMutation,
+  useOperatorSettingsQuery,
+  useUpdateOperatorSettingsMutation
+} from "@/hooks/use-operator";
+
+/** Company logo: preview, upload (saved right away) and remove. */
+function CompanyLogoField({ logoUrl, companyName }: { logoUrl?: string | null; companyName: string }) {
+  const logoMutation = useOperatorLogoMutation();
+  const inputRef = React.useRef<HTMLInputElement>(null);
+  const pending = logoMutation.isPending;
+
+  const handleFile = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const input = event.target;
+    const file = input.files?.[0];
+    // Clearing the input lets the same file be picked again. Do it only after the upload:
+    // clearing it first empties the File's contents before axios reads them.
+    const resetInput = () => {
+      input.value = "";
+    };
+    if (!file) return;
+    if (!OPERATOR_LOGO_TYPES.includes(file.type)) {
+      toast.error("Logo must be a PNG, JPG or WebP image.");
+      resetInput();
+      return;
+    }
+    if (file.size > OPERATOR_LOGO_MAX_MB * 1024 * 1024) {
+      toast.error(`Logo must be ${OPERATOR_LOGO_MAX_MB} MB or smaller.`);
+      resetInput();
+      return;
+    }
+    logoMutation.mutate({ file }, { onSettled: resetInput });
+  };
+
+  return (
+    <div className="flex flex-wrap items-center gap-4">
+      <Avatar className="size-16 rounded-xl border">
+        {logoUrl && (
+          <AvatarImage src={logoUrl} alt={`${companyName || "Company"} logo`} className="object-cover" />
+        )}
+        <AvatarFallback className="rounded-xl bg-emerald-50 text-emerald-600">
+          <Building2 className="size-7" />
+        </AvatarFallback>
+      </Avatar>
+      <div className="space-y-1.5">
+        <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">Company Logo</p>
+        <p className="text-muted-foreground text-xs">
+          PNG, JPG or WebP, up to {OPERATOR_LOGO_MAX_MB} MB. Shown to admins in the operators list.
+        </p>
+        <div className="flex gap-2">
+          <input
+            ref={inputRef}
+            type="file"
+            accept={OPERATOR_LOGO_TYPES.join(",")}
+            className="hidden"
+            onChange={handleFile}
+            aria-label="Upload company logo"
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={pending}
+            onClick={() => inputRef.current?.click()}
+          >
+            {pending ? <Loader2 className="animate-spin" /> : <Upload />}
+            {logoUrl ? "Change logo" : "Upload logo"}
+          </Button>
+          {logoUrl && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={pending}
+              onClick={() => logoMutation.mutate({ remove: true })}
+              className="text-rose-600 hover:text-rose-700"
+            >
+              <Trash2 />
+              Remove
+            </Button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function OperatorSettingsPage() {
+  const { data: operatorSettings, isLoading } = useOperatorSettingsQuery();
+  const updateSettingsMutation = useUpdateOperatorSettingsMutation();
+
   // Operator info state
   const [operatorInfo, setOperatorInfo] = React.useState({
-    operatorName: "Oceanic Ferries Ltd.",
-    contactEmail: "operations@oceanicferries.com",
-    businessAddress: "120 Harbor View Dr, Seattle, WA 98104"
+    operatorName: "",
+    contactEmail: "",
+    businessAddress: ""
   });
-  const [isSavingOperator, setIsSavingOperator] = React.useState(false);
 
-  const handleSaveOperator = (e: React.FormEvent) => {
+  React.useEffect(() => {
+    if (operatorSettings) {
+      setOperatorInfo({
+        operatorName: operatorSettings.companyName || "",
+        contactEmail: operatorSettings.contactEmail || operatorSettings.user?.email || "",
+        businessAddress: operatorSettings.businessAddress || ""
+      });
+    }
+  }, [operatorSettings]);
+
+  const handleSaveOperator = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSavingOperator(true);
-    setTimeout(() => {
-      setIsSavingOperator(false);
-      toast.success("Operator information saved successfully!");
-    }, 400);
+    await updateSettingsMutation.mutateAsync({
+      companyName: operatorInfo.operatorName.trim(),
+      contactEmail: operatorInfo.contactEmail.trim(),
+      businessAddress: operatorInfo.businessAddress.trim()
+    });
   };
 
   return (
@@ -43,6 +140,13 @@ export default function OperatorSettingsPage() {
             <h2 className="text-base sm:text-lg font-bold tracking-tight text-slate-900 dark:text-white">
               Operator Information
             </h2>
+          </div>
+
+          <div className="mt-6">
+            <CompanyLogoField
+              logoUrl={operatorSettings?.logoUrl}
+              companyName={operatorSettings?.companyName ?? ""}
+            />
           </div>
 
           <form onSubmit={handleSaveOperator} className="mt-6 space-y-5">
@@ -91,10 +195,10 @@ export default function OperatorSettingsPage() {
             <div className="flex justify-end pt-2">
               <Button
                 type="submit"
-                disabled={isSavingOperator}
+                disabled={updateSettingsMutation.isPending}
                 className="h-9 px-6 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-semibold shadow-xs transition-colors"
               >
-                {isSavingOperator ? "Saving..." : "Save Changes"}
+                {updateSettingsMutation.isPending ? "Saving..." : "Save Changes"}
               </Button>
             </div>
           </form>

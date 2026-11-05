@@ -11,7 +11,8 @@ import { BrandLogo } from "@/widgets";
 
 const NAV_LINKS = [
   { name: "Book", href: "/" },
-  { name: "Routes", href: "/routes" },
+  { name: "Travel", href: "/ferries" },
+  { name: "Explore", href: "/routes" },
   { name: "Manage Booking", href: "/manage-booking" },
   { name: "Help", href: "/help" }
 ];
@@ -66,8 +67,6 @@ export function Header() {
 
         {/* Right Actions */}
         <div className="flex items-center gap-3">
-          {/* <ThemeSelector />
-          <AnimatedThemeToggler /> */}
 
           {isAuthenticated ? (
             <div className="flex items-center gap-2">

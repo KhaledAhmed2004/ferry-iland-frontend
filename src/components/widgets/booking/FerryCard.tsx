@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, Ship } from "lucide-react";
+import { ArrowRight, Check, Ship } from "lucide-react";
 import { useQueryStates } from "nuqs";
 
 import { bookingSearchParamsParsers, extractPassengerCount } from "@/schemas/booking-params";
@@ -24,9 +24,17 @@ interface FerryCardProps {
   trip: ISearchedTrip | FerryTrip;
   fromPortName?: string;
   toPortName?: string;
+  /** Replaces the one way price, e.g. a round trip bundle; null amount hides the price. */
+  priceDisplay?: { amount: number | null; caption: string };
+  /** Round trip / same day: the button selects the trip instead of opening the review page. */
+  selection?: {
+    selected: boolean;
+    onSelect: () => void;
+    disabledReason?: string;
+  };
 }
 
-export function FerryCard({ trip, fromPortName, toPortName }: FerryCardProps) {
+export function FerryCard({ trip, fromPortName, toPortName, priceDisplay, selection }: FerryCardProps) {
   const [params] = useQueryStates(bookingSearchParamsParsers);
   const numericCount = extractPassengerCount(params.passengers);
 
@@ -51,12 +59,17 @@ export function FerryCard({ trip, fromPortName, toPortName }: FerryCardProps) {
 
   const reviewUrl = `/book/${tripId}/review?passengers=${totalCount}&adults=${adults}&children=${children}&departureDate=${encodeURIComponent(
     params.departureDate
-  )}&from=${encodeURIComponent(departurePort)}&to=${encodeURIComponent(arrivalPort)}&tripType=${
-    params.tripType
-  }${params.tripType === "round-trip" && params.returnDate ? `&returnDate=${encodeURIComponent(params.returnDate)}` : ""}`;
+  )}&from=${encodeURIComponent(departurePort)}&to=${encodeURIComponent(arrivalPort)}&tripType=one-way`;
+
+  const shownPrice = priceDisplay ? priceDisplay.amount : price;
+  const priceCaption = priceDisplay?.caption ?? "/ per passenger";
 
   return (
-    <Card className="group border-border bg-card hover:border-primary/40 overflow-hidden rounded-2xl p-0 shadow-sm transition-all duration-200 hover:shadow-md">
+    <Card
+      className={`group bg-card hover:border-primary/40 overflow-hidden rounded-2xl p-0 shadow-sm transition-all duration-200 hover:shadow-md ${
+        selection?.selected ? "border-primary ring-primary/30 ring-2" : "border-border"
+      } ${selection?.disabledReason ? "opacity-60" : ""}`}
+    >
       <CardContent className="p-4">
         <div className="flex flex-col lg:flex-row">
           {/* Left: Ferry Image */}
@@ -141,25 +154,54 @@ export function FerryCard({ trip, fromPortName, toPortName }: FerryCardProps) {
                 {/* Price & Action */}
                 <div className="border-border flex flex-row items-center justify-between border-t pt-4 sm:col-span-2 sm:flex-col sm:items-end sm:border-t-0 sm:pt-0">
                   <div className="text-left sm:text-right">
-                    <span className="text-muted-foreground text-[10px] font-extrabold tracking-wider uppercase">
-                      FROM
-                    </span>
-                    <div className="text-foreground text-2xl font-black sm:text-3xl">
-                      ${price}
-                    </div>
-                    <div className="text-muted-foreground text-[10px]">/ per passenger</div>
+                    {shownPrice !== null && (
+                      <>
+                        <span className="text-muted-foreground text-[10px] font-extrabold tracking-wider uppercase">
+                          FROM
+                        </span>
+                        <div className="text-foreground text-2xl font-black sm:text-3xl">
+                          ${shownPrice}
+                        </div>
+                      </>
+                    )}
+                    <div className="text-muted-foreground text-[10px]">{priceCaption}</div>
                   </div>
 
-                  <Button
-                    size="sm"
-                    className="mt-3 rounded-xl px-5 font-bold shadow-md transition-all hover:shadow-lg"
-                    asChild
-                  >
-                    <Link href={reviewUrl}>
-                      <span>Select Trip</span>
-                      <ArrowRight className="ml-1.5 h-4 w-4" />
-                    </Link>
-                  </Button>
+                  {selection ? (
+                    selection.disabledReason ? (
+                      <div className="text-muted-foreground mt-3 max-w-[140px] text-[11px] font-semibold sm:text-right">
+                        {selection.disabledReason}
+                      </div>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant={selection.selected ? "default" : "outline"}
+                        className="mt-3 rounded-xl px-5 font-bold"
+                        onClick={selection.onSelect}
+                        aria-pressed={selection.selected}
+                      >
+                        {selection.selected ? (
+                          <>
+                            <Check className="mr-1.5 h-4 w-4" />
+                            <span>Selected</span>
+                          </>
+                        ) : (
+                          <span>Select</span>
+                        )}
+                      </Button>
+                    )
+                  ) : (
+                    <Button
+                      size="sm"
+                      className="mt-3 rounded-xl px-5 font-bold shadow-md transition-all hover:shadow-lg"
+                      asChild
+                    >
+                      <Link href={reviewUrl}>
+                        <span>Select Trip</span>
+                        <ArrowRight className="ml-1.5 h-4 w-4" />
+                      </Link>
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>

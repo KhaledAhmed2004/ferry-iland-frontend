@@ -3,9 +3,10 @@
 import * as React from "react";
 import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
-import { ThemeSelector, BrandLogo } from "@/widgets";
+import { BrandLogo } from "@/widgets";
 import { Button } from "@/ui";
-import { PROVIDER_MOCK_DATA } from "@/data";
+import { useAuth } from "@/hooks";
+import { useOperatorSettingsQuery } from "@/hooks/use-operator";
 
 interface ProviderHeaderProps {
   onToggleMobileMenu: () => void;
@@ -17,7 +18,13 @@ export function ProviderHeader({
   isMobileMenuOpen
 }: ProviderHeaderProps) {
   const pathname = usePathname();
-  const { profile } = PROVIDER_MOCK_DATA;
+  const { user } = useAuth();
+  const { data: operatorSettings } = useOperatorSettingsQuery();
+
+  const companyName =
+    operatorSettings?.companyName ||
+    user?.operatorProfile?.companyName ||
+    "Makana Ferry Service";
 
   const getPageTitle = () => {
     if (
@@ -67,24 +74,26 @@ export function ProviderHeader({
           <BrandLogo
             size="sm"
             href="/dashboard/operator"
+            logoSrc="/operators/makana-ferry.png"
+            iconClassName="rounded-full ring-2 ring-sky-400/60 shadow-xs overflow-hidden"
             title={
-              <span className="truncate max-w-[140px] block" title={profile.companyName}>
-                {profile.companyName}
+              <span className="truncate max-w-[170px] block font-extrabold text-xs" title={companyName}>
+                {companyName}
               </span>
             }
+            subtitle="OPERATOR PORTAL"
           />
         </div>
 
         {/* Desktop breadcrumb */}
         <div className="hidden items-center gap-2 text-xs md:flex">
-          <span className="text-muted-foreground font-medium">{profile.companyName}</span>
+          <span className="text-muted-foreground font-medium">{companyName}</span>
           <span className="text-muted-foreground">/</span>
           <span className="font-semibold text-foreground">{getPageTitle()}</span>
         </div>
       </div>
 
       <div className="flex items-center gap-3">
-        <ThemeSelector />
       </div>
     </header>
   );

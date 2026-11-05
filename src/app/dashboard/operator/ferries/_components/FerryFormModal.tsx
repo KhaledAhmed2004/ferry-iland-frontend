@@ -68,7 +68,6 @@ export function FerryFormModal({
 
   // Form states
   const [name, setName] = React.useState("");
-  const [registration, setRegistration] = React.useState("");
   const [capacity, setCapacity] = React.useState(120);
   const [type, setType] = React.useState<VesselType>("CATAMARAN");
   const [status, setStatus] = React.useState<VesselStatus>("IN_SERVICE");
@@ -83,7 +82,6 @@ export function FerryFormModal({
   React.useEffect(() => {
     if (editingFerry) {
       setName(editingFerry.name || "");
-      setRegistration(editingFerry.registration || "");
       setCapacity(editingFerry.capacity || 120);
       setType(editingFerry.type || "CATAMARAN");
       setStatus(editingFerry.status || "IN_SERVICE");
@@ -92,7 +90,6 @@ export function FerryFormModal({
       setCustomAmenity("");
     } else {
       setName("");
-      setRegistration("");
       setCapacity(120);
       setType("CATAMARAN");
       setStatus("IN_SERVICE");
@@ -132,8 +129,8 @@ export function FerryFormModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!name.trim() || !registration.trim()) {
-      toast.error("Please provide both Ferry Name and Registration Number.");
+    if (!name.trim()) {
+      toast.error("Please provide a Ferry Name.");
       return;
     }
 
@@ -145,7 +142,6 @@ export function FerryFormModal({
     if (isEditing) {
       await onSubmitUpdate({
         name: name.trim(),
-        registration: registration.trim().toUpperCase(),
         capacity: Number(capacity),
         type,
         status,
@@ -155,7 +151,6 @@ export function FerryFormModal({
     } else {
       await onSubmitCreate({
         name: name.trim(),
-        registration: registration.trim().toUpperCase(),
         capacity: Number(capacity),
         type,
         status,
@@ -179,8 +174,8 @@ export function FerryFormModal({
               </DialogTitle>
               <DialogDescription className="text-xs">
                 {isEditing
-                  ? "Update ferry name, registration number, passenger capacity, status, and onboard facilities."
-                  : "Add a passenger ferry, catamaran, or speedboat with capacity and onboard amenities."}
+                  ? "Update ferry name, passenger capacity, status, and onboard facilities."
+                  : "Add a passenger ferry or speedboat with capacity and onboard amenities."}
               </DialogDescription>
             </div>
           </div>
@@ -201,20 +196,6 @@ export function FerryFormModal({
                     onChange={(e) => setName(e.target.value)}
                     required
                     className="text-xs h-9"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="ferry-reg" className="text-xs font-semibold text-foreground">
-                    Registration Number *
-                  </Label>
-                  <Input
-                    id="ferry-reg"
-                    placeholder="e.g. MV-2041 or REG-984"
-                    value={registration}
-                    onChange={(e) => setRegistration(e.target.value)}
-                    required
-                    className="text-xs h-9 font-mono"
                   />
                 </div>
 

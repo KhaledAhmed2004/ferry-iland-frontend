@@ -1,19 +1,21 @@
 import React from "react";
 import Link from "next/link";
-import { format, isValid, parseISO } from "date-fns";
+import { isValid, parseISO } from "date-fns";
+
+import { formatPortDate } from "@/lib/port-time";
 import { MapPin, Ship } from "lucide-react";
 
 import type { IOperatorOverviewBooking, IOperatorOverviewDeparture } from "@/types";
 import { Button } from "@/ui";
 import { StatusBadge, type TableColumn } from "@/widgets";
 
-// Safe Departure Time Formatter
-export const formatDepartureTime = (timeValue?: string | Date) => {
+// Safe time formatter: dock local time at the given port (spec 0003, AC-7)
+export const formatDepartureTime = (timeValue: string | Date | undefined, timeZone: string | undefined) => {
   if (!timeValue) return "N/A";
   try {
     const parsed = typeof timeValue === "string" ? parseISO(timeValue) : new Date(timeValue);
-    if (isValid(parsed)) {
-      return format(parsed, "hh:mm a");
+    if (isValid(parsed) && timeZone) {
+      return formatPortDate(parsed, timeZone, "hh:mm a");
     }
     return String(timeValue);
   } catch {
@@ -43,11 +45,6 @@ export const scheduleColumns: TableColumn<IOperatorOverviewDeparture>[] = [
           <div className="text-foreground text-sm font-semibold">
             {item.ferry?.name || "Ferry"}
           </div>
-          {item.ferry?.registration && (
-            <div className="text-muted-foreground font-mono text-[11px]">
-              {item.ferry.registration}
-            </div>
-          )}
         </div>
       </div>
     )
@@ -72,11 +69,11 @@ export const scheduleColumns: TableColumn<IOperatorOverviewDeparture>[] = [
     cell: (item) => (
       <div>
         <div className="text-foreground font-mono text-xs font-bold">
-          {formatDepartureTime(item.departureTime)}
+          {formatDepartureTime(item.departureTime, item.route?.departurePort?.timeZone)}
         </div>
         {item.arrivalTime && (
           <div className="text-muted-foreground text-[11px]">
-            Arrival: <span className="font-mono font-medium">{formatDepartureTime(item.arrivalTime)}</span>
+            Arrival: <span className="font-mono font-medium">{formatDepartureTime(item.arrivalTime, item.route?.destinationPort?.timeZone)}</span>
           </div>
         )}
       </div>
@@ -169,7 +166,7 @@ export const bookingColumns: TableColumn<IOperatorOverviewBooking>[] = [
     header: "DEPARTURE",
     cell: (item) => (
       <span className="text-muted-foreground font-mono text-[11px]">
-        {formatDepartureTime(item.departureTime)}
+        {formatDepartureTime(item.departureTime, item.departureTimeZone ?? undefined)}
       </span>
     )
   },

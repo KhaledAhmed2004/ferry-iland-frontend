@@ -5,12 +5,15 @@ export const env = createEnv({
   client: {
     NEXT_PUBLIC_SITE_URL: z.string().url().default("http://localhost:3000"),
     NEXT_PUBLIC_API_URL: z.string().url().default("https://nayem5000.binarybards.online/api/v1"),
-    NEXT_PUBLIC_GA_ID: z.string().optional()
+    NEXT_PUBLIC_GA_ID: z.string().optional(),
+    // Needed only when the server returns PENDING bookings (PAYMENTS_ENABLED=true on the backend).
+    NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: z.string().optional()
   },
   runtimeEnv: {
     NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
-    NEXT_PUBLIC_GA_ID: process.env.NEXT_PUBLIC_GA_ID
+    NEXT_PUBLIC_GA_ID: process.env.NEXT_PUBLIC_GA_ID,
+    NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
   },
   emptyStringAsUndefined: true,
   skipValidation: !!process.env.SKIP_ENV_VALIDATION

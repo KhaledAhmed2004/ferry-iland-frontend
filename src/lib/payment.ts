@@ -8,6 +8,11 @@ export function formatCents(cents: number | null | undefined, currency = "usd"):
   }).format((cents ?? 0) / 100);
 }
 
+/** Dashboard analytics arrive in dollars. Same display as formatCents: "$1,234,567.89". */
+export function formatDollars(amount: number | null | undefined, currency = "usd"): string {
+  return formatCents(Math.round((amount ?? 0) * 100), currency);
+}
+
 /**
  * A short, honest label for a payment. A MANUAL payment still PENDING was never charged online,
  * so it reads "Unpaid", not "Paid"; old fake seed rows read "Legacy".

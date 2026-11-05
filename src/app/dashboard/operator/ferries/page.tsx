@@ -329,10 +329,10 @@ export default function OperatorFerriesPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-            Ferry Management
+            Fleet
           </h1>
           <p className="text-muted-foreground text-xs sm:text-sm">
-            Manage your fleet of passenger speedboats, catamarans, and traditional ferries.
+            Manage your fleet of passenger speedboats and traditional ferries.
           </p>
         </div>
 

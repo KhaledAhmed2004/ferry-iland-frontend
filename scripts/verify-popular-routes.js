@@ -62,15 +62,15 @@ async function run() {
   }
 
   // TEST 2: Validate payload fields for Frontend UI
-  process.stdout.write(`[2/${total}] Validating UI schema fields (from, to, startingPrice, duration, tag)... `);
+  process.stdout.write(`[2/${total}] Validating UI schema fields (from, to, startingPrice, durationMinutes, upcomingTripsCount, tag, highlights)... `);
   const sample = res1.data.data[0];
-  const requiredFields = ['from', 'to', 'startingPrice', 'duration', 'tag', 'rating', 'highlights'];
+  const requiredFields = ['from', 'to', 'startingPrice', 'durationMinutes', 'upcomingTripsCount', 'tag', 'highlights'];
   const missing = requiredFields.filter((f) => sample[f] === undefined);
 
   if (missing.length === 0) {
     passed++;
     console.log(`${checkmark}`);
-    console.log(`      Sample: ${colors.cyan}${sample.from} ➔ ${sample.to}${colors.reset} | Fare: $${sample.startingPrice} | Rating: ${sample.rating} ⭐`);
+    console.log(`      Sample: ${colors.cyan}${sample.from} ➔ ${sample.to}${colors.reset} | Fare: ${sample.startingPrice ?? "n/a"} | Upcoming trips: ${sample.upcomingTripsCount}`);
   } else {
     console.log(`${crossmark}`);
     console.error(`      Missing expected fields: ${missing.join(', ')}`);

@@ -16,6 +16,7 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
+  Skeleton,
   Form,
   FormControl,
   FormDescription,
@@ -79,11 +80,27 @@ export function PaymentSettingsCard() {
 
   if (isLoading) {
     return (
-      <Card className="border-border/80 bg-card max-w-4xl shadow-xs">
-        <CardContent className="flex items-center gap-3 py-10 text-xs text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Loading payment settings…
+      <Card
+        className="border-border/80 bg-card max-w-4xl shadow-xs"
+        role="status"
+        aria-label="Loading payment settings"
+      >
+        <CardHeader className="space-y-2">
+          <Skeleton className="h-5 w-48" />
+          <Skeleton className="h-3.5 w-80 max-w-full" />
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          {[1, 2].map((i) => (
+            <div key={i} className="space-y-2">
+              <Skeleton className="h-3.5 w-32" />
+              <Skeleton className="h-9 w-full" />
+              <Skeleton className="h-3 w-56 max-w-full" />
+            </div>
+          ))}
         </CardContent>
+        <CardFooter className="justify-end">
+          <Skeleton className="h-9 w-32" />
+        </CardFooter>
       </Card>
     );
   }

@@ -1,6 +1,7 @@
 import * as React from "react";
 import Link from "next/link";
-import { format, isValid, parseISO } from "date-fns";
+import { isValid, parseISO } from "date-fns";
+import { formatPortDate } from "@/lib/port-time";
 import { Edit, Ship, Trash2 } from "lucide-react";
 import type { IOperatorSchedule, OperatorScheduleStatus } from "@/types";
 import { Button, Checkbox } from "@/ui";
@@ -68,15 +69,16 @@ export function getScheduleColumns({
     {
       header: "TRIP DATE & TIME",
       cell: (item) => {
-        const dep = parseISO(item.departureTime);
-        const valid = isValid(dep);
+        // Dock local time at the departure port (spec 0003, AC-7).
+        const depZone = item.route?.departurePort?.timeZone;
+        const valid = isValid(parseISO(item.departureTime)) && Boolean(depZone);
         return (
           <div className="flex flex-col">
             <span className="font-mono font-bold text-foreground text-xs">
-              {valid ? format(dep, "hh:mm a") : item.departureTime}
+              {valid ? formatPortDate(item.departureTime, depZone!, "hh:mm a") : item.departureTime}
             </span>
             <span className="text-[10px] text-muted-foreground font-medium">
-              {valid ? format(dep, "dd MMM yyyy") : "—"}
+              {valid ? formatPortDate(item.departureTime, depZone!, "dd MMM yyyy") : "—"}
             </span>
           </div>
         );
@@ -85,12 +87,13 @@ export function getScheduleColumns({
     {
       header: "ARRIVAL",
       cell: (item) => {
-        const arr = parseISO(item.arrivalTime);
-        const valid = isValid(arr);
+        // Dock local time at the arrival port (spec 0003, AC-7).
+        const arrZone = item.route?.destinationPort?.timeZone;
+        const valid = isValid(parseISO(item.arrivalTime)) && Boolean(arrZone);
         return (
           <div className="flex flex-col">
             <span className="font-mono font-medium text-foreground text-xs">
-              {valid ? format(arr, "hh:mm a") : item.arrivalTime}
+              {valid ? formatPortDate(item.arrivalTime, arrZone!, "hh:mm a") : item.arrivalTime}
             </span>
             <span className="text-[10px] text-muted-foreground">
               {item.route?.durationMinutes ? `${item.route.durationMinutes} mins trip` : "—"}

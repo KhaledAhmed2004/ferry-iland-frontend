@@ -1,6 +1,6 @@
 import * as React from "react";
 import { AlertCircle, CalendarCheck, CheckCircle2, Ticket } from "lucide-react";
-import { StatCard } from "@/widgets";
+import { StatCard, StatCardGridSkeleton } from "@/widgets";
 
 interface BookingKpiGridProps {
   totalCount: number;
@@ -18,16 +18,7 @@ export function BookingKpiGrid({
   isLoading
 }: BookingKpiGridProps) {
   if (isLoading) {
-    return (
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {[1, 2, 3, 4].map((i) => (
-          <div
-            key={i}
-            className="border-border/60 bg-muted/20 h-28 animate-pulse rounded-xl border p-4"
-          />
-        ))}
-      </div>
-    );
+    return <StatCardGridSkeleton count={4} />;
   }
 
   return (

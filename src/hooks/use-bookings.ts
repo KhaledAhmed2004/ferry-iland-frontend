@@ -66,7 +66,14 @@ export function useCreateBookingMutation() {
 /**
  * 2. Query: Lookup Booking by Reference (Self-Service & Confirmation)
  */
-export function useBookingLookupQuery(reference: string, emailVerification?: string) {
+export function useBookingLookupQuery(
+  reference: string,
+  emailVerification?: string,
+  options: {
+    /** A number, false, or a function of the query (return false to stop, e.g. on error). */
+    refetchInterval?: number | false | ((query: { state: { status: string } }) => number | false);
+  } = {}
+) {
   const email =
     emailVerification?.trim() ||
     (typeof window !== "undefined" ? recallBookingEmail(reference) : undefined);
@@ -88,6 +95,8 @@ export function useBookingLookupQuery(reference: string, emailVerification?: str
     },
     enabled: Boolean(reference && reference.trim().length >= 4),
     staleTime: 60 * 1000,
+    // Polling (spec 0002, AC-6): the confirmation page reads the booking while payment settles.
+    refetchInterval: options.refetchInterval ?? false,
     retry: (failureCount, error) => {
       if (error instanceof Error && error.message.includes("not found")) return false;
       return failureCount < 1;

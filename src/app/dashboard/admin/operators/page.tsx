@@ -1,336 +1,286 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
-import {
-  AlertCircle,
-  AlertTriangle,
-  Building2,
-  Check,
-  Download,
-  Eye,
-  Mail,
-  Navigation,
-  RefreshCw,
-  Ship,
-  Users
-} from "lucide-react";
+import { AlertTriangle, Building2, Check, Copy, Download, Eye, Mail, Navigation, Ship, Users } from "lucide-react";
 import { toast } from "sonner";
 
-import { useAdminProvidersQuery, useUpdateProviderStatusMutation } from "@/hooks/use-admin";
-import { useUserStatsQuery } from "@/hooks/use-users";
-import { useDebounce } from "@/hooks/use-debounce";
-import { useTableSelection } from "@/hooks/use-table-selection";
 import {
-  Button,
-  Checkbox
-} from "@/ui";
+  fetchAllAdminProviders,
+  useAdminProvidersQuery,
+  useUpdateProviderStatusMutation
+} from "@/hooks/use-admin";
+import { useRowSelection } from "@/hooks/use-row-selection";
+import { useTableState } from "@/hooks/use-table-state";
+import { useUserStatsQuery } from "@/hooks/use-users";
+import { datedCsvName, downloadCsv } from "@/lib/csv";
+import type { IAdminProviderItem } from "@/types";
+import { Avatar, AvatarFallback, AvatarImage } from "@/ui";
 import {
   BulkActionToolbar,
-  DashboardTableCard,
+  DataTable,
   PageHeader,
   StatCard,
+  StatCardGridSkeleton,
   StatusBadge,
-  TablePagination,
   TableToolbar,
-  type TableColumn
+  type DataTableColumn,
+  DataTableRowActions
 } from "@/widgets";
-import type { IAdminProviderItem } from "@/types";
+
+type StatusTab = "ALL" | "ACTIVE" | "SUSPENDED";
+type BulkAction = "activate" | "suspend" | "select-all";
+
+const getProviderId = (provider: IAdminProviderItem) => provider.id;
+
+const formatStatus = (status?: string) =>
+  status === "ACTIVE" ? "Active" : status === "SUSPENDED" ? "Suspended" : status || "Active";
+
+const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
 
 export default function AdminOperatorsPage() {
-  const [searchTerm, setSearchTerm] = React.useState("");
-  const debouncedSearch = useDebounce(searchTerm, 350);
-
-  const [activeTab, setActiveTab] = React.useState<"ALL" | "ACTIVE" | "SUSPENDED">("ALL");
-  const [page, setPage] = React.useState(1);
-  const [limit, setLimit] = React.useState(10);
-
-  // Reset page when search or tab changes
-  React.useEffect(() => {
-    setPage(1);
-  }, [debouncedSearch, activeTab]);
-
-  const { data, isLoading, isError, error, refetch, isFetching } = useAdminProvidersQuery({
-    page,
-    limit,
-    searchTerm: debouncedSearch.trim() || undefined,
-    status: activeTab === "ALL" ? undefined : activeTab
+  const table = useTableState({
+    filters: { status: "ALL" },
+    defaultSort: { id: "createdAt", desc: true }
   });
-
-  const providers = data?.providers ?? [];
-  const meta = data?.meta ?? {
-    page: 1,
-    limit: 10,
-    total: 0,
-    totalPages: 1
+  const statusTab = table.filters.status as StatusTab;
+  const filterParams = {
+    searchTerm: table.debouncedSearch.trim() || undefined,
+    status: statusTab === "ALL" ? undefined : statusTab,
+    sortBy: table.sortBy,
+    sortOrder: table.sortOrder
   };
 
-  const { data: statsData } = useUserStatsQuery();
+  const { data, isLoading, error, refetch, isFetching } = useAdminProvidersQuery({
+    ...filterParams,
+    page: table.page,
+    limit: table.pageSize
+  });
+  const { data: statsData, isLoading: isStatsLoading } = useUserStatsQuery();
 
-  const totalCount = statsData?.totalOperators ?? meta.total ?? providers.length;
-  const totalPages = Math.max(
-    1,
-    meta.totalPages ?? meta.totalPage ?? Math.ceil((meta.total ?? totalCount) / limit)
-  );
-  const currentPage = Math.min(Math.max(page, 1), totalPages);
+  const providers = React.useMemo(() => data?.providers ?? [], [data]);
+  const matchingCount = data?.meta?.total ?? 0;
+  const totalPages = data?.meta?.totalPages ?? data?.meta?.totalPage ?? 1;
 
-  // Keep page clamped if items are filtered
-  React.useEffect(() => {
-    if (page > totalPages && totalPages > 0) {
-      setPage(totalPages);
-    }
-  }, [page, totalPages]);
+  // Platform-wide numbers for the cards and tab badges (independent of search/paging).
+  const totalOperators = statsData?.totalOperators ?? matchingCount;
+  const suspendedCount = statsData?.suspendedOperators ?? 0;
+  const activeCount = Math.max(0, totalOperators - suspendedCount);
+  const totalFerries = statsData?.totalFerries ?? statsData?.totalFleets ?? 0;
 
-  // Sliced providers for resilience if backend sends all items
-  const displayedProviders = React.useMemo(() => {
-    if (providers.length > limit) {
-      const start = (currentPage - 1) * limit;
-      return providers.slice(start, start + limit);
-    }
-    return providers;
-  }, [providers, currentPage, limit]);
-
-  // Compute stat card metrics
-  const suspendedCount =
-    statsData?.suspendedOperators ??
-    providers.filter((p) => p.user?.status === "SUSPENDED").length;
-  const activeCount = Math.max(0, totalCount - suspendedCount);
-  const totalFerriesCount =
-    statsData?.totalFerries ??
-    statsData?.totalFleets ??
-    providers.reduce((acc, p) => acc + (p.ferriesCount ?? 0), 0);
-
-  // Headless Bulk Selection Hook
-  const {
-    selectedIds: selectedOperatorIds,
-    selectedCount,
-    isAllCurrentPageSelected,
-    isSomeCurrentPageSelected,
-    toggleRow: toggleSelectRow,
-    toggleSelectAllCurrentPage,
-    toggleSelectAllAcrossPages,
-    clearSelection,
-    selectedItems
-  } = useTableSelection<IAdminProviderItem>({
-    items: displayedProviders,
-    allPageItems: providers,
-    idKey: "id"
+  const selection = useRowSelection({
+    data: providers,
+    getRowId: getProviderId,
+    resetKey: `${table.debouncedSearch}|${statusTab}`
   });
 
-  const [isBulkOperating, setIsBulkOperating] = React.useState(false);
-  const [bulkActionType, setBulkActionType] = React.useState<"activate" | "suspend" | null>(null);
+  const updateProviderStatus = useUpdateProviderStatusMutation();
+  const [bulkAction, setBulkAction] = React.useState<BulkAction | null>(null);
 
-  const updateProviderStatusMutation = useUpdateProviderStatusMutation();
-
-  // Reset selection on page, tab, or search change
-  React.useEffect(() => {
-    clearSelection();
-  }, [page, activeTab, debouncedSearch, clearSelection]);
-
-  // Bulk Status Update Handler
-  const handleBulkStatusChange = async (targetStatus: "ACTIVE" | "SUSPENDED") => {
-    if (selectedCount === 0 || isBulkOperating) return;
-    setIsBulkOperating(true);
-    setBulkActionType(targetStatus === "ACTIVE" ? "activate" : "suspend");
-
-    const ids = Array.from(selectedOperatorIds);
-    let successCount = 0;
-
+  const handleBulkStatusChange = async (status: "ACTIVE" | "SUSPENDED") => {
+    if (selection.selectedCount === 0 || bulkAction) return;
+    setBulkAction(status === "ACTIVE" ? "activate" : "suspend");
     try {
       const results = await Promise.allSettled(
-        ids.map((id) =>
-          updateProviderStatusMutation.mutateAsync({
-            providerId: id,
-            payload: { status: targetStatus }
-          })
+        selection.selectedIds.map((providerId) =>
+          updateProviderStatus.mutateAsync({ providerId, payload: { status } })
         )
       );
-
-      results.forEach((r) => {
-        if (r.status === "fulfilled") successCount++;
-      });
-
-      if (successCount > 0) {
+      const succeeded = results.filter((r) => r.status === "fulfilled").length;
+      const failed = results.length - succeeded;
+      if (succeeded > 0) {
         toast.success(
-          `Successfully updated ${successCount} ${successCount === 1 ? "operator" : "operators"} to ${
-            targetStatus === "ACTIVE" ? "Active" : "Suspended"
-          }`
+          `${status === "ACTIVE" ? "Activated" : "Suspended"} ${plural(succeeded, "operator", "operators")}`
         );
-        refetch();
-        clearSelection();
-      } else {
-        toast.error("Failed to update selected operators.");
       }
-    } catch {
-      toast.error("An error occurred during bulk update.");
+      if (failed > 0) toast.error(`Failed to update ${plural(failed, "operator", "operators")}`);
+      selection.clearSelection();
+      void refetch();
     } finally {
-      setIsBulkOperating(false);
-      setBulkActionType(null);
+      setBulkAction(null);
     }
   };
 
-  // Bulk CSV Export Handler
-  const handleBulkExportCSV = () => {
-    if (selectedItems.length === 0) return;
-
-    const headers = ["Company Name", "Contact Person", "Email", "Status", "Ferries", "Routes", "Registered Date"];
-    const rows = selectedItems.map((p) => [
-      `"${(p.companyName || "").replace(/"/g, '""')}"`,
-      `"${(p.contactPersonName || p.user?.name || "").replace(/"/g, '""')}"`,
-      `"${(p.user?.email || p.contactEmail || "").replace(/"/g, '""')}"`,
-      `"${p.user?.status || "ACTIVE"}"`,
-      p.ferriesCount ?? 0,
-      p.routesCount ?? 0,
-      `"${new Date(p.createdAt).toLocaleDateString()}"`
-    ]);
-
-    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `operators_export_${new Date().toISOString().split("T")[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast.success(`Exported ${selectedItems.length} operators to CSV`);
+  const handleSelectAllMatching = async () => {
+    setBulkAction("select-all");
+    try {
+      selection.selectRows(await fetchAllAdminProviders(filterParams));
+    } catch {
+      toast.error("Could not load every matching operator.");
+    } finally {
+      setBulkAction(null);
+    }
   };
 
-  const providerColumns: TableColumn<IAdminProviderItem>[] = [
-    {
-      header: (
-        <div className="flex items-center justify-center">
-          <Checkbox
-            checked={
-              isAllCurrentPageSelected
-                ? true
-                : isSomeCurrentPageSelected
-                  ? "indeterminate"
-                  : false
-            }
-            onCheckedChange={toggleSelectAllCurrentPage}
-            aria-label="Select all operators on current page"
-          />
-        </div>
-      ),
-      headerClassName: "w-10 px-3 text-center",
-      className: "w-10 px-3 text-center",
-      align: "center",
-      cell: (item) => {
-        const isChecked = selectedOperatorIds.has(item.id);
-        return (
-          <div
-            className="flex items-center justify-center"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <Checkbox
-              checked={isChecked}
-              onCheckedChange={() => toggleSelectRow(item.id)}
-              aria-label={`Select operator ${item.companyName}`}
-            />
-          </div>
-        );
-      }
-    },
-    {
-      header: "OPERATOR",
-      cell: (item) => (
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold text-sm">
-            <Building2 className="h-5 w-5" />
-          </div>
-          <div>
-            <div className="font-bold text-foreground text-xs sm:text-sm">{item.companyName}</div>
-            <div className="text-[11px] text-muted-foreground mt-0.5">
-              {item.businessAddress ? item.businessAddress : `Registered ${new Date(item.createdAt).toLocaleDateString()}`}
+  const handleExportCsv = () => {
+    const rows = selection.selectedRows;
+    if (rows.length === 0) return;
+    downloadCsv(
+      datedCsvName("operators_export"),
+      ["Company Name", "Contact Person", "Email", "Status", "Ferries", "Routes", "Registered Date"],
+      rows.map((p) => [
+        p.companyName,
+        p.contactPersonName || p.user?.name,
+        p.user?.email || p.contactEmail,
+        p.user?.status || "ACTIVE",
+        p.ferriesCount ?? 0,
+        p.routesCount ?? 0,
+        new Date(p.createdAt).toLocaleDateString()
+      ])
+    );
+    toast.success(`Exported ${plural(rows.length, "operator", "operators")} to CSV`);
+  };
+
+  // Column ids double as the backend `sortBy` values.
+  const columns = React.useMemo<DataTableColumn<IAdminProviderItem>[]>(
+    () => [
+      {
+        id: "companyName",
+        header: "Operator",
+        accessorKey: "companyName",
+        enableHiding: false,
+        cell: ({ row }) => {
+          const item = row.original;
+          return (
+            <div className="flex items-center gap-3">
+              {/* Logo when the operator uploaded one, otherwise the building icon. */}
+              <Avatar className="size-10 rounded-xl">
+                {item.logoUrl && (
+                  <AvatarImage
+                    src={item.logoUrl}
+                    alt={`${item.companyName} logo`}
+                    className="object-cover"
+                  />
+                )}
+                <AvatarFallback className="rounded-xl bg-emerald-500/10 text-emerald-600">
+                  <Building2 className="size-5" />
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <div className="text-foreground text-xs font-bold sm:text-sm">{item.companyName}</div>
+                <div className="text-muted-foreground mt-0.5 text-[11px]">
+                  {item.businessAddress || `Registered ${new Date(item.createdAt).toLocaleDateString()}`}
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      )
-    },
-    {
-      header: "CONTACT & EMAIL",
-      cell: (item) => (
-        <div>
-          <div className="font-semibold text-foreground text-xs">
-            {item.contactPersonName || item.user?.name || "Direct Representative"}
-          </div>
-          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-0.5 font-mono">
-            <Mail className="h-3 w-3 text-muted-foreground shrink-0" />
-            <span>{item.user?.email || item.contactEmail || "No email available"}</span>
-          </div>
-        </div>
-      )
-    },
-    {
-      header: "STATUS",
-      cell: (item) => {
-        const rawStatus = item.user?.status;
-        const formattedStatus =
-          rawStatus === "ACTIVE"
-            ? "Active"
-            : rawStatus === "SUSPENDED"
-              ? "Suspended"
-              : rawStatus || "Active";
-        return <StatusBadge status={formattedStatus} />;
-      }
-    },
-    {
-      header: "FLEET & ROUTES",
-      cell: (item) => (
-        <div className="flex items-center gap-3 text-xs text-muted-foreground">
-          <div className="flex items-center gap-1">
+          );
+        }
+      },
+      {
+        id: "contactPersonName",
+        header: "Contact & Email",
+        accessorKey: "contactPersonName",
+        cell: ({ row }) => {
+          const item = row.original;
+          return (
+            <div>
+              <div className="text-foreground text-xs font-semibold">
+                {item.contactPersonName || item.user?.name || "Direct Representative"}
+              </div>
+              <div className="text-muted-foreground mt-0.5 flex items-center gap-1.5 font-mono text-[11px]">
+                <Mail className="h-3 w-3 shrink-0" />
+                <span>{item.user?.email || item.contactEmail || "No email available"}</span>
+              </div>
+            </div>
+          );
+        }
+      },
+      {
+        id: "status",
+        header: "Status",
+        accessorFn: (item) => item.user?.status,
+        cell: ({ row }) => <StatusBadge status={formatStatus(row.original.user?.status)} />
+      },
+      {
+        id: "ferriesCount",
+        header: "Ferries",
+        accessorKey: "ferriesCount",
+        meta: { align: "center" },
+        cell: ({ row }) => (
+          <span className="inline-flex items-center gap-1">
             <Ship className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
-            <span className="font-semibold text-foreground">{item.ferriesCount ?? 0}</span> ferries
-          </div>
-          <div className="flex items-center gap-1">
+            <span className="font-semibold">{row.original.ferriesCount ?? 0}</span>
+          </span>
+        )
+      },
+      {
+        id: "routesCount",
+        header: "Routes",
+        accessorKey: "routesCount",
+        meta: { align: "center" },
+        cell: ({ row }) => (
+          <span className="inline-flex items-center gap-1">
             <Navigation className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-            <span className="font-semibold text-foreground">{item.routesCount ?? 0}</span> routes
-          </div>
-        </div>
-      )
-    },
-    {
-      header: "ACTION",
-      align: "right",
-      headerClassName: "text-right",
-      cell: (item) => (
-        <div className="flex justify-end">
-          <Button
-            asChild
-            variant="ghost"
-            size="sm"
-            className="h-8 gap-1.5 px-3 rounded-lg text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
-          >
-            <Link href={`/dashboard/admin/operators/${item.id}`}>
-              <Eye className="h-3.5 w-3.5" />
-              <span>Manage</span>
-            </Link>
-          </Button>
-        </div>
-      )
-    }
-  ];
+            <span className="font-semibold">{row.original.routesCount ?? 0}</span>
+          </span>
+        )
+      },
+      {
+        id: "createdAt",
+        header: "Registered",
+        accessorKey: "createdAt",
+        cell: ({ row }) => (
+          <span className="text-muted-foreground font-mono">
+            {new Date(row.original.createdAt).toLocaleDateString()}
+          </span>
+        )
+      },
+      {
+        id: "actions",
+        header: "Action",
+        enableSorting: false,
+        enableHiding: false,
+        meta: { align: "right" },
+        cell: ({ row }) => (
+          <DataTableRowActions
+            actions={[
+              {
+                label: "Manage operator",
+                icon: Eye,
+                href: `/dashboard/admin/operators/${row.original.id}`
+              },
+              {
+                label: "Copy email",
+                icon: Copy,
+                onSelect: () => {
+                  const email = row.original.contactEmail ?? row.original.user?.email;
+                  if (email) void navigator.clipboard.writeText(email);
+                },
+                separatorBefore: true
+              }
+            ]}
+          />
+        )
+      }
+    ],
+    []
+  );
+
+  const isFiltered = Boolean(table.debouncedSearch) || statusTab !== "ALL";
 
   return (
     <div className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8">
-      {/* Page Header */}
       <PageHeader
         title="Ferry Operators Directory"
         description="Comprehensive roster of licensed ferry providers, vessel fleets, and sea transfer networks."
       />
 
-      {/* Metric Stat Cards */}
+      {isStatsLoading ? (
+        <StatCardGridSkeleton
+          count={3}
+          className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
+        />
+      ) : (
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard
           label="Total Operators"
-          value={`${totalCount} ${totalCount === 1 ? "Operator" : "Operators"}`}
+          value={plural(totalOperators, "Operator", "Operators")}
           description="Licensed marine providers"
           icon={Building2}
           variant="blue"
         />
         <StatCard
           label="Suspended"
-          value={`${suspendedCount} ${suspendedCount === 1 ? "Operator" : "Operators"}`}
+          value={plural(suspendedCount, "Operator", "Operators")}
           description="Restricted or under review"
           icon={Users}
           variant="rose"
@@ -338,83 +288,77 @@ export default function AdminOperatorsPage() {
         />
         <StatCard
           label="Total Ferries"
-          value={`${totalFerriesCount} ${totalFerriesCount === 1 ? "Ferry" : "Ferries"}`}
+          value={plural(totalFerries, "Ferry", "Ferries")}
           description="Active transport vessels"
           icon={Ship}
           variant="emerald"
         />
       </div>
-
-      {/* Reusable Search & Status Toolbar */}
-      <TableToolbar
-        searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
-        searchPlaceholder="Search operators by company, contact person, or email..."
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        tabs={[
-          { value: "ALL", label: "All", count: totalCount },
-          { value: "ACTIVE", label: "Active", count: activeCount },
-          { value: "SUSPENDED", label: "Suspended", count: suspendedCount }
-        ]}
-      />
-
-      {/* Error State */}
-      {isError && (
-        <div className="rounded-xl border border-destructive/20 bg-destructive/10 p-6 text-center space-y-3">
-          <AlertCircle className="mx-auto h-8 w-8 text-destructive" />
-          <h2 className="text-base font-bold text-foreground">Failed to Load Registered Operators</h2>
-          <p className="text-xs text-muted-foreground max-w-md mx-auto">
-            {error?.message || "Could not retrieve operator list from the server."}
-          </p>
-          <div className="flex items-center justify-center gap-2 pt-2">
-            <Button onClick={() => refetch()} variant="outline" size="sm" className="gap-2 text-xs">
-              <RefreshCw className="h-4 w-4" /> Try Again
-            </Button>
-            {error?.message?.toLowerCase().includes("token") ||
-            error?.message?.toLowerCase().includes("unauthorized") ? (
-              <Button
-                size="sm"
-                onClick={() => (window.location.href = "/login")}
-                className="bg-primary text-primary-foreground text-xs"
-              >
-                Log In as Admin
-              </Button>
-            ) : null}
-          </div>
-        </div>
       )}
 
-      {/* Loading Skeleton */}
-      {isLoading ? (
-        <div className="space-y-3 rounded-xl border border-border/80 bg-card p-6 shadow-xs animate-pulse">
-          <div className="h-5 w-48 rounded bg-muted mb-4" />
-          <div className="h-12 w-full rounded-lg bg-muted/60" />
-          <div className="h-12 w-full rounded-lg bg-muted/40" />
-          <div className="h-12 w-full rounded-lg bg-muted/60" />
-          <div className="h-12 w-full rounded-lg bg-muted/40" />
-        </div>
-      ) : (
-        /* Providers Table Card */
-        <div className="space-y-3">
-          {/* Standard Bulk Action Floating Toolbar */}
+      <DataTable
+        title="Registered Operators"
+        itemName="operators"
+        columns={columns}
+        data={providers}
+        getRowId={getProviderId}
+        isLoading={isLoading}
+        isFetching={isFetching}
+        error={error}
+        onRetry={() => refetch()}
+        emptyMessage={
+          isFiltered
+            ? "No operators match the search query or status filter."
+            : "No registered ferry operators found in the platform."
+        }
+        sorting={table.sorting}
+        onSortingChange={table.setSorting}
+        enableColumnVisibility
+        storageKey="admin-operators"
+        initialColumnVisibility={{ createdAt: false }}
+        enableRowSelection
+        getRowLabel={(provider) => `operator ${provider.companyName}`}
+        rowSelection={selection.rowSelection}
+        onRowSelectionChange={selection.onRowSelectionChange}
+        toolbar={
+          <TableToolbar<StatusTab>
+            countsLoading={isLoading || isStatsLoading}
+            searchTerm={table.search}
+            onSearchChange={table.setSearch}
+            searchPlaceholder="Search operators by company, contact person, or email..."
+            activeTab={statusTab}
+            onTabChange={(tab) => table.setFilter("status", tab)}
+            tabs={[
+              { value: "ALL", label: "All", count: totalOperators },
+              { value: "ACTIVE", label: "Active", count: activeCount },
+              { value: "SUSPENDED", label: "Suspended", count: suspendedCount }
+            ]}
+          />
+        }
+        bulkActions={
           <BulkActionToolbar
-            selectedCount={selectedCount}
-            totalCount={totalCount}
-            displayedCount={displayedProviders.length}
+            selectedCount={selection.selectedCount}
+            totalCount={matchingCount}
+            displayedCount={providers.length}
             itemLabel="operators"
             badgeColor="blue"
-            isOperating={isBulkOperating}
-            operatingLabel={bulkActionType === "activate" ? "Activating..." : "Suspending..."}
-            onClearSelection={clearSelection}
-            onSelectAllAcrossPages={toggleSelectAllAcrossPages}
-            isAllAcrossPagesSelected={selectedCount === totalCount && totalCount > 0}
+            isOperating={bulkAction !== null}
+            operatingLabel={
+              bulkAction === "activate"
+                ? "Activating..."
+                : bulkAction === "suspend"
+                  ? "Suspending..."
+                  : "Selecting..."
+            }
+            onClearSelection={selection.clearSelection}
+            onSelectAllAcrossPages={handleSelectAllMatching}
+            isAllAcrossPagesSelected={selection.selectedCount >= matchingCount && matchingCount > 0}
             actions={[
               {
                 label: "Activate",
                 icon: <Check className="h-3.5 w-3.5 stroke-[2.5]" />,
                 onClick: () => handleBulkStatusChange("ACTIVE"),
-                isLoading: isBulkOperating && bulkActionType === "activate",
+                isLoading: bulkAction === "activate",
                 className:
                   "border-emerald-200 bg-emerald-50/50 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/60"
               },
@@ -422,45 +366,29 @@ export default function AdminOperatorsPage() {
                 label: "Suspend",
                 icon: <AlertTriangle className="h-3.5 w-3.5" />,
                 onClick: () => handleBulkStatusChange("SUSPENDED"),
-                isLoading: isBulkOperating && bulkActionType === "suspend",
+                isLoading: bulkAction === "suspend",
                 className:
                   "border-amber-200 bg-amber-50/50 text-amber-700 hover:bg-amber-100 hover:text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-900/60"
               },
               {
                 label: "Export CSV",
                 icon: <Download className="h-3.5 w-3.5" />,
-                onClick: handleBulkExportCSV,
+                onClick: handleExportCsv,
                 className:
                   "border-blue-200 bg-blue-50/50 text-blue-700 hover:bg-blue-100 hover:text-blue-800 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300 dark:hover:bg-blue-900/60"
               }
             ]}
           />
-
-          <DashboardTableCard
-            title="Registered Operators"
-            columns={providerColumns}
-            data={displayedProviders}
-            keyExtractor={(item) => item.id}
-            emptyMessage={
-              searchTerm || activeTab !== "ALL"
-                ? "No operators match the search query or status filter."
-                : "No registered ferry operators found in the platform."
-            }
-          />
-
-          {/* Reusable Pagination Controls */}
-          <TablePagination
-            page={currentPage}
-            totalPages={totalPages}
-            totalCount={totalCount}
-            pageSize={limit}
-            onPageChange={setPage}
-            onPageSizeChange={setLimit}
-            itemName="operators"
-            isLoading={isFetching}
-          />
-        </div>
-      )}
+        }
+        pagination={{
+          page: table.page,
+          pageSize: table.pageSize,
+          totalCount: matchingCount,
+          totalPages,
+          onPageChange: table.setPage,
+          onPageSizeChange: table.setPageSize
+        }}
+      />
     </div>
   );
 }

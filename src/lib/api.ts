@@ -8,6 +8,21 @@ import { mockApi } from "@/lib/mock-api";
 // Toggle mock mode; set to false for real live backend operation
 export const USE_MOCK_API = false;
 
+/**
+ * Every failed API call rejects with this. It is a plain Error (same message as before), plus the
+ * HTTP status and the error body's `data`, for callers that branch on them (e.g. a 409 with a code).
+ */
+export class ApiRequestError extends Error {
+  constructor(
+    message: string,
+    public readonly status?: number,
+    public readonly data?: unknown
+  ) {
+    super(message);
+    this.name = "ApiRequestError";
+  }
+}
+
 export const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || env.NEXT_PUBLIC_API_URL || "https://nayem5000.binarybards.online/api/v1",
   timeout: 15_000,
@@ -67,7 +82,9 @@ api.interceptors.response.use(
         }
       }
 
-      return Promise.reject(new Error(serverMessage));
+      return Promise.reject(
+        new ApiRequestError(serverMessage, status, (err.response?.data as { data?: unknown })?.data)
+      );
     }
     return Promise.reject(err);
   }

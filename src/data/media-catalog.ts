@@ -78,15 +78,9 @@ export const FERRY_MEDIA_CATALOG: Record<string, IMediaPreset[]> = {
   ]
 };
 
-export const DEFAULT_FERRY_IMAGES: IMediaPreset[] = [
-  ...FERRY_MEDIA_CATALOG.SPEEDBOAT.slice(0, 2),
-  ...FERRY_MEDIA_CATALOG.CATAMARAN.slice(0, 2),
-  ...FERRY_MEDIA_CATALOG.TRADITIONAL_FERRY.slice(0, 2)
-];
-
 /**
  * Deterministically resolves a verified high-resolution vessel image based on vessel type
- * and a seed string (e.g. vessel name, registration, or ID) without any network latency.
+ * and a seed string (e.g. vessel name or ID) without any network latency.
  */
 export function getDynamicVesselImage(type?: string, seedKey?: string): string {
   const normalizedType = (type || "SPEEDBOAT").toUpperCase();

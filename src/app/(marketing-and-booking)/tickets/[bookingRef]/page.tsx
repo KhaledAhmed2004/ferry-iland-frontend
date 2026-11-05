@@ -1,5 +1,6 @@
 "use client";
 
+import { formatPortDate, formatPortTime, portZoneLabel } from "@/lib/port-time";
 import { use } from "react";
 import Link from "next/link";
 import {
@@ -21,6 +22,7 @@ import { QRCodeSVG } from "qrcode.react";
 
 import { useDigitalPassQuery } from "@/hooks/use-tickets";
 import { AnimatedSection, Badge, Button, Card } from "@/ui";
+import { ReturnLegCard } from "@/widgets";
 
 interface ETicketPageProps {
   params: Promise<{ bookingRef: string }>;
@@ -64,32 +66,16 @@ export default function ETicketPage({ params }: ETicketPageProps) {
     );
   }
 
-  // Format date display
-  const depTimeDate = pass.trip?.departureTime ? new Date(pass.trip.departureTime) : null;
-  const formattedDate = depTimeDate && !isNaN(depTimeDate.getTime())
-    ? depTimeDate.toLocaleDateString("en-US", {
-        weekday: "short",
-        day: "numeric",
-        month: "short",
-        year: "numeric"
-      })
+  // Dock local times at each port; the pass is kept, so it names the zone (spec 0003, AC-5).
+  const trip = pass.trip;
+  const formattedDate = trip?.departureTime
+    ? formatPortDate(trip.departureTime, trip.departureTimeZone, "EEE, d MMM yyyy")
     : "Scheduled Departure";
-
-  const departureTimeDisplay = depTimeDate && !isNaN(depTimeDate.getTime())
-    ? depTimeDate.toLocaleTimeString("en-US", {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: true
-      })
+  const departureTimeDisplay = trip?.departureTime
+    ? `${formatPortTime(trip.departureTime, trip.departureTimeZone)} ${portZoneLabel(trip.departureTime, trip.departureTimeZone)} (local time)`
     : "TBD";
-
-  const arrTimeDate = pass.trip?.arrivalTime ? new Date(pass.trip.arrivalTime) : null;
-  const arrivalTimeDisplay = arrTimeDate && !isNaN(arrTimeDate.getTime())
-    ? arrTimeDate.toLocaleTimeString("en-US", {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: true
-      })
+  const arrivalTimeDisplay = trip?.arrivalTime
+    ? `${formatPortTime(trip.arrivalTime, trip.arrivalTimeZone)} ${portZoneLabel(trip.arrivalTime, trip.arrivalTimeZone)} (local time)`
     : "TBD";
 
   const qrPayload = pass.qrCodePayload || `https://islandhop.com/tickets/${pass.ticketNumber || bookingRef}`;
@@ -127,7 +113,7 @@ export default function ETicketPage({ params }: ETicketPageProps) {
           Digital Boarding Pass
         </h1>
         <p className="text-muted-foreground mb-6 text-xs text-center max-w-xs">
-          Maldives Transport &amp; Coast Guard approved digital travel document.
+          Official IslandHop digital travel document. Present this QR code at boarding.
         </p>
 
         {/* Boarding Pass Ticket Container */}
@@ -223,6 +209,8 @@ export default function ETicketPage({ params }: ETicketPageProps) {
                 <div className="text-muted-foreground text-[11px]">Gate: {pass.trip.gate || "Pier 1"}</div>
               </div>
             </div>
+
+            <ReturnLegCard tripType={pass.tripType} returnSchedule={pass.returnSchedule} />
           </div>
 
           {/* Dashed Separator 2 */}

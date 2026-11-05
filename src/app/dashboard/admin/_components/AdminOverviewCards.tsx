@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { ArrowUpRight, CalendarCheck, Ticket, Users } from "lucide-react";
+import { MiniStatSkeleton } from "@/widgets";
+import { formatDollars } from "@/lib/payment";
 import type { IAdminAnalyticsOverview } from "@/types";
 
 interface AdminOverviewCardsProps {
@@ -46,10 +48,7 @@ export function AdminOverviewCards({ analytics, isLoading }: AdminOverviewCardsP
         {isLoading ? (
           <div className="grid grid-cols-3 gap-3">
             {[1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="border-border/40 bg-muted/20 h-24 animate-pulse rounded-xl border"
-              />
+              <MiniStatSkeleton key={i} />
             ))}
           </div>
         ) : (
@@ -135,14 +134,11 @@ export function AdminOverviewCards({ analytics, isLoading }: AdminOverviewCardsP
         {isLoading ? (
           <div className="grid grid-cols-3 gap-3">
             {[1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="border-border/40 bg-muted/20 h-24 animate-pulse rounded-xl border"
-              />
+              <MiniStatSkeleton key={i} />
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             {/* 1. Total Ticket Sales Card */}
             <div className="flex flex-col justify-between rounded-xl border border-blue-200/60 bg-blue-500/5 p-3.5 dark:border-blue-800/40 dark:bg-blue-950/20">
               <div className="flex items-center justify-between">
@@ -154,8 +150,8 @@ export function AdminOverviewCards({ analytics, isLoading }: AdminOverviewCardsP
                 </span>
               </div>
               <div className="mt-2">
-                <p className="text-2xl font-extrabold tracking-tight text-blue-600 dark:text-blue-400">
-                  ${grossSales.toFixed(2)}
+                <p className="text-2xl font-extrabold tracking-tight break-all text-blue-600 dark:text-blue-400">
+                  {formatDollars(grossSales)}
                 </p>
                 <span className="text-muted-foreground mt-0.5 inline-block text-[10px] font-medium">
                   Paid by passengers
@@ -176,8 +172,8 @@ export function AdminOverviewCards({ analytics, isLoading }: AdminOverviewCardsP
                 )}
               </div>
               <div className="mt-2">
-                <p className="text-2xl font-extrabold tracking-tight text-emerald-600 dark:text-emerald-400">
-                  ${platformCommission.toFixed(2)}
+                <p className="text-2xl font-extrabold tracking-tight break-all text-emerald-600 dark:text-emerald-400">
+                  {formatDollars(platformCommission)}
                 </p>
                 <span className="text-muted-foreground mt-0.5 inline-block text-[10px] font-medium">
                   Our platform earnings
@@ -198,8 +194,8 @@ export function AdminOverviewCards({ analytics, isLoading }: AdminOverviewCardsP
                 )}
               </div>
               <div className="mt-2">
-                <p className="text-foreground text-2xl font-extrabold tracking-tight">
-                  ${providerPayout.toFixed(2)}
+                <p className="text-foreground text-2xl font-extrabold tracking-tight break-all">
+                  {formatDollars(providerPayout)}
                 </p>
                 <span className="text-muted-foreground mt-0.5 inline-block text-[10px] font-medium">
                   Paid to ferry operators
