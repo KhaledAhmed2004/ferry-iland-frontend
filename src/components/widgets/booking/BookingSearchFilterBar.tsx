@@ -4,6 +4,7 @@ import { useEffect, useMemo } from "react";
 import { addDays, format, isBefore, parseISO } from "date-fns";
 import { Anchor, ArrowLeftRight, ArrowRight, ArrowUpDown, Calendar, MapPin, Users } from "lucide-react";
 import { useQueryState, useQueryStates } from "nuqs";
+import { toast } from "sonner";
 
 import { bookingSearchParamsParsers, getTodayDateString } from "@/schemas/booking-params";
 import { cn } from "@/lib/utils";
@@ -148,6 +149,10 @@ export function BookingSearchFilterBar() {
   };
 
   const handleSearch = () => {
+    if (!params.from || !params.to) {
+      toast.error("Please select departure and destination ports");
+      return;
+    }
     let nextReturn = params.returnDate;
     if (params.tripType === "round-trip" && !nextReturn) {
       try {

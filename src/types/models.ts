@@ -477,18 +477,13 @@ export interface IRoutePortSummary {
   region?: string;
 }
 
+/** A platform route (admin managed); operators schedule trips on it with their own ferries. */
 export interface IRoute {
   id: string;
-  operatorId: string;
   departurePortId: string;
   destinationPortId: string;
   durationMinutes: number;
   basePrice?: number | null;
-  /** Bundle fares per passenger; null = option not offered on this route. */
-  adultRoundTripFare?: number | null;
-  childRoundTripFare?: number | null;
-  adultSameDayFare?: number | null;
-  childSameDayFare?: number | null;
   description?: string | null;
   amenities?: string[];
   imageUrl?: string | null;
@@ -498,6 +493,8 @@ export interface IRoute {
   updatedAt: string | Date;
   departurePort: IRoutePortSummary;
   destinationPort: IRoutePortSummary;
+  /** Trips scheduled on this route (all operators); sent by GET /routes. */
+  _count?: { schedules: number };
 }
 
 export interface IRoutePagination {
@@ -522,20 +519,11 @@ export interface ICreateRoutePayload {
   amenities?: string[];
   isBorderCrossing?: boolean;
   status?: RouteStatus;
-  adultRoundTripFare?: number | null;
-  childRoundTripFare?: number | null;
-  adultSameDayFare?: number | null;
-  childSameDayFare?: number | null;
 }
 
 export interface IUpdateRoutePayload {
   durationMinutes?: number;
   basePrice?: number;
-  /** null clears the fare (option not offered). */
-  adultRoundTripFare?: number | null;
-  childRoundTripFare?: number | null;
-  adultSameDayFare?: number | null;
-  childSameDayFare?: number | null;
   description?: string;
   amenities?: string[];
   imageUrl?: string;
@@ -682,7 +670,7 @@ export interface ITripDetail {
   availableSeats: number;
   adultFare: number;
   childFare: number;
-  /** Per passenger fare by trip type; null = not offered on this route. */
+  /** Per passenger fare by trip type; null = not offered on this trip. */
   fares?: Record<BookingTripType, IFarePerPassenger | null>;
   operatorId?: string;
   status: string;
@@ -887,7 +875,15 @@ export interface IDigitalPassResponse {
 
 export type OperatorScheduleStatus = "ON_TIME" | "BOARDING" | "DEPARTED" | "DELAYED" | "ARRIVED" | "CANCELLED";
 
-export interface IOperatorSchedule {
+/** Round trip / same day return fares per passenger, set on each schedule; null = not offered. */
+export interface IScheduleBundleFares {
+  adultRoundTripFare?: number | null;
+  childRoundTripFare?: number | null;
+  adultSameDayFare?: number | null;
+  childSameDayFare?: number | null;
+}
+
+export interface IOperatorSchedule extends IScheduleBundleFares {
   id: string;
   operatorId: string;
   routeId: string;
@@ -932,7 +928,7 @@ export interface IScheduleFilterParams {
   limit?: number;
 }
 
-export interface ICreateSchedulePayload {
+export interface ICreateSchedulePayload extends IScheduleBundleFares {
   routeId: string;
   ferryId: string;
   departureTime: string;
@@ -944,7 +940,8 @@ export interface ICreateSchedulePayload {
   availableSeats?: number;
 }
 
-export interface IUpdateSchedulePayload {
+/** A bundle fare left out keeps its value; null clears it. */
+export interface IUpdateSchedulePayload extends IScheduleBundleFares {
   departureTime?: string;
   arrivalTime?: string;
   gate?: string;

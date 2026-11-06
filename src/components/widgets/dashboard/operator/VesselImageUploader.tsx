@@ -5,8 +5,6 @@ import Image from "next/image";
 
 import {
   Camera,
-  Check,
-  FileImage,
   ImageIcon,
   RefreshCw,
   Trash2,
@@ -198,25 +196,11 @@ export function VesselImageUploader({
                 className="object-cover"
                 unoptimized={isDataUrl || value.startsWith("http")}
               />
-              <div className="absolute top-1.5 right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-white shadow-xs">
-                <Check className="h-3 w-3 stroke-[3]" />
-              </div>
             </div>
 
             {/* Info & Metadata */}
-            <div className="min-w-0 flex-1 space-y-1">
-              <div className="flex items-center gap-2">
-                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold tracking-wider text-emerald-700 uppercase dark:text-emerald-300">
-                  <FileImage className="h-3 w-3" />
-                  {capitalizedEntity} Photo Selected
-                </span>
-              </div>
-              <p className="text-foreground truncate text-xs font-semibold">
-                {isDataUrl ? `Custom ${entityName} photo ready` : value}
-              </p>
-              <p className="text-muted-foreground text-[11px]">
-                Optimized for fast high-resolution rendering
-              </p>
+            <div className="min-w-0 flex-1">
+              <p className="text-foreground text-sm font-semibold">{capitalizedEntity} photo added</p>
             </div>
 
             {/* Actions */}

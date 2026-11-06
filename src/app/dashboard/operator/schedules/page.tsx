@@ -25,7 +25,9 @@ import {
   useUpdateScheduleStatusMutation
 } from "@/hooks";
 import type {
+  ICreateSchedulePayload,
   IOperatorSchedule,
+  IUpdateSchedulePayload,
   OperatorScheduleStatus
 } from "@/types";
 import {
@@ -168,34 +170,29 @@ export default function OperatorSchedulesPage() {
     }
   };
 
-  const handleCreateSchedule = async (payload: {
-    routeId: string;
-    ferryId: string;
-    departureTime: string;
-    arrivalTime: string;
-    adultFare: number;
-    childFare?: number;
-  }) => {
+  const handleCreateSchedule = async (payload: ICreateSchedulePayload) => {
     await createScheduleMutation.mutateAsync(payload);
     setPage(1);
     setIsAddModalOpen(false);
   };
 
-  const handleUpdateSchedule = async (payload: {
-    id: string;
-    departureTime: string;
-    arrivalTime: string;
-    status: OperatorScheduleStatus;
-    adultFare: number;
-    childFare?: number;
-  }) => {
+  const handleUpdateSchedule = async (
+    payload: IUpdateSchedulePayload & {
+      id: string;
+      status: OperatorScheduleStatus;
+    }
+  ) => {
     await updateScheduleMutation.mutateAsync({
       id: payload.id,
       payload: {
         departureTime: payload.departureTime,
         arrivalTime: payload.arrivalTime,
         adultFare: payload.adultFare,
-        childFare: payload.childFare
+        childFare: payload.childFare,
+        adultRoundTripFare: payload.adultRoundTripFare,
+        childRoundTripFare: payload.childRoundTripFare,
+        adultSameDayFare: payload.adultSameDayFare,
+        childSameDayFare: payload.childSameDayFare
       }
     });
 

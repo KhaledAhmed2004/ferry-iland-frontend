@@ -7,6 +7,7 @@ import { BrandLogo } from "@/widgets";
 import { Button } from "@/ui";
 import { useAuth } from "@/hooks";
 import { useOperatorSettingsQuery } from "@/hooks/use-operator";
+import { OperatorLogoMark } from "./OperatorLogoMark";
 
 interface ProviderHeaderProps {
   onToggleMobileMenu: () => void;
@@ -24,7 +25,7 @@ export function ProviderHeader({
   const companyName =
     operatorSettings?.companyName ||
     user?.operatorProfile?.companyName ||
-    "Makana Ferry Service";
+    "Operator";
 
   const getPageTitle = () => {
     if (
@@ -36,8 +37,6 @@ export function ProviderHeader({
     }
     if (pathname.startsWith("/dashboard/operator/ferries") || pathname.startsWith("/dashboard/ferries"))
       return "Ferries & Fleet";
-    if (pathname.startsWith("/dashboard/operator/routes") || pathname.startsWith("/dashboard/routes"))
-      return "Operating Routes";
     if (pathname.startsWith("/dashboard/operator/schedules") || pathname.startsWith("/dashboard/schedules"))
       return "Trip Schedules";
     if (pathname.startsWith("/dashboard/operator/off-days") || pathname.startsWith("/dashboard/off-days"))
@@ -74,7 +73,7 @@ export function ProviderHeader({
           <BrandLogo
             size="sm"
             href="/dashboard/operator"
-            logoSrc="/operators/makana-ferry.png"
+            icon={<OperatorLogoMark companyName={companyName} logoUrl={operatorSettings?.logoUrl} />}
             iconClassName="rounded-full ring-2 ring-sky-400/60 shadow-xs overflow-hidden"
             title={
               <span className="truncate max-w-[170px] block font-extrabold text-xs" title={companyName}>

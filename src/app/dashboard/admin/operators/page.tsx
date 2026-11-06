@@ -142,7 +142,7 @@ export default function AdminOperatorsPage() {
           const item = row.original;
           return (
             <div className="flex items-center gap-3">
-              {/* Logo when the operator uploaded one, otherwise the building icon. */}
+              {/* Logo when the operator uploaded one, otherwise the company's first letter. */}
               <Avatar className="size-10 rounded-xl">
                 {item.logoUrl && (
                   <AvatarImage
@@ -151,8 +151,8 @@ export default function AdminOperatorsPage() {
                     className="object-cover"
                   />
                 )}
-                <AvatarFallback className="rounded-xl bg-emerald-500/10 text-emerald-600">
-                  <Building2 className="size-5" />
+                <AvatarFallback className="rounded-xl bg-emerald-500/10 text-sm font-bold text-emerald-600 dark:text-emerald-400">
+                  {(item.companyName || "?").trim().charAt(0).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
               <div>
@@ -206,6 +206,9 @@ export default function AdminOperatorsPage() {
         id: "routesCount",
         header: "Routes",
         accessorKey: "routesCount",
+        // Routes are shared now; this counts routes the operator runs trips on, which the
+        // API computes per page and cannot sort by.
+        enableSorting: false,
         meta: { align: "center" },
         cell: ({ row }) => (
           <span className="inline-flex items-center gap-1">

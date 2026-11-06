@@ -8,6 +8,8 @@ import { cn } from "@/lib/utils";
 interface BrandLogoProps {
   size?: "sm" | "md" | "lg";
   logoSrc?: string;
+  /** Rendered in the logo box instead of the image, e.g. an operator's own logo or initial. */
+  icon?: ReactNode;
   showText?: boolean;
   title?: ReactNode;
   subtitle?: string;
@@ -22,6 +24,7 @@ interface BrandLogoProps {
 export function BrandLogo({
   size = "md",
   logoSrc,
+  icon,
   showText = true,
   title,
   subtitle = "Book • Travel • Explore",
@@ -49,14 +52,16 @@ export function BrandLogo({
           iconClassName
         )}
       >
-        <Image
-          src={logoSrc || "/logo.png"}
-          alt="Brand Logo"
-          width={currentSize.px}
-          height={currentSize.px}
-          priority={priority}
-          className={cn("h-full w-full", logoSrc ? "object-cover" : "object-contain")}
-        />
+        {icon ?? (
+          <Image
+            src={logoSrc || "/logo.png"}
+            alt="Brand Logo"
+            width={currentSize.px}
+            height={currentSize.px}
+            priority={priority}
+            className={cn("h-full w-full", logoSrc ? "object-cover" : "object-contain")}
+          />
+        )}
       </div>
 
       {showText && (

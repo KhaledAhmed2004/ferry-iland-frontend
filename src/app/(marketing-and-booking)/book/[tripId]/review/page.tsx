@@ -264,7 +264,7 @@ export default function Step1ReviewPage({ params }: Step1ReviewPageProps) {
 
             {!isTripTypeOffered && (
               <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm font-semibold">
-                {legs.tripTypeLabel} is not offered on this route. Please go back and choose another trip.
+                {legs.tripTypeLabel} is not offered on this trip. Please go back and choose another trip.
               </div>
             )}
 

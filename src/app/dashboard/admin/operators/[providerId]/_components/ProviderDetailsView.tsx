@@ -496,7 +496,7 @@ export function ProviderDetailsView({ providerId }: ProviderDetailsViewProps) {
             columns={routeColumns}
             data={paginatedRoutes}
             keyExtractor={(item) => item.id}
-            emptyMessage="No routes configured for this operator yet."
+            emptyMessage="This operator has not scheduled trips on any route yet."
           />
           <TablePagination
             page={validRoutesPage}

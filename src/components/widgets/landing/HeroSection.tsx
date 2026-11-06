@@ -19,6 +19,7 @@ import {
   Users
 } from "lucide-react";
 import { addDays, format, isBefore, parseISO } from "date-fns";
+import { toast } from "sonner";
 
 import heroBg from "@/assets/landing-page/hero-bg.png";
 import { cn } from "@/lib/utils";
@@ -33,8 +34,8 @@ import { Card, CardContent, DatePicker, Label } from "@/ui";
 
 export function HeroSection() {
   const [tripType, setTripType] = useState<"one-way" | "round-trip" | "same-day-return">("one-way");
-  const [departurePort, setDeparturePort] = useState("Blowing Point, Anguilla");
-  const [destinationPort, setDestinationPort] = useState("Marigot, Saint Martin");
+  const [departurePort, setDeparturePort] = useState("");
+  const [destinationPort, setDestinationPort] = useState("");
   // Empty until the user picks a date, so the default can follow the port's today (spec 0003, AC-10).
   const [departureDate, setDepartureDate] = useState("");
   const [browserToday] = useState(() => format(new Date(), "yyyy-MM-dd"));
@@ -420,6 +421,12 @@ export function HeroSection() {
                 </Label>
                 <Link
                   href={searchUrl}
+                  onClick={(e) => {
+                    if (!departurePort || !destinationPort) {
+                      e.preventDefault();
+                      toast.error("Please select departure and destination ports");
+                    }
+                  }}
                   className="group flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-5 text-xs font-bold whitespace-nowrap text-white shadow-md shadow-blue-600/25 transition-all duration-300 hover:from-blue-700 hover:to-indigo-700 hover:shadow-lg hover:shadow-blue-600/35 active:scale-[0.98] sm:text-sm"
                 >
                   <span>Search Ferries</span>

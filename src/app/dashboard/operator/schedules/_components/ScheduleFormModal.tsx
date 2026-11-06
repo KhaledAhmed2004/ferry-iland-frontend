@@ -15,6 +15,7 @@ import type {
   IFerry,
   IOperatorSchedule,
   IRoute,
+  IScheduleBundleFares,
   OperatorScheduleStatus
 } from "@/types";
 import {
@@ -39,6 +40,23 @@ const STATUS_OPTIONS: { value: OperatorScheduleStatus; label: string }[] = [
   { value: "CANCELLED", label: "Cancelled" }
 ];
 
+type BundleFareKey = keyof IScheduleBundleFares;
+
+/** Round trip / same day return fares per passenger. Empty = that option is not offered on this trip. */
+const BUNDLE_FARE_FIELDS: { key: BundleFareKey; label: string }[] = [
+  { key: "adultRoundTripFare", label: "Round Trip · Adult ($)" },
+  { key: "childRoundTripFare", label: "Round Trip · Child ($)" },
+  { key: "adultSameDayFare", label: "Same Day Return · Adult ($)" },
+  { key: "childSameDayFare", label: "Same Day Return · Child ($)" }
+];
+
+const EMPTY_BUNDLE_FARES: Record<BundleFareKey, string> = {
+  adultRoundTripFare: "",
+  childRoundTripFare: "",
+  adultSameDayFare: "",
+  childSameDayFare: ""
+};
+
 export interface ScheduleFormModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -47,22 +65,26 @@ export interface ScheduleFormModalProps {
   ferries: IFerry[];
   isRoutesLoading: boolean;
   isFerriesLoading: boolean;
-  onSubmitCreate: (data: {
-    routeId: string;
-    ferryId: string;
-    departureTime: string;
-    arrivalTime: string;
-    adultFare: number;
-    childFare?: number;
-  }) => Promise<void>;
-  onSubmitUpdate: (data: {
-    id: string;
-    departureTime: string;
-    arrivalTime: string;
-    status: OperatorScheduleStatus;
-    adultFare: number;
-    childFare?: number;
-  }) => Promise<void>;
+  onSubmitCreate: (
+    data: {
+      routeId: string;
+      ferryId: string;
+      departureTime: string;
+      arrivalTime: string;
+      adultFare: number;
+      childFare?: number;
+    } & IScheduleBundleFares
+  ) => Promise<void>;
+  onSubmitUpdate: (
+    data: {
+      id: string;
+      departureTime: string;
+      arrivalTime: string;
+      status: OperatorScheduleStatus;
+      adultFare: number;
+      childFare?: number;
+    } & IScheduleBundleFares
+  ) => Promise<void>;
   isSubmitting: boolean;
 }
 
@@ -88,6 +110,7 @@ export function ScheduleFormModal({
   const [adultFare, setAdultFare] = React.useState("25");
   const [childFare, setChildFare] = React.useState("15");
   const [status, setStatus] = React.useState<OperatorScheduleStatus>("ON_TIME");
+  const [bundleFares, setBundleFares] = React.useState<Record<BundleFareKey, string>>(EMPTY_BUNDLE_FARES);
 
   // Sync state on open / edit change
   React.useEffect(() => {
@@ -102,6 +125,12 @@ export function ScheduleFormModal({
       setAdultFare(String(editingSchedule.adultFare));
       setChildFare(editingSchedule.childFare != null ? String(editingSchedule.childFare) : "");
       setStatus(editingSchedule.status || "ON_TIME");
+      setBundleFares({
+        adultRoundTripFare: editingSchedule.adultRoundTripFare?.toString() ?? "",
+        childRoundTripFare: editingSchedule.childRoundTripFare?.toString() ?? "",
+        adultSameDayFare: editingSchedule.adultSameDayFare?.toString() ?? "",
+        childSameDayFare: editingSchedule.childSameDayFare?.toString() ?? ""
+      });
     } else {
       setRouteId("");
       setFerryId("");
@@ -110,8 +139,17 @@ export function ScheduleFormModal({
       setAdultFare("25");
       setChildFare("15");
       setStatus("ON_TIME");
+      setBundleFares(EMPTY_BUNDLE_FARES);
     }
   }, [editingSchedule, isOpen]);
+
+  /** Empty field = null, so the option is not offered (and an edit clears an old fare). */
+  const bundleFarePayload = (): Required<IScheduleBundleFares> => ({
+    adultRoundTripFare: bundleFares.adultRoundTripFare.trim() === "" ? null : Number(bundleFares.adultRoundTripFare),
+    childRoundTripFare: bundleFares.childRoundTripFare.trim() === "" ? null : Number(bundleFares.childRoundTripFare),
+    adultSameDayFare: bundleFares.adultSameDayFare.trim() === "" ? null : Number(bundleFares.adultSameDayFare),
+    childSameDayFare: bundleFares.childSameDayFare.trim() === "" ? null : Number(bundleFares.childSameDayFare)
+  });
 
   // Dropdown options
   const routeOptions = React.useMemo(() => {
@@ -212,6 +250,15 @@ export function ScheduleFormModal({
       return;
     }
 
+    const invalidFare = BUNDLE_FARE_FIELDS.find(({ key }) => {
+      const value = bundleFares[key].trim();
+      return value !== "" && (isNaN(Number(value)) || Number(value) < 0);
+    });
+    if (invalidFare) {
+      toast.error(`${invalidFare.label} must be a positive amount, or empty if not offered.`);
+      return;
+    }
+
     if (!isEditing) {
       if (!routeId) {
         toast.error("Please select a ferry route.");
@@ -229,7 +276,8 @@ export function ScheduleFormModal({
         departureTime: departureDateTime,
         arrivalTime: arrivalDateTime,
         adultFare: Number(adultFare) || 25,
-        childFare: childFare ? Number(childFare) : undefined
+        childFare: childFare ? Number(childFare) : undefined,
+        ...bundleFarePayload()
       });
     } else if (editingSchedule) {
       await onSubmitUpdate({
@@ -238,7 +286,8 @@ export function ScheduleFormModal({
         arrivalTime: arrivalDateTime,
         status,
         adultFare: Number(adultFare) || 25,
-        childFare: childFare ? Number(childFare) : undefined
+        childFare: childFare ? Number(childFare) : undefined,
+        ...bundleFarePayload()
       });
     }
   };
@@ -287,11 +336,8 @@ export function ScheduleFormModal({
             <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-amber-800 dark:text-amber-300 text-xs flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 shrink-0" />
               <span>
-                No active routes registered. Please add a ferry route in{" "}
-                <Link href="/dashboard/operator/routes" className="underline font-bold">
-                  Route Management
-                </Link>{" "}
-                before scheduling departures.
+                No active routes are open yet. Routes are set up by the platform admin; ask
+                them to add or reopen the route you want to sail.
               </span>
             </div>
           )}
@@ -501,6 +547,36 @@ export function ScheduleFormModal({
                   onChange={(e) => setChildFare(e.target.value)}
                   className="text-xs h-9 font-mono"
                 />
+              </div>
+            </div>
+
+            {/* Round Trip & Same Day Return fares for bookings that start on this trip */}
+            <div className="space-y-2 pt-1">
+              <div>
+                <Label className="text-xs font-semibold text-foreground">Return Trip Fares (per passenger)</Label>
+                <p className="text-[10px] text-muted-foreground">
+                  Price for the whole return journey when a booking starts on this sailing. Leave a fare empty if
+                  that option is not offered.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {BUNDLE_FARE_FIELDS.map(({ key, label }) => (
+                  <div key={key} className="space-y-1.5">
+                    <Label htmlFor={`schedule-${key}`} className="text-xs font-semibold text-foreground">
+                      {label}
+                    </Label>
+                    <Input
+                      id={`schedule-${key}`}
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="Not offered"
+                      value={bundleFares[key]}
+                      onChange={(e) => setBundleFares((prev) => ({ ...prev, [key]: e.target.value }))}
+                      className="text-xs h-9 font-mono"
+                    />
+                  </div>
+                ))}
               </div>
             </div>
           </div>

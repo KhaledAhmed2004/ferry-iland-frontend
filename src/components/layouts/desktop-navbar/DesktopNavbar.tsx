@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   Compass,
   HelpCircle,
+  House,
   LayoutDashboard,
   LogOut,
   Ship,
@@ -18,9 +19,9 @@ import { BrandLogo } from "@/widgets";
 import { cn } from "@/lib/utils";
 
 const NAV_LINKS = [
-  { name: "Book", href: "/", icon: Ticket },
-  { name: "Travel", href: "/ferries", icon: Ship },
+  { name: "Home", href: "/", icon: House },
   { name: "Explore", href: "/routes", icon: Compass },
+  { name: "Travel", href: "/ferries", icon: Ship },
   { name: "Manage Booking", href: "/manage-booking", icon: Ticket },
   { name: "Help", href: "/help", icon: HelpCircle }
 ];

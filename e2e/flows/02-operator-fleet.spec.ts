@@ -5,12 +5,13 @@ import { authFile } from "../helpers/roles";
 import { searchFromLanding } from "../helpers/search";
 
 /**
- * FLOW 2 — Operator sets up a sellable trip from scratch, all through the UI:
- * add ferry → add route (free port pair) → schedule a departure →
- * trip shows on the operator's manifest page and in the public customer search.
+ * FLOW 2 — A sellable trip from scratch, all through the UI:
+ * operator adds a ferry → ADMIN adds the route (routes are platform-wide, admin only) →
+ * operator schedules a departure on it → trip shows on the operator's manifest page and
+ * in the public customer search.
  *
- * No booking here on purpose: a booked schedule/route can never be deleted, and the
- * operator gets one route per port pair — booking would burn a pair every run.
+ * No booking here on purpose: a booked schedule/route can never be deleted, and there is
+ * one route per port pair — booking would burn a pair every run.
  * Booking + manifest are covered by flows 01 and 04. Everything created here is deleted.
  */
 test.describe.configure({ mode: "serial" });
@@ -28,11 +29,12 @@ interface Port {
 }
 
 let operatorApi: APIRequestContext;
+let adminApi: APIRequestContext;
 let from: Port;
 let to: Port;
 const created: { ferryId?: string; routeId?: string; scheduleId?: string } = {};
 
-/** First ordered port pair this operator has no route for (routes are unique per operator + pair). */
+/** First ordered port pair with no route yet (one shared route per pair; admin sees them all). */
 async function findFreePortPair(api: APIRequestContext): Promise<[Port, Port]> {
   const ports = listOf<Port>(await call(api, "get", "/ports?limit=100"));
   const routes = listOf(await call(api, "get", "/routes?limit=100"));
@@ -45,6 +47,12 @@ async function findFreePortPair(api: APIRequestContext): Promise<[Port, Port]> {
     }
   }
   throw new Error(`Operator already has routes for all ${ports.length} ports' pairs — delete an unused route.`);
+}
+
+/** Opens the dialog's nth ReusableSelect (Radix) and picks an option (for prefilled selects). */
+async function pickNth(page: Page, index: number, option: string | RegExp) {
+  await page.getByRole("dialog").getByRole("combobox").nth(index).click();
+  await page.getByRole("option", { name: option }).first().click();
 }
 
 /** Opens a ReusableSelect (Radix) by its placeholder text and picks an option. */
@@ -68,19 +76,24 @@ async function submitAndCapture(page: Page, button: RegExp, path: string) {
 
 test.beforeAll(async () => {
   operatorApi = await apiAs("operator");
-  [from, to] = await findFreePortPair(operatorApi);
+  adminApi = await apiAs("admin");
+  [from, to] = await findFreePortPair(adminApi);
 });
 
 test.afterAll(async () => {
   // Order matters: schedule → route → ferry. No bookings exist, so all three really delete.
   const del = (path: string) => call(operatorApi, "delete", path).catch((e) => console.warn(`cleanup: ${e.message}`));
   if (created.scheduleId) await del(`/schedules/${created.scheduleId}`);
-  if (created.routeId) await del(`/routes/${created.routeId}`);
+  if (created.routeId) {
+    // Only admins can delete routes now.
+    await call(adminApi, "delete", `/routes/${created.routeId}`).catch((e) => console.warn(`cleanup: ${e.message}`));
+  }
   if (created.ferryId) await del(`/ferries/${created.ferryId}`);
   await operatorApi?.dispose();
+  await adminApi?.dispose();
 });
 
-test("operator adds ferry, route and schedule; trip becomes searchable @smoke", async ({ page }) => {
+test("operator adds ferry, admin adds route, operator schedules; trip becomes searchable @smoke", async ({ page, browser }) => {
   const stamp = Date.now().toString().slice(-7);
   const ferryName = `E2E Ferry ${stamp}`;
   const capacity = 40;
@@ -106,23 +119,35 @@ test("operator adds ferry, route and schedule; trip becomes searchable @smoke", 
     await expect(page.getByText(ferryName).first()).toBeVisible();
   });
 
-  await test.step(`2. Add a route (${from.name} → ${to.name})`, async () => {
-    await page.goto("/dashboard/operator/routes");
-    await page.getByRole("button", { name: /add route/i }).click();
+  await test.step("2a. Operator has no Routes page any more", async () => {
+    await page.goto("/dashboard/operator");
+    await expect(page.getByRole("link", { name: /^routes$/i })).toHaveCount(0);
+  });
 
-    const dialog = page.getByRole("dialog");
-    await pick(page, "Select departure port...", from.name);
-    await pick(page, "Select arrival port...", to.name);
-    await dialog.getByLabel(/estimated travel time/i).fill("45");
-    await dialog.getByLabel(/route description/i).fill(`E2E route ${stamp}`);
-    await dialog.locator('input[type="file"]').setInputFiles({
-      name: "cover.png",
-      mimeType: "image/png",
-      buffer: TINY_PNG
-    });
+  await test.step(`2b. Admin adds the route (${from.name} → ${to.name})`, async () => {
+    const adminCtx = await browser.newContext({ storageState: authFile("admin") });
+    const admin = await adminCtx.newPage();
+    try {
+      await admin.goto("/dashboard/admin/routes");
+      await admin.getByRole("button", { name: /add route/i }).click();
 
-    const route = await submitAndCapture(page, /create route/i, "/routes");
-    created.routeId = route.id;
+      const dialog = admin.getByRole("dialog");
+      // The route form pre-selects the first two ports, so pick by position.
+      await pickNth(admin, 0, from.name);
+      await pickNth(admin, 1, to.name);
+      await dialog.getByLabel(/estimated travel time/i).fill("45");
+      await dialog.getByLabel(/route description/i).fill(`E2E route ${stamp}`);
+      await dialog.locator('input[type="file"]').setInputFiles({
+        name: "cover.png",
+        mimeType: "image/png",
+        buffer: TINY_PNG
+      });
+
+      const route = await submitAndCapture(admin, /create route/i, "/routes");
+      created.routeId = route.id;
+    } finally {
+      await adminCtx.close();
+    }
   });
 
   await test.step("3. Schedule a departure on that route with the new ferry", async () => {

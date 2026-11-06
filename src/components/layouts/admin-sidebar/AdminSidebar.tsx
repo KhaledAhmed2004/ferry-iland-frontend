@@ -11,6 +11,7 @@ import {
   HelpCircle,
   LayoutDashboard,
   LogOut,
+  MapPin,
   Settings,
   Users
 } from "lucide-react";
@@ -47,6 +48,11 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     name: "Ports",
     href: "/dashboard/admin/ports",
     icon: Anchor
+  },
+  {
+    name: "Routes",
+    href: "/dashboard/admin/routes",
+    icon: MapPin
   },
   {
     name: "Bookings",

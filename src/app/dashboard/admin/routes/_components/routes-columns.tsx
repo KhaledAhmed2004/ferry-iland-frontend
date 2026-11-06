@@ -1,7 +1,7 @@
-import { ArrowRight, Clock, Edit, Globe, Trash2 } from "lucide-react";
+import { ArrowRight, CirclePause, CirclePlay, Clock, Edit, Globe, Trash2 } from "lucide-react";
 
-import { StatusBadge, type TableColumn } from "@/widgets";
-import { Button, Checkbox } from "@/ui";
+import { DataTableRowActions, StatusBadge, type TableColumn } from "@/widgets";
+import { Checkbox } from "@/ui";
 import type { IRoute } from "@/types";
 
 export function formatDuration(minutes: number): string {
@@ -21,6 +21,8 @@ export interface RouteColumnsOptions {
   toggleSelectRow: (id: string) => void;
   onEdit: (route: IRoute) => void;
   onDelete: (route: IRoute) => void;
+  /** Pause (INACTIVE) or reopen (ACTIVE) a single route. */
+  onToggleStatus: (route: IRoute) => void;
 }
 
 export function getRouteColumns({
@@ -30,7 +32,8 @@ export function getRouteColumns({
   toggleSelectAllCurrentPage,
   toggleSelectRow,
   onEdit,
-  onDelete
+  onDelete,
+  onToggleStatus
 }: RouteColumnsOptions): TableColumn<IRoute>[] {
   return [
     {
@@ -63,6 +66,7 @@ export function getRouteColumns({
     },
     {
       header: "ROUTE",
+      sortValue: (item) => `${item.departurePort?.name ?? ""} ${item.destinationPort?.name ?? ""}`,
       cell: (item) => {
         return (
           <div className="flex items-center gap-3.5">
@@ -80,12 +84,6 @@ export function getRouteColumns({
                 </div>
               )}
               <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-transparent" />
-              {item.isBorderCrossing && (
-                <div
-                  className="absolute top-1 right-1 h-2 w-2 rounded-full bg-amber-400 shadow-xs ring-2 ring-white dark:ring-slate-900"
-                  title="International Border Crossing"
-                />
-              )}
             </div>
             <div className="max-w-[280px]">
               <div className="text-foreground flex items-center gap-1.5 text-xs font-bold sm:text-sm">
@@ -115,6 +113,7 @@ export function getRouteColumns({
     },
     {
       header: "DURATION",
+      sortValue: (item) => item.durationMinutes,
       cell: (item) => (
         <div className="text-foreground flex items-center gap-1.5 text-xs font-medium">
           <Clock className="text-muted-foreground h-3.5 w-3.5 shrink-0" />
@@ -123,35 +122,48 @@ export function getRouteColumns({
       )
     },
     {
+      header: "TRIPS",
+      align: "right",
+      headerClassName: "text-right",
+      // Trips any operator has scheduled on this shared route.
+      sortValue: (item) => item._count?.schedules ?? 0,
+      cell: (item) => (
+        <span className="text-foreground font-medium tabular-nums">
+          {(item._count?.schedules ?? 0).toLocaleString()}
+        </span>
+      )
+    },
+    {
       header: "STATUS",
+      sortValue: (item) => item.status,
       cell: (item) => <StatusBadge status={item.status === "ACTIVE" ? "Active" : "Inactive"} />
     },
     {
       header: "ACTIONS",
       align: "right",
       headerClassName: "text-right",
-      cell: (item) => (
-        <div className="flex items-center justify-end gap-1.5">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => onEdit(item)}
-            className="h-8 w-8 rounded-lg border-emerald-200 font-semibold text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 dark:border-emerald-800 dark:text-emerald-400 dark:hover:bg-emerald-950/30"
-            title="Edit Route Details"
-          >
-            <Edit className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => onDelete(item)}
-            className="h-8 w-8 rounded-lg border-rose-200 font-semibold text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:border-rose-900/50 dark:text-rose-400 dark:hover:bg-rose-950/30"
-            title="Delete Route"
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </div>
-      )
+      cell: (item) => {
+        const isActive = item.status === "ACTIVE";
+        return (
+          <DataTableRowActions
+            actions={[
+              { label: "Edit route", icon: Edit, onSelect: () => onEdit(item) },
+              {
+                label: isActive ? "Pause route" : "Activate route",
+                icon: isActive ? CirclePause : CirclePlay,
+                onSelect: () => onToggleStatus(item)
+              },
+              {
+                label: "Delete route",
+                icon: Trash2,
+                destructive: true,
+                separatorBefore: true,
+                onSelect: () => onDelete(item)
+              }
+            ]}
+          />
+        );
+      }
     }
   ];
 }

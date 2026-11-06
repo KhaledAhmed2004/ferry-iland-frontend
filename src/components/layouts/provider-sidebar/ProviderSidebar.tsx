@@ -9,7 +9,6 @@ import {
   Clock,
   LayoutDashboard,
   LogOut,
-  MapPin,
   Settings,
   Ship,
   Ticket
@@ -19,6 +18,7 @@ import { useAuth } from "@/hooks";
 import { useOperatorSettingsQuery } from "@/hooks/use-operator";
 import { Button } from "@/ui";
 import { BrandLogo } from "@/widgets";
+import { OperatorLogoMark } from "./OperatorLogoMark";
 
 export interface ProviderNavItem {
   name: string;
@@ -31,11 +31,6 @@ export const PROVIDER_NAV_ITEMS: ProviderNavItem[] = [
     name: "Overview",
     href: "/dashboard/operator",
     icon: LayoutDashboard
-  },
-  {
-    name: "Routes",
-    href: "/dashboard/operator/routes",
-    icon: MapPin
   },
   {
     name: "Ferries",
@@ -82,7 +77,7 @@ export function ProviderSidebar({ onItemClick, className }: ProviderSidebarProps
   const companyName =
     operatorSettings?.companyName ||
     user?.operatorProfile?.companyName ||
-    "Makana Ferry Service";
+    "Operator";
 
   const contactPerson =
     operatorSettings?.contactPersonName ||
@@ -118,7 +113,7 @@ export function ProviderSidebar({ onItemClick, className }: ProviderSidebarProps
         <BrandLogo
           size="md"
           href="/dashboard/operator"
-          logoSrc="/operators/makana-ferry.png"
+          icon={<OperatorLogoMark companyName={companyName} logoUrl={operatorSettings?.logoUrl} />}
           iconClassName="rounded-full ring-2 ring-sky-400/60 shadow-xs overflow-hidden shrink-0"
           onClick={onItemClick}
           title={

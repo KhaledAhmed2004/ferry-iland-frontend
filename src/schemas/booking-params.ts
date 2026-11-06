@@ -37,8 +37,8 @@ export const getTodayDateString = () => {
 
 export const bookingSearchParamsParsers = {
   tripType: parseAsStringEnum<TripType>([...tripTypeValues]).withDefault("one-way"),
-  from: parseAsString.withDefault("Blowing Point, Anguilla"),
-  to: parseAsString.withDefault("Marigot, Saint Martin"),
+  from: parseAsString.withDefault(""),
+  to: parseAsString.withDefault(""),
   departureDate: parseAsString.withDefault(getTodayDateString()),
   returnDate: parseAsString.withDefault(""),
   passengers: parseAsString.withDefault("1 Passenger"),

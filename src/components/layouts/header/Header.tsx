@@ -10,9 +10,9 @@ import { Button } from "@/ui";
 import { BrandLogo } from "@/widgets";
 
 const NAV_LINKS = [
-  { name: "Book", href: "/" },
-  { name: "Travel", href: "/ferries" },
+  { name: "Home", href: "/" },
   { name: "Explore", href: "/routes" },
+  { name: "Travel", href: "/ferries" },
   { name: "Manage Booking", href: "/manage-booking" },
   { name: "Help", href: "/help" }
 ];

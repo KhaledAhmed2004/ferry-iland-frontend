@@ -22,6 +22,7 @@ export function AdminHeader({
     if (pathname.startsWith("/dashboard/admin/passengers")) return "Passengers";
     if (pathname.startsWith("/dashboard/admin/operators")) return "Operators Management";
     if (pathname.startsWith("/dashboard/admin/ports")) return "Ports Management";
+    if (pathname.startsWith("/dashboard/admin/routes")) return "Routes Management";
     if (pathname.startsWith("/dashboard/admin/bookings")) return "Bookings Management";
     if (pathname.startsWith("/dashboard/admin/payments")) return "Payments & Commissions";
     if (pathname.startsWith("/dashboard/admin/faqs")) return "FAQ Management";

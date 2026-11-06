@@ -31,6 +31,7 @@ export function BookingResultsList() {
     limit: 20
   }), [params.from, params.to, params.departureDate, params.returnDate, params.tripType, adults, children]);
 
+  const isMissingPorts = !params.from || !params.to;
   const isMissingReturnDate = params.tripType === "round-trip" && !params.returnDate;
   const { data, isLoading, isError, error, refetch } = useTripsSearchQuery(searchParams);
 
@@ -85,6 +86,24 @@ export function BookingResultsList() {
           returnTripId: selectedReturn.tripId,
         }).toString()}`
       : "";
+
+  if (isMissingPorts) {
+    return (
+      <Card className="rounded-2xl border-border/80 bg-card p-10 text-center shadow-xs">
+        <CardContent className="mx-auto max-w-md space-y-4 p-0">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+            <Ship className="h-7 w-7" />
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-foreground text-xl font-bold">Where are you sailing?</h3>
+            <p className="text-muted-foreground text-xs sm:text-sm">
+              Choose a departure and destination port in the search bar above to see available ferries.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -201,7 +220,7 @@ export function BookingResultsList() {
         <Card className="rounded-2xl border-amber-500/30 bg-amber-500/5 p-6 text-center">
           <CardContent className="space-y-3 p-0">
             <h3 className="text-foreground text-lg font-bold">
-              {tripTypeLabel} is not offered on this route
+              {tripTypeLabel} is not offered on this trip
             </h3>
             <Button
               size="sm"
