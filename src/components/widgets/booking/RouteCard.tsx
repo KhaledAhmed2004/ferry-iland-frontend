@@ -129,7 +129,9 @@ export function RouteCard({ route }: RouteCardProps) {
           {(route.description || highlights.length > 0) && (
             <div className="space-y-3 p-5">
               {route.description && (
-                <p className="text-muted-foreground text-xs line-clamp-2">{route.description}</p>
+                <p className="text-muted-foreground text-xs line-clamp-2" title={route.description}>
+                  {route.description}
+                </p>
               )}
 
               {highlights.length > 0 && (
