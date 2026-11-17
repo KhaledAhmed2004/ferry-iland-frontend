@@ -4,7 +4,7 @@ import { z } from "zod";
  * Ferry Enums
  */
 export const vesselTypeEnum = z.enum(["CATAMARAN", "SPEEDBOAT", "TRADITIONAL_FERRY"]);
-export const vesselStatusEnum = z.enum(["IN_SERVICE", "MAINTENANCE", "OUT_OF_SERVICE"]);
+export const vesselStatusEnum = z.enum(["IN_SERVICE", "MAINTENANCE"]);
 
 /**
  * Ferry Schemas
@@ -15,7 +15,8 @@ export const createFerrySchema = z.object({
   type: vesselTypeEnum.default("CATAMARAN"),
   status: vesselStatusEnum.default("IN_SERVICE"),
   imageUrl: z.string().optional(),
-  amenities: z.array(z.string()).optional()
+  amenities: z.array(z.string()).optional(),
+  routeIds: z.array(z.string().uuid()).optional()
 });
 
 export const updateFerrySchema = createFerrySchema.partial();

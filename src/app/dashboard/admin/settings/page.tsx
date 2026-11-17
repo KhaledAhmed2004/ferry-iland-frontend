@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/widgets";
+import { useChangePasswordMutation, useUpdateProfileMutation } from "@/hooks/use-users";
 import { PaymentSettingsCard } from "./_components/PaymentSettingsCard";
 import {
   Avatar,
@@ -64,7 +65,6 @@ export interface PlatformInfoData {
   supportPhone: string;
   emergencyHotline: string;
   officeAddress: string;
-  timezone: string;
   portalVersion: string;
 }
 
@@ -81,7 +81,6 @@ export default function AdminSettingsPage() {
     supportPhone: "+1 (800) 555-3377",
     emergencyHotline: "+1 (888) 999-FERRY",
     officeAddress: "Marine Harbor Terminal, Pier 4, Charlotte Amalie, VI 00802",
-    timezone: "America/Port_of_Spain (UTC-04:00)",
     portalVersion: "v2.4.0 (Enterprise)"
   });
 
@@ -116,13 +115,14 @@ export default function AdminSettingsPage() {
 
   const [isEditAccountOpen, setIsEditAccountOpen] = React.useState(false);
   const [editFormData, setEditFormData] = React.useState<AdminProfileData>(adminProfile);
+  const updateProfileMutation = useUpdateProfileMutation();
 
   const handleOpenEditAccount = () => {
     setEditFormData(adminProfile);
     setIsEditAccountOpen(true);
   };
 
-  const handleSaveAccountModal = (e: React.FormEvent) => {
+  const handleSaveAccountModal = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editFormData.firstName.trim() || !editFormData.lastName.trim()) {
       toast.error("First Name and Last Name cannot be empty.");
@@ -133,20 +133,29 @@ export default function AdminSettingsPage() {
       return;
     }
 
-    setAdminProfile(editFormData);
-    setIsEditAccountOpen(false);
-    toast.success("Admin account details updated successfully!", {
-      description: `Updated profile for ${editFormData.firstName} ${editFormData.lastName}.`
-    });
+    try {
+      await updateProfileMutation.mutateAsync({
+        name: `${editFormData.firstName.trim()} ${editFormData.lastName.trim()}`,
+        email: editFormData.email.trim(),
+        phone: editFormData.phone.trim()
+      });
+      setAdminProfile(editFormData);
+      setIsEditAccountOpen(false);
+      toast.success("Admin account details updated successfully!", {
+        description: `Updated profile for ${editFormData.firstName} ${editFormData.lastName}.`
+      });
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to update profile details.");
+    }
   };
 
   // Password change state
   const [currentPassword, setCurrentPassword] = React.useState("");
   const [newPassword, setNewPassword] = React.useState("");
   const [confirmPassword, setConfirmPassword] = React.useState("");
-  const [isUpdatingPassword, setIsUpdatingPassword] = React.useState(false);
+  const changePasswordMutation = useChangePasswordMutation();
 
-  const handleUpdatePassword = (e: React.FormEvent) => {
+  const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentPassword) {
       toast.error("Please enter your current password.");
@@ -161,16 +170,21 @@ export default function AdminSettingsPage() {
       return;
     }
 
-    setIsUpdatingPassword(true);
-    setTimeout(() => {
-      setIsUpdatingPassword(false);
+    try {
+      const res = await changePasswordMutation.mutateAsync({
+        currentPassword,
+        newPassword
+      });
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-      toast.success("Password changed successfully!", {
-        description: "Your administrative login credentials have been securely updated."
+      toast.success(res?.message || "Password changed successfully!", {
+        description: "Your login credentials have been securely updated."
       });
-    }, 500);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to update password. Please check your current password.";
+      toast.error(message);
+    }
   };
 
   return (
@@ -529,10 +543,10 @@ export default function AdminSettingsPage() {
                   <CardFooter className="pt-2">
                     <Button
                       type="submit"
-                      disabled={isUpdatingPassword || !currentPassword || !newPassword}
+                      disabled={changePasswordMutation.isPending || !currentPassword || !newPassword}
                       className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs h-10 shadow-xs"
                     >
-                      {isUpdatingPassword ? (
+                      {changePasswordMutation.isPending ? (
                         <span className="flex items-center gap-2">
                           <div className="h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                           Updating Password...
@@ -664,9 +678,10 @@ export default function AdminSettingsPage() {
               <Button
                 type="submit"
                 size="sm"
+                disabled={updateProfileMutation.isPending}
                 className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-xs"
               >
-                Save Profile Changes
+                {updateProfileMutation.isPending ? "Saving..." : "Save Profile Changes"}
               </Button>
             </DialogFooter>
           </form>

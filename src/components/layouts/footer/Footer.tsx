@@ -21,8 +21,9 @@ const COMPANY_LINKS = [
 const SUPPORT_LINKS = [
   { name: "Help Center", href: "/help" },
   { name: "Contact Us", href: "/help" },
-  { name: "Terms of Service", href: "/help" },
-  { name: "Privacy Policy", href: "/help" },
+  { name: "Terms of Service", href: "/legal/terms-of-service" },
+  { name: "Privacy Policy", href: "/legal/privacy-policy" },
+  { name: "Cancellation Policy", href: "/legal/cancellation-policy" },
   { name: "FAQs", href: "/help" }
 ];
 

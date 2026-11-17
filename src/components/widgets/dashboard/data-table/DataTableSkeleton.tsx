@@ -65,7 +65,7 @@ export function DataTableSkeleton({
           <Skeleton className="ml-auto h-8 w-24" />
         </div>
       )}
-      <div className="overflow-hidden rounded-lg border">
+      <div className="bg-card border-border/80 overflow-hidden rounded-xl border shadow-xs">
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">

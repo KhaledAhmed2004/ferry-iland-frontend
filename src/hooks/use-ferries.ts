@@ -39,6 +39,7 @@ export function useFerriesQuery(params?: IFerryFilterParams) {
       if (params?.type && params.type !== "ALL" && params.type.trim()) {
         cleanParams.type = params.type;
       }
+      if (params?.routeId) cleanParams.routeId = params.routeId;
       if (params?.page) cleanParams.page = params.page;
       if (params?.limit) cleanParams.limit = params.limit;
 

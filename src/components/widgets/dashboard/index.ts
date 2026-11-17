@@ -21,3 +21,4 @@ export * from "./data-table/DataTableViewOptions";
 export * from "./data-table/DataTablePagination";
 export * from "./data-table/DataTableRowActions";
 export * from "./data-table/DataTableSkeleton";
+export * from "./booking-requests/BookingRequestsPanel";

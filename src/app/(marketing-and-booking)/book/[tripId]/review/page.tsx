@@ -64,7 +64,7 @@ export default function Step1ReviewPage({ params }: Step1ReviewPageProps) {
     startTransition(() => {
       router.push(
         `/book/${tripId}/passengers?passengers=${passengerCount}&departureDate=${encodeURIComponent(
-          // Port local date of the trip, never the UTC date (spec 0003, AC-4).
+          // Calendar date of the trip.
           effectiveDate
         )}&from=${encodeURIComponent(trip?.departurePort || fromPort)}&to=${encodeURIComponent(
           trip?.destinationPort || toPort
@@ -135,8 +135,8 @@ export default function Step1ReviewPage({ params }: Step1ReviewPageProps) {
   const returnLegSummary = legs.returnTrip
     ? {
         route: `${legs.returnTrip.departurePort} → ${legs.returnTrip.destinationPort}`,
-        date: formatTripDate(legs.returnTrip.departureTime, legs.returnTrip.departureTimeZone),
-        departureTime: formatTripTime(legs.returnTrip.departureTime, legs.returnTrip.departureTimeZone),
+        date: formatTripDate(legs.returnTrip.departureTime),
+        departureTime: formatTripTime(legs.returnTrip.departureTime),
       }
     : null;
 
@@ -251,10 +251,10 @@ export default function Step1ReviewPage({ params }: Step1ReviewPageProps) {
                     {legs.returnTrip.departurePort} &rarr; {legs.returnTrip.destinationPort}
                   </h2>
                   <div className="text-muted-foreground flex flex-wrap gap-x-6 gap-y-1 text-sm">
-                    <span>{formatTripDate(legs.returnTrip.departureTime, legs.returnTrip.departureTimeZone)}</span>
+                    <span>{formatTripDate(legs.returnTrip.departureTime)}</span>
                     <span>
-                      {formatTripTime(legs.returnTrip.departureTime, legs.returnTrip.departureTimeZone)} &rarr;{" "}
-                      {formatTripTime(legs.returnTrip.arrivalTime, legs.returnTrip.arrivalTimeZone)}
+                      {formatTripTime(legs.returnTrip.departureTime)} &rarr;{" "}
+                      {formatTripTime(legs.returnTrip.arrivalTime)}
                     </span>
                     <span>{legs.returnTrip.vessel}</span>
                   </div>

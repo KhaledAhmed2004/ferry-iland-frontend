@@ -13,10 +13,10 @@ import type { AuthContextType, AuthUser } from "@/types";
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-function decodeJwtPayload(token: string): Partial<AuthUser> | null {
+function parseJwtPayload(token: string): { user: Partial<AuthUser>; isExpired: boolean } | null {
   try {
     const parts = token.split(".");
-    if (parts.length < 2) return null;
+    if (parts.length !== 3) return null;
     const base64Url = parts[1];
     const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
     const jsonPayload = decodeURIComponent(
@@ -26,11 +26,17 @@ function decodeJwtPayload(token: string): Partial<AuthUser> | null {
         .join("")
     );
     const parsed = JSON.parse(jsonPayload);
+    const id = parsed.id || parsed.sub;
+    if (!id || typeof id !== "string") return null;
+    const isExpired = typeof parsed.exp === "number" && parsed.exp * 1000 <= Date.now();
     return {
-      id: parsed.id || parsed.sub,
-      email: parsed.email,
-      role: parsed.role,
-      name: parsed.name
+      isExpired,
+      user: {
+        id,
+        email: parsed.email,
+        role: parsed.role,
+        name: parsed.name
+      }
     };
   } catch {
     return null;
@@ -47,36 +53,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let isMounted = true;
-    const storedToken = cookie.get("accessToken");
 
-    if (storedToken) {
-      setToken(storedToken);
-      const decoded = decodeJwtPayload(storedToken);
-      if (decoded) {
-        setUser(decoded as AuthUser);
+    const hydrateAuth = async () => {
+      const storedToken = cookie.get("accessToken");
+      const parsedToken = storedToken ? parseJwtPayload(storedToken) : null;
+
+      if (!storedToken || !parsedToken || parsedToken.isExpired) {
+        if (storedToken) {
+          cookie.remove("accessToken");
+          cookie.remove("sessionId");
+        }
+        await Promise.resolve();
+        if (isMounted) {
+          setIsLoading(false);
+        }
+        return;
       }
 
-      get<{ data: AuthUser }>("/user/profile")
-        .then((res) => {
-          if (isMounted && res?.data) {
-            setUser(res.data);
-          }
-        })
-        .catch(() => {
-          if (isMounted) {
-            cookie.remove("accessToken");
-            setToken(null);
-            setUser(null);
-          }
-        })
-        .finally(() => {
-          if (isMounted) {
-            setIsLoading(false);
-          }
-        });
-    } else {
-      setIsLoading(false);
-    }
+      try {
+        const res = await get<{ data: AuthUser }>("/users/me", { skipAuthRedirect: true });
+        if (isMounted && res?.data) {
+          setToken(storedToken);
+          setUser(res.data);
+        }
+      } catch {
+        if (isMounted) {
+          cookie.remove("accessToken");
+          cookie.remove("sessionId");
+          setToken(null);
+          setUser(null);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    void hydrateAuth();
 
     return () => {
       isMounted = false;
@@ -90,12 +104,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(newUser);
       setIsLoading(false);
     } else {
-      const decoded = decodeJwtPayload(newToken);
-      if (decoded) {
-        setUser(decoded as AuthUser);
+      const parsed = parseJwtPayload(newToken);
+      if (parsed) {
+        setUser(parsed.user as AuthUser);
       }
       setIsLoading(true);
-      get<{ data: AuthUser }>("/user/profile")
+      get<{ data: AuthUser }>("/users/me", { skipAuthRedirect: true })
         .then((res) => {
           if (res?.data) setUser(res.data);
         })
@@ -116,6 +130,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       post("/auth/logout", {}, { headers: { Authorization: `Bearer ${token}` } }).catch(() => {});
     }
     cookie.remove("accessToken");
+    cookie.remove("sessionId");
     setToken(null);
     setUser(null);
     queryClient.clear();

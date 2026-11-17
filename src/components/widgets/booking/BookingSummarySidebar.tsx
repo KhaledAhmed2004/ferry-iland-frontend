@@ -1,8 +1,12 @@
 "use client";
 
-import { formatCalendarDate } from "@/lib/port-time";
 import type { ReactNode } from "react";
-import { Ship } from "lucide-react";
+
+import { format, parseISO } from "date-fns";
+import { ShieldCheck, Ship } from "lucide-react";
+
+import { CANCELLATION_POLICY_TEXT } from "@/lib/cancellation-policy";
+
 import { Card, CardContent } from "@/ui";
 
 interface TripSummaryData {
@@ -43,16 +47,15 @@ export function BookingSummarySidebar({
 }: BookingSummarySidebarProps) {
   const farePerPassenger = trip.price ?? trip.adultFare ?? 25;
   // Rounded to cents: fares like $191.38 x 3 must not show float noise.
-  const totalPrice =
-    trip.totalPrice ?? Math.round(farePerPassenger * passengerCount * 100) / 100;
+  const totalPrice = trip.totalPrice ?? Math.round(farePerPassenger * passengerCount * 100) / 100;
   const depPort = trip.departurePort || "Departure Port";
   const arrPort = trip.arrivalPort || trip.destinationPort || "Destination Port";
 
-  // departureDate is a port local calendar day (YYYY-MM-DD); show it without a day shift (spec 0003).
+  // departureDate is a calendar day (YYYY-MM-DD); parseISO reads it as local midnight, so no day shift.
   let displayDate = departureDate;
   try {
-    if (/^d{4}-d{2}-d{2}$/.test(departureDate)) {
-      displayDate = formatCalendarDate(departureDate, "EEE, d MMM yyyy");
+    if (/^\d{4}-\d{2}-\d{2}$/.test(departureDate)) {
+      displayDate = format(parseISO(departureDate), "EEE, d MMM yyyy");
     }
   } catch {
     displayDate = departureDate;
@@ -120,7 +123,8 @@ export function BookingSummarySidebar({
         <div className="space-y-2">
           <div className="text-muted-foreground flex items-center justify-between text-xs">
             <span>
-              {tripTypeLabel ? `${tripTypeLabel} fare` : "Tickets"} (${farePerPassenger} &times; {passengerCount})
+              {tripTypeLabel ? `${tripTypeLabel} fare` : "Tickets"} (${farePerPassenger} &times;{" "}
+              {passengerCount})
             </span>
             <span className="text-foreground font-medium">${totalPrice}</span>
           </div>
@@ -140,6 +144,15 @@ export function BookingSummarySidebar({
             {secondaryButton}
           </div>
         )}
+
+        {/* Spec 0004 policy line (AC-18) */}
+        <p className="text-muted-foreground flex items-start gap-1.5 text-[11px] leading-relaxed">
+          <ShieldCheck
+            className="mt-px h-3.5 w-3.5 shrink-0 text-[#003B95] dark:text-blue-400"
+            aria-hidden
+          />
+          <span>{CANCELLATION_POLICY_TEXT}</span>
+        </p>
       </CardContent>
     </Card>
   );

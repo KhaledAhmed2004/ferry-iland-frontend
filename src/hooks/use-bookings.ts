@@ -2,8 +2,15 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import type { ApiResponse, IBookingDetail, ICreateBookingPayload } from "@/types";
+import type {
+  ApiResponse,
+  IBookingDetail,
+  IBookingRequestView,
+  ICreateBookingPayload,
+  ICreateBookingRequestPayload,
+} from "@/types";
 import { get, patch, post } from "@/lib/api";
+import { formatCents } from "@/lib/payment";
 import { tripKeys } from "./use-trips";
 
 export const bookingKeys = {
@@ -129,10 +136,79 @@ export function useCancelBookingMutation() {
     onSuccess: async (response) => {
       await queryClient.invalidateQueries({ queryKey: bookingKeys.all });
       await queryClient.invalidateQueries({ queryKey: tripKeys.all });
-      toast.success(response?.message || "Booking cancelled successfully.");
+      // An admin cancel closes a pending change request (spec 0004, AC-19).
+      await queryClient.invalidateQueries({ queryKey: ["booking-requests"] });
+      // Spec 0004: a started refund is PENDING until Stripe settles it.
+      const refund = response?.data?.refund;
+      toast.success(response?.message || "Booking cancelled successfully.", {
+        description: refund
+          ? `Your refund of ${formatCents(refund.amountCents)} is processing. It usually reaches your card in 5 to 10 business days.`
+          : undefined,
+      });
     },
     onError: (error: Error) => {
       toast.error(error.message || "Failed to cancel booking.");
+    },
+  });
+}
+
+/**
+ * Spec 0004 (AC-5, AC-6): inside 24h the customer asks the operator to cancel or reschedule.
+ * POST /api/v1/bookings/:reference/requests
+ */
+export function useCreateBookingRequestMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      reference,
+      ...payload
+    }: ICreateBookingRequestPayload & { reference: string }) => {
+      return await post<ApiResponse<IBookingRequestView>>(
+        `/bookings/${encodeURIComponent(reference)}/requests`,
+        payload
+      );
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: bookingKeys.all });
+      toast.success("Request sent", {
+        description: "The ferry operator will review it and you will see their answer here.",
+      });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Could not send your request.");
+    },
+  });
+}
+
+/**
+ * Spec 0004 (AC-6): the customer takes back a request still waiting for the operator.
+ * PATCH /api/v1/bookings/:reference/requests/:requestId/withdraw
+ */
+export function useWithdrawBookingRequestMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      reference,
+      requestId,
+      email,
+    }: {
+      reference: string;
+      requestId: string;
+      email?: string;
+    }) => {
+      return await patch<ApiResponse<IBookingRequestView>>(
+        `/bookings/${encodeURIComponent(reference)}/requests/${requestId}/withdraw`,
+        email ? { email } : {}
+      );
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: bookingKeys.all });
+      toast.success("Request withdrawn");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Could not withdraw your request.");
     },
   });
 }

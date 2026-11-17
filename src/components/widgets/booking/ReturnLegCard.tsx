@@ -23,9 +23,9 @@ export function ReturnLegCard({ tripType, returnSchedule }: ReturnLegCardProps) 
         {returnSchedule.route.departurePort.name} &rarr; {returnSchedule.route.destinationPort.name}
       </div>
       <div className="text-muted-foreground flex flex-wrap gap-x-4 gap-y-1 text-xs font-medium">
-        <span>{formatTripDate(returnSchedule.departureTime, returnSchedule.route.departurePort.timeZone)}</span>
+        <span>{formatTripDate(returnSchedule.departureTime)}</span>
         <span>
-          {formatTripTime(returnSchedule.departureTime, returnSchedule.route.departurePort.timeZone)} &rarr; {formatTripTime(returnSchedule.arrivalTime, returnSchedule.route.destinationPort.timeZone)}
+          {formatTripTime(returnSchedule.departureTime)} &rarr; {formatTripTime(returnSchedule.arrivalTime)}
         </span>
         <span>{returnSchedule.ferry.name}</span>
         {returnSchedule.gate && <span>Gate {returnSchedule.gate}</span>}

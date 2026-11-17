@@ -22,6 +22,8 @@ export interface VesselImageUploaderProps {
   label?: string;
   entityName?: "vessel" | "route" | string;
   className?: string;
+  /** Hide the built-in label when the surrounding form already titles this field. */
+  hideLabel?: boolean;
 }
 
 export function VesselImageUploader({
@@ -29,7 +31,8 @@ export function VesselImageUploader({
   onChange,
   label,
   entityName = "vessel",
-  className
+  className,
+  hideLabel = false
 }: VesselImageUploaderProps) {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = React.useState(false);
@@ -164,12 +167,14 @@ export function VesselImageUploader({
   return (
     <div className={cn("space-y-2", className)}>
       {/* Header Label */}
-      <div className="flex items-center justify-between">
-        <Label className="text-foreground flex items-center gap-1.5 text-xs font-semibold">
-          <ImageIcon className="text-muted-foreground h-3.5 w-3.5 text-blue-500" />
-          {displayLabel}
-        </Label>
-      </div>
+      {!hideLabel && (
+        <div className="flex items-center justify-between">
+          <Label className="text-foreground flex items-center gap-1.5 text-xs font-semibold">
+            <ImageIcon className="text-muted-foreground h-3.5 w-3.5 text-blue-500" />
+            {displayLabel}
+          </Label>
+        </div>
+      )}
 
       {/* Hidden File Input */}
       <input

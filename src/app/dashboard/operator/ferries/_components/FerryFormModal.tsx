@@ -1,11 +1,12 @@
 import * as React from "react";
 import {
   Edit,
+  ImageIcon,
   Loader2,
   Plus,
+  Route as RouteIcon,
   Ship,
   Sparkles,
-  Tag,
   X
 } from "lucide-react";
 import { toast } from "sonner";
@@ -30,6 +31,7 @@ import {
   ScrollArea
 } from "@/ui";
 import { VesselImageUploader } from "@/widgets";
+import { DedicatedRoutesSelect } from "./DedicatedRoutesSelect";
 import {
   SUGGESTED_VESSEL_AMENITIES,
   getAmenityIcon
@@ -43,9 +45,69 @@ const FERRY_TYPE_OPTIONS: Array<{ value: VesselType; label: string }> = [
 
 const FERRY_STATUS_OPTIONS: Array<{ value: VesselStatus; label: string }> = [
   { value: "IN_SERVICE", label: "In Service" },
-  { value: "MAINTENANCE", label: "Maintenance" },
-  { value: "OUT_OF_SERVICE", label: "Out of Service" }
+  { value: "MAINTENANCE", label: "Maintenance" }
 ];
+
+/** Same limits as the backend ferry validation. */
+const MIN_CAPACITY = 5;
+const MAX_CAPACITY = 1500;
+
+/** One size for every control in the form. */
+const FIELD_CLASS = "h-10 rounded-lg text-sm";
+
+function FormSection({
+  icon: Icon,
+  title,
+  hint,
+  aside,
+  children
+}: {
+  icon: React.ElementType;
+  title: string;
+  hint?: string;
+  aside?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="space-y-4 py-5 first:pt-1 last:pb-1">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-2.5">
+          <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+            <Icon className="h-3.5 w-3.5" />
+          </span>
+          <div>
+            <h3 className="text-foreground text-sm font-semibold">{title}</h3>
+            {hint && <p className="text-muted-foreground text-xs">{hint}</p>}
+          </div>
+        </div>
+        {aside}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function Field({
+  label,
+  htmlFor,
+  required,
+  children
+}: {
+  label: string;
+  htmlFor?: string;
+  required?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label htmlFor={htmlFor} className="text-foreground text-xs font-medium">
+        {label}
+        {required && <span className="text-rose-500"> *</span>}
+      </Label>
+      {children}
+    </div>
+  );
+}
 
 export interface FerryFormModalProps {
   isOpen: boolean;
@@ -78,9 +140,11 @@ export function FerryFormModal({
     "Luggage Assistance"
   ]);
   const [customAmenity, setCustomAmenity] = React.useState("");
+  const [routeIds, setRouteIds] = React.useState<string[]>([]);
 
   React.useEffect(() => {
     if (editingFerry) {
+      setRouteIds((editingFerry.dedicatedRoutes ?? []).map((r) => r.id));
       setName(editingFerry.name || "");
       setCapacity(editingFerry.capacity || 120);
       setType(editingFerry.type || "CATAMARAN");
@@ -89,6 +153,7 @@ export function FerryFormModal({
       setAmenities(Array.isArray(editingFerry.amenities) ? editingFerry.amenities : []);
       setCustomAmenity("");
     } else {
+      setRouteIds([]);
       setName("");
       setCapacity(120);
       setType("CATAMARAN");
@@ -134,8 +199,8 @@ export function FerryFormModal({
       return;
     }
 
-    if (!capacity || capacity <= 0) {
-      toast.error("Capacity must be at least 1 passenger.");
+    if (!capacity || capacity < MIN_CAPACITY || capacity > MAX_CAPACITY) {
+      toast.error(`Capacity must be between ${MIN_CAPACITY} and ${MAX_CAPACITY} seats.`);
       return;
     }
 
@@ -146,7 +211,8 @@ export function FerryFormModal({
         type,
         status,
         imageUrl: imageUrl.trim() || undefined,
-        amenities
+        amenities,
+        routeIds
       });
     } else {
       await onSubmitCreate({
@@ -155,225 +221,209 @@ export function FerryFormModal({
         type,
         status,
         imageUrl: imageUrl.trim() || undefined,
-        amenities
+        amenities,
+        routeIds
       });
     }
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="flex max-h-[90vh] flex-col gap-0 p-0 overflow-hidden sm:max-w-2xl">
-        <DialogHeader className="shrink-0 border-border/60 border-b px-6 py-4 pr-12">
+      <DialogContent className="flex max-h-[90vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
+        <DialogHeader className="border-border/60 shrink-0 border-b px-6 py-4 pr-12">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
               {isEditing ? <Edit className="h-5 w-5" /> : <Ship className="h-5 w-5" />}
             </div>
             <div>
-              <DialogTitle className="text-base font-bold text-foreground">
-                {isEditing ? "Edit Ferry Details" : "Add New Ferry"}
+              <DialogTitle className="text-foreground text-base font-bold">
+                {isEditing ? `Edit ${editingFerry?.name || "Ferry"}` : "Add New Ferry"}
               </DialogTitle>
               <DialogDescription className="text-xs">
                 {isEditing
-                  ? "Update ferry name, passenger capacity, status, and onboard facilities."
-                  : "Add a passenger ferry or speedboat with capacity and onboard amenities."}
+                  ? "Update this ferry's details, routes, onboard facilities and photo."
+                  : "Add a ferry with its capacity, routes, onboard facilities and photo."}
               </DialogDescription>
             </div>
           </div>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <ScrollArea className="h-[min(65vh,540px)] w-full">
-            <div className="space-y-4 px-6 py-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="ferry-name" className="text-xs font-semibold text-foreground">
-                    Ferry Name *
-                  </Label>
-                  <Input
-                    id="ferry-name"
-                    placeholder="e.g. Island Star IV"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    required
-                    className="text-xs h-9"
-                  />
+          <ScrollArea className="h-[min(65vh,560px)] w-full">
+            <div className="divide-border/60 divide-y px-6 py-4">
+              {/* 1. Ferry details */}
+              <FormSection icon={Ship} title="Ferry details" hint="Name, size and current status.">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <Field label="Ferry name" htmlFor="ferry-name" required>
+                    <Input
+                      id="ferry-name"
+                      placeholder="e.g. Island Star IV"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      required
+                      className={FIELD_CLASS}
+                    />
+                  </Field>
+
+                  <Field label="Passenger capacity (seats)" htmlFor="ferry-cap" required>
+                    <Input
+                      id="ferry-cap"
+                      type="number"
+                      min={MIN_CAPACITY}
+                      max={MAX_CAPACITY}
+                      value={capacity}
+                      onChange={(e) => setCapacity(parseInt(e.target.value) || 0)}
+                      required
+                      className={FIELD_CLASS}
+                    />
+                  </Field>
+
+                  <Field label="Ferry type" required>
+                    <ReusableSelect
+                      value={type}
+                      onValueChange={(val) => setType(val as VesselType)}
+                      options={FERRY_TYPE_OPTIONS}
+                      placeholder="Select ferry type"
+                      className={FIELD_CLASS}
+                    />
+                  </Field>
+
+                  <Field label="Status" required>
+                    <ReusableSelect
+                      value={status}
+                      onValueChange={(val) => setStatus(val as VesselStatus)}
+                      options={FERRY_STATUS_OPTIONS}
+                      placeholder="Select status"
+                      className={FIELD_CLASS}
+                    />
+                  </Field>
                 </div>
+              </FormSection>
 
-                <div className="space-y-2">
-                  <Label htmlFor="ferry-cap" className="text-xs font-semibold text-foreground">
-                    Passenger Capacity (Seats) *
-                  </Label>
-                  <Input
-                    id="ferry-cap"
-                    type="number"
-                    min="1"
-                    max="5000"
-                    value={capacity}
-                    onChange={(e) => setCapacity(parseInt(e.target.value) || 0)}
-                    required
-                    className="text-xs h-9 font-mono"
-                  />
-                </div>
+              {/* 2. Routes */}
+              <FormSection
+                icon={RouteIcon}
+                title="Dedicated routes"
+                hint="Optional. Limit this ferry's trips to these routes, or leave empty to allow any route."
+              >
+                <DedicatedRoutesSelect
+                  value={routeIds}
+                  onChange={setRouteIds}
+                  savedRoutes={editingFerry?.dedicatedRoutes}
+                />
+              </FormSection>
 
-                <div className="space-y-2">
-                  <Label className="text-xs font-semibold text-foreground">
-                    Ferry Type *
-                  </Label>
-                  <ReusableSelect
-                    value={type}
-                    onValueChange={(val) => setType(val as VesselType)}
-                    options={FERRY_TYPE_OPTIONS}
-                    placeholder="Select ferry type"
-                  />
-                </div>
-
-                <div className="space-y-2 sm:col-span-2">
-                  <Label className="text-xs font-semibold text-foreground">
-                    Operational Status *
-                  </Label>
-                  <ReusableSelect
-                    value={status}
-                    onValueChange={(val) => setStatus(val as VesselStatus)}
-                    options={FERRY_STATUS_OPTIONS}
-                    placeholder="Select status"
-                  />
-                </div>
-
-                {/* Onboard Amenities / Facilities Section */}
-                <div className="border-border/50 space-y-3 border-t pt-3 sm:col-span-2">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label className="text-foreground flex items-center gap-1.5 text-xs font-semibold">
-                        <Sparkles className="h-3.5 w-3.5 text-amber-500" />
-                        What&apos;s Included
-                      </Label>
-                      <p className="text-muted-foreground mt-0.5 text-[10px]">
-                        What passengers get with their ticket (e.g. WiFi, AC, Baggage)
-                      </p>
-                    </div>
-                    <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
-                      {amenities.length} selected
-                    </span>
-                  </div>
-
-                  {/* Active Selected Tags with Remove (x) */}
-                  <div className="border-border/80 bg-muted/20 flex min-h-9 flex-wrap items-center gap-1.5 rounded-xl border border-dashed p-2">
-                    {amenities.length > 0 ? (
-                      amenities.map((item) => (
-                        <span
-                          key={item}
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/15 px-2.5 py-1 text-xs font-semibold text-emerald-800 shadow-2xs transition-all dark:text-emerald-300"
+              {/* 3. What's included */}
+              <FormSection
+                icon={Sparkles}
+                title="What's included"
+                hint="What passengers get with their ticket."
+                aside={
+                  <span className="shrink-0 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
+                    {amenities.length} selected
+                  </span>
+                }
+              >
+                {amenities.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {amenities.map((item) => (
+                      <span
+                        key={item}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 py-1 pr-1 pl-2.5 text-xs font-medium text-emerald-800 dark:text-emerald-300"
+                      >
+                        {getAmenityIcon(item)}
+                        {item}
+                        <button
+                          type="button"
+                          onClick={() => removeAmenity(item)}
+                          className="cursor-pointer rounded-md p-0.5 transition-colors hover:bg-emerald-500/25"
+                          title={`Remove ${item}`}
                         >
-                          {getAmenityIcon(item)}
-                          <span>{item}</span>
-                          <button
-                            type="button"
-                            onClick={() => removeAmenity(item)}
-                            className="ml-0.5 cursor-pointer rounded-full p-0.5 text-emerald-700 transition-colors hover:bg-emerald-500/30 dark:text-emerald-300"
-                            title={`Remove ${item}`}
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        </span>
-                      ))
-                    ) : (
-                      <p className="text-muted-foreground px-1 text-[11px] italic">
-                        No facilities selected yet. Type custom items below or click popular options.
-                      </p>
-                    )}
+                          <X className="h-3 w-3" />
+                        </button>
+                      </span>
+                    ))}
                   </div>
+                ) : (
+                  <p className="text-muted-foreground text-xs">
+                    Nothing added yet. Pick from the suggestions below or type your own.
+                  </p>
+                )}
 
-                  {/* Custom Input Field with Add Button */}
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <Tag className="text-muted-foreground absolute top-2.5 left-2.5 h-3.5 w-3.5" />
-                      <Input
-                        type="text"
-                        placeholder="e.g. Life Jackets, AC Cabin, Scenic Sun Deck..."
-                        value={customAmenity}
-                        onChange={(e) => setCustomAmenity(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            handleAddCustomAmenity();
-                          }
-                        }}
-                        className="placeholder:text-muted-foreground h-8 pl-8 text-xs"
-                      />
-                    </div>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={handleAddCustomAmenity}
-                      disabled={!customAmenity.trim()}
-                      className="h-8 shrink-0 cursor-pointer border-emerald-500/40 px-3 text-xs text-emerald-700 hover:bg-emerald-500/10 dark:text-emerald-300"
-                    >
-                      <Plus className="mr-1 h-3.5 w-3.5" />
-                      Add Facility
-                    </Button>
-                  </div>
-
-                  {/* Quick Suggestions - Only showing unselected options */}
-                  <div className="space-y-1.5 pt-0.5">
-                    <p className="text-muted-foreground text-[10px] font-medium">
-                      Popular vessel features (click to add):
-                    </p>
-                    {unselectedSuggestions.length > 0 ? (
-                      <div className="flex flex-wrap gap-1.5">
-                        {unselectedSuggestions.map((item) => (
-                          <button
-                            key={item}
-                            type="button"
-                            onClick={() => toggleAmenity(item)}
-                            className="border-border/80 bg-muted/30 text-muted-foreground flex cursor-pointer items-center gap-1.5 rounded-md border px-2 py-1 text-[10px] transition-colors hover:border-emerald-500/30 hover:bg-emerald-500/10 hover:text-emerald-700 dark:hover:text-emerald-300"
-                          >
-                            {getAmenityIcon(item)}
-                            <span>{item}</span>
-                            <Plus className="text-muted-foreground ml-0.5 h-2.5 w-2.5 opacity-60" />
-                          </button>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-muted-foreground text-[10px] italic">
-                        All popular amenities added. You can add more custom amenities above.
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                {/* Ferry Vessel Image Uploader */}
-                <div className="border-border/50 border-t pt-3 sm:col-span-2">
-                  <VesselImageUploader
-                    value={imageUrl}
-                    onChange={setImageUrl}
+                <div className="flex gap-2">
+                  <Input
+                    type="text"
+                    placeholder="Add your own, e.g. Scenic Sun Deck"
+                    value={customAmenity}
+                    onChange={(e) => setCustomAmenity(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleAddCustomAmenity();
+                      }
+                    }}
+                    className={`${FIELD_CLASS} flex-1`}
                   />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleAddCustomAmenity}
+                    disabled={!customAmenity.trim()}
+                    className="h-10 shrink-0 cursor-pointer rounded-lg px-4 text-sm"
+                  >
+                    <Plus className="mr-1 h-4 w-4" />
+                    Add
+                  </Button>
                 </div>
-              </div>
+
+                {unselectedSuggestions.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-muted-foreground text-[11px] font-medium tracking-wide uppercase">
+                      Suggestions
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {unselectedSuggestions.map((item) => (
+                        <button
+                          key={item}
+                          type="button"
+                          onClick={() => toggleAmenity(item)}
+                          className="border-border text-muted-foreground hover:text-foreground flex cursor-pointer items-center gap-1.5 rounded-lg border border-dashed px-2.5 py-1 text-xs transition-colors hover:border-emerald-500/50 hover:bg-emerald-500/5"
+                        >
+                          <Plus className="h-3 w-3 opacity-70" />
+                          {item}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </FormSection>
+
+              {/* 4. Photo */}
+              <FormSection icon={ImageIcon} title="Photo" hint="Optional.">
+                <VesselImageUploader value={imageUrl} onChange={setImageUrl} hideLabel />
+              </FormSection>
             </div>
           </ScrollArea>
 
-          <DialogFooter className="shrink-0 border-border/60 bg-muted/40 border-t px-6 py-3.5 flex items-center justify-end gap-2">
+          <DialogFooter className="border-border/60 bg-muted/40 flex shrink-0 items-center justify-end gap-2 border-t px-6 py-3.5">
             <Button
               type="button"
               variant="outline"
-              size="sm"
               onClick={onClose}
-              className="text-xs"
+              className="h-9 rounded-lg text-sm"
               disabled={isSubmitting}
             >
               Cancel
             </Button>
             <Button
               type="submit"
-              size="sm"
               disabled={isSubmitting}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-xs cursor-pointer"
+              className="h-9 cursor-pointer rounded-lg bg-emerald-600 text-sm font-semibold text-white shadow-xs hover:bg-emerald-700"
             >
               {isSubmitting ? (
                 <>
-                  <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
-                  {isEditing ? "Saving Changes..." : "Adding Ferry..."}
+                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                  {isEditing ? "Saving..." : "Adding..."}
                 </>
               ) : isEditing ? (
                 "Save Changes"

@@ -158,6 +158,34 @@ export const resendVerificationSchema = z.object({
 });
 
 /**
+ * Forgot & Reset Password Schemas
+ */
+export const forgotPasswordSchema = z.object({
+  email: z
+    .string()
+    .min(1, "Email is required")
+    .email("Please enter a valid email address")
+    .transform((val) => val.toLowerCase().trim())
+});
+
+export const resetPasswordSchema = z
+  .object({
+    token: z.string().min(1, "Reset token is required"),
+    newPassword: z
+      .string()
+      .min(8, "Password must be at least 8 characters long")
+      .regex(
+        passwordRegex,
+        "Password must contain at least 1 uppercase letter, 1 lowercase letter, 1 number, and 1 special symbol"
+      ),
+    confirmPassword: z.string().min(1, "Please confirm your new password")
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"]
+  });
+
+/**
  * Inferred Types
  */
 export type LoginInput = z.infer<typeof loginSchema>;
@@ -166,3 +194,5 @@ export type RegisterUserInput = z.infer<typeof registerUserSchema>;
 export type SignupMultiStepInput = z.infer<typeof signupMultiStepSchema>;
 export type VerifyEmailInput = z.infer<typeof verifyEmailSchema>;
 export type ResendVerificationInput = z.infer<typeof resendVerificationSchema>;
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;

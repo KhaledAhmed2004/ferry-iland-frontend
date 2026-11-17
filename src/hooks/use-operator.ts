@@ -109,6 +109,8 @@ export function useOperatorCheckInMutation() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: operatorKeys.bookings() });
       await queryClient.invalidateQueries({ queryKey: operatorKeys.overview() });
+      // Check in closes a pending change request (spec 0004, AC-19); same key as bookingRequestKeys.all.
+      await queryClient.invalidateQueries({ queryKey: ["booking-requests"] });
       toast.success("Passenger booking checked in successfully!");
     },
     onError: (error: Error) => {

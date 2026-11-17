@@ -107,8 +107,8 @@ export default function Step2PassengersPage({ params }: Step2PassengersPageProps
   const returnLegSummary = legs.returnTrip
     ? {
         route: `${legs.returnTrip.departurePort} → ${legs.returnTrip.destinationPort}`,
-        date: formatTripDate(legs.returnTrip.departureTime, legs.returnTrip.departureTimeZone),
-        departureTime: formatTripTime(legs.returnTrip.departureTime, legs.returnTrip.departureTimeZone),
+        date: formatTripDate(legs.returnTrip.departureTime),
+        departureTime: formatTripTime(legs.returnTrip.departureTime),
       }
     : null;
 

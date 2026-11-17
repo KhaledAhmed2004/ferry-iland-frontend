@@ -31,7 +31,6 @@
     "e2e:watch": "cross-env SLOWMO=1200 playwright test --headed"
   },
   "dependencies": {
-    "@date-fns/tz": "^1.5.0",
     "@hookform/resolvers": "^5.2.2",
     "@lottiefiles/dotlottie-react": "^0.19.15",
     "@next/bundle-analyzer": "^16.0.1",

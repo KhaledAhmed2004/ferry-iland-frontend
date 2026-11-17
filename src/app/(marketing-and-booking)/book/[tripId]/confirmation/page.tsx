@@ -1,6 +1,6 @@
 "use client";
 
-import { formatPortDate, formatPortTime, portZoneLabel } from "@/lib/port-time";
+import { format } from "date-fns";
 import { use, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -8,6 +8,7 @@ import { AlertCircle, Check, Clock, Loader2, Ship, Ticket, User, XCircle } from 
 import { parseAsString, useQueryState } from "nuqs";
 import { QRCodeSVG } from "qrcode.react";
 
+import { bookingQrPayload } from "@/lib/boarding-pass";
 import { formatCents } from "@/lib/payment";
 import { recallBookingEmail, useBookingLookupQuery } from "@/hooks/use-bookings";
 import { forgetPendingCheckout, recallPendingCheckout, useSyncPaymentMutation } from "@/hooks/use-payments";
@@ -260,14 +261,10 @@ function ConfirmedBooking({ booking }: { booking: IBookingDetail }) {
     ? formatCents(booking.payment.amountCents, booking.payment.currency)
     : formatCents(Math.round(booking.totalAmount * 100));
 
-  // Dock local times; the confirmation is kept, so times name the zone (spec 0003, AC-5).
-  const departureZone = booking.schedule?.route?.departurePort?.timeZone;
-  const arrivalZone = booking.schedule?.route?.destinationPort?.timeZone;
-  const timeOf = (iso: string | undefined, zone: string | undefined) =>
-    iso && zone ? `${formatPortTime(iso, zone)} ${portZoneLabel(iso, zone)} (local time)` : "";
+  const timeOf = (iso: string | undefined) => (iso ? format(new Date(iso), "h:mm a") : "");
   const departureDateDisplay =
-    booking.schedule?.departureTime && departureZone
-      ? formatPortDate(booking.schedule.departureTime, departureZone, "EEE, d MMM yyyy")
+    booking.schedule?.departureTime
+      ? format(new Date(booking.schedule.departureTime), "EEE, d MMM yyyy")
       : "";
 
   return (
@@ -311,7 +308,7 @@ function ConfirmedBooking({ booking }: { booking: IBookingDetail }) {
 
                 <div className="border-border/80 mx-auto flex w-fit items-center justify-center rounded-2xl border bg-white p-4 shadow-inner">
                   <QRCodeSVG
-                    value={`https://islandhop.com/tickets/${refCode}`}
+                    value={bookingQrPayload(refCode)}
                     size={160}
                     level="H"
                     includeMargin={false}
@@ -355,7 +352,7 @@ function ConfirmedBooking({ booking }: { booking: IBookingDetail }) {
                     <div className="text-muted-foreground text-[10px] font-bold uppercase">Origin Port</div>
                     <div className="text-foreground text-base font-bold sm:text-lg">{depPort}</div>
                     <div className="text-muted-foreground text-xs font-medium">
-                      {timeOf(booking.schedule?.departureTime, departureZone)}
+                      {timeOf(booking.schedule?.departureTime)}
                     </div>
                   </div>
 
@@ -368,7 +365,7 @@ function ConfirmedBooking({ booking }: { booking: IBookingDetail }) {
                     <div className="text-muted-foreground text-[10px] font-bold uppercase">Destination Port</div>
                     <div className="text-foreground text-base font-bold sm:text-lg">{arrPort}</div>
                     <div className="text-muted-foreground text-xs font-medium">
-                      {timeOf(booking.schedule?.arrivalTime, arrivalZone)}
+                      {timeOf(booking.schedule?.arrivalTime)}
                     </div>
                   </div>
                 </div>

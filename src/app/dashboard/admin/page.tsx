@@ -141,6 +141,7 @@ export default function AdminPage() {
 
       {/* In-Place Quick-View Modal */}
       <BookingDetailsModal
+        canRetryRefunds
         booking={selectedBooking ?? null}
         open={Boolean(selectedBookingRef)}
         onOpenChange={(isOpen) => {

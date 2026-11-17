@@ -12,3 +12,6 @@ export * from "./use-off-days";
 export * from "./use-operator";
 export * from "./use-table-selection";
 export * from "./use-trip-legs";
+export * from "./use-booking-requests";
+export * from "./use-booking-moves";
+export * from "./use-legals";

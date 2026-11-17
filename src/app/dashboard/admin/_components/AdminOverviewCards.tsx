@@ -27,10 +27,10 @@ export function AdminOverviewCards({ analytics, isLoading }: AdminOverviewCardsP
       <div className="bg-card text-card-foreground border-border/80 rounded-xl border p-5 shadow-xs md:p-6 lg:col-span-6">
         <div className="mb-4 flex items-center justify-between">
           <div>
-            <h2 className="text-foreground text-sm font-bold tracking-tight">
+            <h2 className="text-foreground leading-none font-semibold">
               Booking Status Breakdown
             </h2>
-            <span className="text-muted-foreground text-[11px] font-medium">
+            <span className="text-muted-foreground mt-2 block text-sm">
               {analytics?.period?.label
                 ? `${analytics.breakdowns?.bookings?.total ?? 0} total reservations (${analytics.period.label})`
                 : "Reservation lifecycle overview"}
@@ -38,7 +38,7 @@ export function AdminOverviewCards({ analytics, isLoading }: AdminOverviewCardsP
           </div>
           <Link
             href="/dashboard/admin/bookings"
-            className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:underline dark:text-blue-400"
+            className="text-primary hover:text-primary/80 inline-flex items-center gap-1 text-xs font-semibold transition-colors hover:underline"
           >
             <span>Manage</span>
             <ArrowUpRight className="h-3.5 w-3.5" />
@@ -67,7 +67,7 @@ export function AdminOverviewCards({ analytics, isLoading }: AdminOverviewCardsP
                 <p className="text-2xl font-extrabold tracking-tight text-emerald-600 dark:text-emerald-400">
                   {analytics?.breakdowns?.bookings?.confirmed ?? 0}
                 </p>
-                <span className="text-muted-foreground mt-0.5 inline-block text-[10px] font-medium">
+                <span className="text-muted-foreground mt-0.5 inline-block text-[11px] font-medium">
                   Active reservations
                 </span>
               </div>
@@ -87,7 +87,7 @@ export function AdminOverviewCards({ analytics, isLoading }: AdminOverviewCardsP
                 <p className="text-2xl font-extrabold tracking-tight text-blue-600 dark:text-blue-400">
                   {analytics?.breakdowns?.bookings?.checkedIn ?? 0}
                 </p>
-                <span className="text-muted-foreground mt-0.5 inline-block text-[10px] font-medium">
+                <span className="text-muted-foreground mt-0.5 inline-block text-[11px] font-medium">
                   Checked-in at pier
                 </span>
               </div>
@@ -107,7 +107,7 @@ export function AdminOverviewCards({ analytics, isLoading }: AdminOverviewCardsP
                 <p className="text-2xl font-extrabold tracking-tight text-rose-600 dark:text-rose-400">
                   {analytics?.breakdowns?.bookings?.cancelled ?? 0}
                 </p>
-                <span className="text-muted-foreground mt-0.5 inline-block text-[10px] font-medium">
+                <span className="text-muted-foreground mt-0.5 inline-block text-[11px] font-medium">
                   Cancelled bookings
                 </span>
               </div>
@@ -120,10 +120,10 @@ export function AdminOverviewCards({ analytics, isLoading }: AdminOverviewCardsP
       <div className="bg-card text-card-foreground border-border/80 rounded-xl border p-5 shadow-xs md:p-6 lg:col-span-6">
         <div className="mb-4 flex items-center justify-between">
           <div>
-            <h2 className="text-foreground text-sm font-bold tracking-tight">
+            <h2 className="text-foreground leading-none font-semibold">
               Platform Financials
             </h2>
-            <span className="text-muted-foreground text-[11px] font-medium">
+            <span className="text-muted-foreground mt-2 block text-sm">
               {analytics?.period?.label
                 ? `Total ticket sales, platform fee & operator payouts (${analytics.period.label})`
                 : "Total ticket sales, platform fee & operator payouts"}
@@ -145,7 +145,7 @@ export function AdminOverviewCards({ analytics, isLoading }: AdminOverviewCardsP
                 <p className="text-[11px] font-semibold tracking-wider text-blue-700 uppercase dark:text-blue-400">
                   Total Ticket Sales
                 </p>
-                <span className="rounded-full bg-blue-100 px-1.5 py-0.5 text-[9px] font-bold text-blue-700 dark:bg-blue-900/50 dark:text-blue-300">
+                <span className="rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-bold text-blue-700 dark:bg-blue-900/50 dark:text-blue-300">
                   Total
                 </span>
               </div>
@@ -153,7 +153,7 @@ export function AdminOverviewCards({ analytics, isLoading }: AdminOverviewCardsP
                 <p className="text-2xl font-extrabold tracking-tight break-all text-blue-600 dark:text-blue-400">
                   {formatDollars(grossSales)}
                 </p>
-                <span className="text-muted-foreground mt-0.5 inline-block text-[10px] font-medium">
+                <span className="text-muted-foreground mt-0.5 inline-block text-[11px] font-medium">
                   Paid by passengers
                 </span>
               </div>
@@ -166,7 +166,7 @@ export function AdminOverviewCards({ analytics, isLoading }: AdminOverviewCardsP
                   Platform Fee
                 </p>
                 {commissionPct !== null && (
-                  <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300">
+                  <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300">
                     {commissionPct}%
                   </span>
                 )}
@@ -175,20 +175,20 @@ export function AdminOverviewCards({ analytics, isLoading }: AdminOverviewCardsP
                 <p className="text-2xl font-extrabold tracking-tight break-all text-emerald-600 dark:text-emerald-400">
                   {formatDollars(platformCommission)}
                 </p>
-                <span className="text-muted-foreground mt-0.5 inline-block text-[10px] font-medium">
+                <span className="text-muted-foreground mt-0.5 inline-block text-[11px] font-medium">
                   Our platform earnings
                 </span>
               </div>
             </div>
 
             {/* 3. Operator Payout Card */}
-            <div className="bg-muted/30 border-border/60 flex flex-col justify-between rounded-xl border p-3.5 dark:bg-zinc-800/30">
+            <div className="bg-muted/30 border-border/60 flex flex-col justify-between rounded-xl border p-3.5 dark:bg-muted/20">
               <div className="flex items-center justify-between">
                 <p className="text-muted-foreground text-[11px] font-semibold tracking-wider uppercase">
                   Operator Payout
                 </p>
                 {payoutPct !== null && (
-                  <span className="rounded-full bg-muted px-1.5 py-0.5 text-[9px] font-bold text-muted-foreground border border-border/50">
+                  <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-bold text-muted-foreground border border-border/50">
                     {payoutPct}%
                   </span>
                 )}
@@ -197,7 +197,7 @@ export function AdminOverviewCards({ analytics, isLoading }: AdminOverviewCardsP
                 <p className="text-foreground text-2xl font-extrabold tracking-tight break-all">
                   {formatDollars(providerPayout)}
                 </p>
-                <span className="text-muted-foreground mt-0.5 inline-block text-[10px] font-medium">
+                <span className="text-muted-foreground mt-0.5 inline-block text-[11px] font-medium">
                   Paid to ferry operators
                 </span>
               </div>

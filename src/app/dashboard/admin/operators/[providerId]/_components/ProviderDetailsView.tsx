@@ -171,9 +171,7 @@ export function ProviderDetailsView({ providerId }: ProviderDetailsViewProps) {
             ? "In Service"
             : rawStatus === "MAINTENANCE" || rawStatus === "Maintenance"
               ? "Maintenance"
-              : rawStatus === "OUT_OF_SERVICE" || rawStatus === "Out of Service"
-                ? "Docked"
-                : rawStatus;
+              : rawStatus;
         return (
           <span
             className={cn(
@@ -181,9 +179,7 @@ export function ProviderDetailsView({ providerId }: ProviderDetailsViewProps) {
               formattedStatus === "In Service" &&
                 "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border-emerald-200/80",
               formattedStatus === "Maintenance" &&
-                "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border-amber-200/80",
-              formattedStatus === "Docked" &&
-                "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400 border-blue-200/80"
+                "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border-amber-200/80"
             )}
           >
             {formattedStatus}

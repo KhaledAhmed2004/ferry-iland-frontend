@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Check, Ship } from "lucide-react";
+import { format } from "date-fns";
 import { useQueryStates } from "nuqs";
 
 import { bookingSearchParamsParsers, extractPassengerCount } from "@/schemas/booking-params";
@@ -49,6 +50,9 @@ export function FerryCard({ trip, fromPortName, toPortName, priceDisplay, select
   const departurePort = ("departurePort" in trip && trip.departurePort) || fromPortName || params.from;
   const arrivalPort = ("destinationPort" in trip && trip.destinationPort) || ("arrivalPort" in trip && trip.arrivalPort) || toPortName || params.to;
   const availableSeats = trip.availableSeats;
+  // Format the ISO instants in the viewer's browser clock, like every other trip screen.
+  const departureTimeText = "departureAt" in trip ? format(new Date(trip.departureAt), "hh:mm a") : trip.departureTime;
+  const arrivalTimeText = "arrivalAt" in trip ? format(new Date(trip.arrivalAt), "hh:mm a") : trip.arrivalTime;
 
   // Stable image selection based on tripId string hash
   const imageIndex = Math.abs(
@@ -115,7 +119,7 @@ export function FerryCard({ trip, fromPortName, toPortName, priceDisplay, select
                     DEPARTURE
                   </div>
                   <div className="text-foreground mt-0.5 text-2xl font-black tracking-tight">
-                    {trip.departureTime}
+                    {departureTimeText}
                   </div>
                   <div className="text-muted-foreground text-xs font-medium">
                     {departurePort}
@@ -144,7 +148,7 @@ export function FerryCard({ trip, fromPortName, toPortName, priceDisplay, select
                     ARRIVAL
                   </div>
                   <div className="text-foreground mt-0.5 text-2xl font-black tracking-tight">
-                    {trip.arrivalTime}
+                    {arrivalTimeText}
                   </div>
                   <div className="text-muted-foreground text-xs font-medium">
                     {arrivalPort}

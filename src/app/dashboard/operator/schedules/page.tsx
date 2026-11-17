@@ -28,7 +28,8 @@ import type {
   ICreateSchedulePayload,
   IOperatorSchedule,
   IUpdateSchedulePayload,
-  OperatorScheduleStatus
+  OperatorScheduleStatus,
+  ScheduleTimeframe
 } from "@/types";
 import {
   Button,
@@ -51,6 +52,12 @@ import { ScheduleDeleteDialogs } from "./_components/ScheduleDeleteDialogs";
 import { ScheduleFormModal } from "./_components/ScheduleFormModal";
 import { getScheduleColumns } from "./_components/schedules-columns";
 
+const TIMEFRAME_OPTIONS = [
+  { value: "upcoming", label: "Upcoming trips" },
+  { value: "past", label: "Past trips" },
+  { value: "all", label: "All trips" }
+];
+
 const PAGE_SIZE_OPTIONS = [
   { value: "10", label: "10 per page" },
   { value: "20", label: "20 per page" },
@@ -61,6 +68,8 @@ export default function OperatorSchedulesPage() {
   const [activeTab, setActiveTab] = React.useState<string>("all");
   const [routeFilter, setRouteFilter] = React.useState<string>("ALL");
   const [dateFilter, setDateFilter] = React.useState<string>("");
+  // Hide already-arrived trips by default; history stays one click away.
+  const [timeframe, setTimeframe] = React.useState<ScheduleTimeframe>("upcoming");
 
   // Pagination states
   const [page, setPage] = React.useState(1);
@@ -90,6 +99,7 @@ export default function OperatorSchedulesPage() {
     status: activeTab === "all" ? undefined : activeTab,
     routeId: routeFilter === "ALL" ? undefined : routeFilter,
     date: dateFilter || undefined,
+    timeframe,
     page,
     limit: pageSize
   });
@@ -114,7 +124,7 @@ export default function OperatorSchedulesPage() {
     }
     setPage(1);
     clearSelection();
-  }, [activeTab, routeFilter, dateFilter, pageSize]);
+  }, [activeTab, routeFilter, dateFilter, timeframe, pageSize]);
 
   // Schedules dataset & Pagination calculations
   const rawSchedules = React.useMemo(() => scheduleData?.schedules ?? [], [scheduleData?.schedules]);
@@ -294,12 +304,12 @@ export default function OperatorSchedulesPage() {
   const delayedCount = schedules.filter((s) => s.status === "DELAYED").length;
 
   return (
-    <div className="space-y-6">
+    <div className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8">
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">
+            <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
               Schedule Management
             </h1>
             {isSchedulesFetching && (
@@ -389,6 +399,14 @@ export default function OperatorSchedulesPage() {
           </Tabs>
 
           <div className="flex flex-wrap items-center gap-3">
+            <div className="w-full sm:w-40">
+              <ReusableSelect
+                value={timeframe}
+                onValueChange={(v) => setTimeframe(v as ScheduleTimeframe)}
+                options={TIMEFRAME_OPTIONS}
+                placeholder="Timeframe"
+              />
+            </div>
             <div className="w-full sm:w-48">
               <ReusableSelect
                 value={routeFilter}
@@ -475,6 +493,10 @@ export default function OperatorSchedulesPage() {
           <p className="text-xs text-muted-foreground max-w-sm mt-1">
             {activeTab !== "all" || routeFilter !== "ALL" || dateFilter
               ? "No schedules match the selected filters."
+              : timeframe === "upcoming"
+              ? "No upcoming departures. Switch to \"Past trips\" or \"All trips\" to see earlier sailings."
+              : timeframe === "past"
+              ? "No past departures yet."
               : "You haven't scheduled any ferry departures yet. Connect an active route with a registered ferry to schedule passenger trips."}
           </p>
           <Button

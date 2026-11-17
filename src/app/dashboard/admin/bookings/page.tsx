@@ -3,7 +3,18 @@
 import * as React from "react";
 import { useSearchParams } from "next/navigation";
 
-import { AlertCircle, Copy, Eye, Mail, MapPin, Phone, RefreshCw, Ship, Ticket } from "lucide-react";
+import {
+  AlertCircle,
+  CalendarClock,
+  Copy,
+  Eye,
+  Mail,
+  MapPin,
+  Phone,
+  RefreshCw,
+  Ship,
+  Ticket
+} from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 
@@ -11,12 +22,18 @@ import { useAdminBookingsQuery, useDebounce } from "@/hooks";
 
 import {
   BookingDetailsModal,
+  BookingRequestsPanel,
+  BookingsViewSwitch,
   DashboardPageSkeleton,
   DashboardTableCard,
   DataTableRowActions,
+  isMovableBooking,
+  MoveBookingDialog,
   PageHeader,
   StatusBadge,
   TableToolbar,
+  type BookingsView,
+  type IMoveBookingTarget,
   type TableColumn
 } from "@/widgets";
 import { Badge, Button, Skeleton } from "@/ui";
@@ -33,10 +50,15 @@ function AdminBookingsContent() {
   const [searchTerm, setSearchTerm] = React.useState(searchParamVal);
   const debouncedSearch = useDebounce(searchTerm, 350);
 
+  // Spec 0004: change requests live on their own tab; `?view=requests` opens it directly.
+  const [view, setView] = React.useState<BookingsView>(
+    searchParams.get("view") === "requests" ? "requests" : "bookings"
+  );
   const [activeTab, setActiveTab] = React.useState<BookingStatusTab>("ALL");
   const [page, setPage] = React.useState(1);
   const limit = 10;
   const [selectedBooking, setSelectedBooking] = React.useState<IAdminBookingItem | null>(null);
+  const [movingBooking, setMovingBooking] = React.useState<IMoveBookingTarget | null>(null);
 
   // Sync if URL search query changes
   React.useEffect(() => {
@@ -97,6 +119,17 @@ function AdminBookingsContent() {
   };
 
   const bookingColumns: TableColumn<IAdminBookingItem>[] = [
+    {
+      header: "#",
+      headerClassName: "w-12 text-center",
+      className: "w-12 text-center",
+      align: "center",
+      cell: (_, idx) => (
+        <span className="text-muted-foreground font-mono text-xs font-semibold">
+          #{(page - 1) * limit + idx + 1}
+        </span>
+      )
+    },
     {
       header: "BOOKING REFERENCE",
       sortValue: (item) => item.reference,
@@ -241,6 +274,22 @@ function AdminBookingsContent() {
         <DataTableRowActions
           actions={[
             { label: "View details", icon: Eye, onSelect: () => setSelectedBooking(item) },
+            ...(isMovableBooking(item.status)
+              ? [
+                  {
+                    label: "Move to another trip",
+                    icon: CalendarClock,
+                    onSelect: () =>
+                      setMovingBooking({
+                        reference: item.reference,
+                        leadPassengerName: item.leadPassengerName,
+                        passengers: item.adultsCount + item.childrenCount,
+                        status: item.status,
+                        hasReturn: !!item.tripType && item.tripType !== "ONE_WAY"
+                      })
+                  }
+                ]
+              : []),
             {
               label: "Copy reference",
               icon: Copy,
@@ -271,79 +320,89 @@ function AdminBookingsContent() {
           )
         }
         description="Live centralized reservation manifest across all island transfer routes and operators."
+        actions={<BookingsViewSwitch value={view} onChange={setView} />}
       />
 
-      {/* KPI Metric Summary Cards */}
-      <BookingKpiGrid
-        totalCount={allStatusesCount}
-        confirmedCount={confirmedCount}
-        checkedInCount={checkedInCount}
-        cancelledCount={cancelledCount}
-        isLoading={isLoading}
-      />
-
-      {/* Reusable Search & Status Toolbar */}
-
-      {/* Bookings Data Table Card */}
-      {isError ? (
-        <div className="border-destructive/20 bg-destructive/10 space-y-4 rounded-2xl border p-8 text-center">
-          <AlertCircle className="text-destructive mx-auto h-10 w-10" />
-          <h2 className="text-foreground text-lg font-bold">Failed to Load Platform Bookings</h2>
-          <p className="text-muted-foreground mx-auto max-w-md text-sm">
-            {error?.message ||
-              "Could not retrieve bookings from the live server. Please verify your connection."}
-          </p>
-          <Button onClick={() => refetch()} variant="outline" className="gap-2">
-            <RefreshCw className="h-4 w-4" /> Try Again
-          </Button>
-        </div>
+      {view === "requests" ? (
+        <BookingRequestsPanel accent="blue" />
       ) : (
-        <DashboardTableCard
-          itemName="bookings"
-          toolbar={
-            <TableToolbar
-              countsLoading={isLoading}
-              searchTerm={searchTerm}
-              onSearchChange={setSearchTerm}
-              searchPlaceholder="Search reference, passenger, or email..."
-              activeTab={activeTab}
-              onTabChange={setActiveTab}
-              tabs={[
-                { value: "ALL", label: "All Bookings", count: allStatusesCount },
-                { value: "CONFIRMED", label: "Confirmed", count: confirmedCount },
-                { value: "CHECKED_IN", label: "Checked In", count: checkedInCount },
-                { value: "CANCELLED", label: "Cancelled", count: cancelledCount },
-                { value: "PENDING", label: "Pending", count: pendingCount },
-                { value: "EXPIRED", label: "Expired", count: expiredCount }
-              ]}
+        <>
+          {/* KPI Metric Summary Cards */}
+          <BookingKpiGrid
+            totalCount={allStatusesCount}
+            confirmedCount={confirmedCount}
+            checkedInCount={checkedInCount}
+            cancelledCount={cancelledCount}
+            isLoading={isLoading}
+          />
+
+          {/* Reusable Search & Status Toolbar */}
+
+          {/* Bookings Data Table Card */}
+          {isError ? (
+            <div className="border-destructive/20 bg-destructive/10 space-y-4 rounded-2xl border p-8 text-center">
+              <AlertCircle className="text-destructive mx-auto h-10 w-10" />
+              <h2 className="text-foreground text-lg font-bold">
+                Failed to Load Platform Bookings
+              </h2>
+              <p className="text-muted-foreground mx-auto max-w-md text-sm">
+                {error?.message ||
+                  "Could not retrieve bookings from the live server. Please verify your connection."}
+              </p>
+              <Button onClick={() => refetch()} variant="outline" className="gap-2">
+                <RefreshCw className="h-4 w-4" /> Try Again
+              </Button>
+            </div>
+          ) : (
+            <DashboardTableCard
+              itemName="bookings"
+              toolbar={
+                <TableToolbar
+                  countsLoading={isLoading}
+                  searchTerm={searchTerm}
+                  onSearchChange={setSearchTerm}
+                  searchPlaceholder="Search reference, passenger, or email..."
+                  activeTab={activeTab}
+                  onTabChange={setActiveTab}
+                  tabs={[
+                    { value: "ALL", label: "All Bookings", count: allStatusesCount },
+                    { value: "CONFIRMED", label: "Confirmed", count: confirmedCount },
+                    { value: "CHECKED_IN", label: "Checked In", count: checkedInCount },
+                    { value: "CANCELLED", label: "Cancelled", count: cancelledCount },
+                    { value: "PENDING", label: "Pending", count: pendingCount },
+                    { value: "EXPIRED", label: "Expired", count: expiredCount }
+                  ]}
+                />
+              }
+              pagination={{
+                page,
+                pageSize: limit,
+                totalCount,
+                totalPages,
+                onPageChange: setPage
+              }}
+              enableColumnVisibility
+              title="Platform Bookings Manifest"
+              columns={bookingColumns}
+              data={bookings}
+              isLoading={isLoading}
+              isFetching={isFetching}
+              keyExtractor={(item) => item.id}
+              emptyMessage={
+                searchTerm
+                  ? `No bookings matched your search query "${searchTerm}".`
+                  : activeTab !== "ALL"
+                    ? `No ${activeTab.toLowerCase()} bookings found.`
+                    : "No platform bookings have been recorded yet."
+              }
             />
-          }
-          pagination={{
-            page,
-            pageSize: limit,
-            totalCount,
-            totalPages,
-            onPageChange: setPage
-          }}
-          enableColumnVisibility
-          title="Platform Bookings Manifest"
-          columns={bookingColumns}
-          data={bookings}
-          isLoading={isLoading}
-          isFetching={isFetching}
-          keyExtractor={(item) => item.id}
-          emptyMessage={
-            searchTerm
-              ? `No bookings matched your search query "${searchTerm}".`
-              : activeTab !== "ALL"
-                ? `No ${activeTab.toLowerCase()} bookings found.`
-                : "No platform bookings have been recorded yet."
-          }
-        />
+          )}
+        </>
       )}
 
       {/* Booking Details Modal */}
       <BookingDetailsModal
+        canRetryRefunds
         booking={selectedBooking}
         open={!!selectedBooking}
         onOpenChange={(open) => {
@@ -353,6 +412,17 @@ function AdminBookingsContent() {
           refetch();
         }}
       />
+      {/* Spec 0004: move a booking to another trip (AC-18) */}
+      {movingBooking && (
+        <MoveBookingDialog
+          key={movingBooking.reference}
+          booking={movingBooking}
+          accent="blue"
+          onOpenChange={(open) => {
+            if (!open) setMovingBooking(null);
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -29,8 +29,8 @@ import {
 
 const DEMO_ACCOUNTS = [
   { label: "Passenger", email: "user001@testmail.com", pass: "Password123!" },
-  { label: "Operator", email: "khaledahmednayeem.dev@gmail.com", pass: "Test@123" },
-  { label: "Admin", email: "admin@example.com", pass: "strong_password_here" }
+  { label: "Operator", email: "operator001@elineuque.com", pass: "Password123!" },
+  { label: "Admin", email: "admin@elineuque.com", pass: "Password123!" }
 ];
 
 export function LoginForm() {
@@ -163,7 +163,7 @@ export function LoginForm() {
                     <Mail className="text-muted-foreground pointer-events-none absolute top-3.5 left-3.5 h-4 w-4" />
                     <Input
                       type="email"
-                      placeholder="Enter your email"
+                      placeholder="user001@testmail.com"
                       autoComplete="email"
                       className="border-input bg-card placeholder:text-muted-foreground/60 focus-visible:ring-primary h-11 rounded-xl pl-10 text-xs font-medium"
                       {...field}
@@ -191,7 +191,7 @@ export function LoginForm() {
                 </div>
                 <FormControl>
                   <PasswordInput
-                    placeholder="Enter your password"
+                    placeholder="Password123!"
                     autoComplete="current-password"
                     className="border-input bg-card placeholder:text-muted-foreground/60 focus-visible:ring-primary h-11 rounded-xl text-xs font-medium"
                     {...field}

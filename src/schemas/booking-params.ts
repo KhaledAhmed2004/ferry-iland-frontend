@@ -1,3 +1,4 @@
+import { format } from "date-fns";
 import {
   createSearchParamsCache,
   parseAsString,
@@ -27,13 +28,7 @@ export const toBookingTripType = (
 export const bookingTripTypeLabel = (tripType: string | null | undefined): string =>
   tripType === "ROUND_TRIP" ? "Round Trip" : tripType === "SAME_DAY_RETURN" ? "Same Day Return" : "One Way";
 
-export const getTodayDateString = () => {
-  const d = new Date();
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
+export const getTodayDateString = () => format(new Date(), "yyyy-MM-dd");
 
 export const bookingSearchParamsParsers = {
   tripType: parseAsStringEnum<TripType>([...tripTypeValues]).withDefault("one-way"),

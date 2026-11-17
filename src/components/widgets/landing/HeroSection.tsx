@@ -24,7 +24,6 @@ import { toast } from "sonner";
 import heroBg from "@/assets/landing-page/hero-bg.png";
 import { cn } from "@/lib/utils";
 
-import { searchDepartureDate, usePortToday } from "@/hooks/use-port-today";
 import { useConnectedPortsQuery } from "@/hooks/use-routes";
 import { getUniquePorts } from "@/data/ports";
 
@@ -36,17 +35,12 @@ export function HeroSection() {
   const [tripType, setTripType] = useState<"one-way" | "round-trip" | "same-day-return">("one-way");
   const [departurePort, setDeparturePort] = useState("");
   const [destinationPort, setDestinationPort] = useState("");
-  // Empty until the user picks a date, so the default can follow the port's today (spec 0003, AC-10).
-  const [departureDate, setDepartureDate] = useState("");
-  const [browserToday] = useState(() => format(new Date(), "yyyy-MM-dd"));
+  const [departureDate, setDepartureDate] = useState(() => format(new Date(), "yyyy-MM-dd"));
   const [returnDate, setReturnDate] = useState(() => format(addDays(new Date(), 3), "yyyy-MM-dd"));
   const [adults, setAdults] = useState(1);
   const [childrenCount, setChildrenCount] = useState(0);
 
   const { data: connectedPorts = [], isLoading: isLoadingPorts } = useConnectedPortsQuery();
-  // Earliest searchable day is today at the chosen departure port (spec 0003, AC-10).
-  const portTodayYmd = usePortToday(departurePort);
-  const effectiveDepartureDate = searchDepartureDate(departureDate, browserToday, portTodayYmd);
 
   const departureOptions: PortOption[] = useMemo(() => {
     if (connectedPorts && connectedPorts.length > 0) {
@@ -119,12 +113,12 @@ export function HeroSection() {
     params.set("tripType", tripType);
     params.set("from", departurePort);
     params.set("to", destinationPort);
-    params.set("departureDate", effectiveDepartureDate);
+    params.set("departureDate", departureDate);
     if (tripType === "round-trip") {
       let finalReturnDate = returnDate;
       if (!finalReturnDate) {
         try {
-          const dep = parseISO(effectiveDepartureDate);
+          const dep = parseISO(departureDate);
           finalReturnDate = format(addDays(dep, 3), "yyyy-MM-dd");
         } catch {
           finalReturnDate = format(addDays(new Date(), 3), "yyyy-MM-dd");
@@ -140,7 +134,7 @@ export function HeroSection() {
     tripType,
     departurePort,
     destinationPort,
-    effectiveDepartureDate,
+    departureDate,
     returnDate,
     passengersParam,
     adults,
@@ -258,7 +252,7 @@ export function HeroSection() {
                     setTripType("round-trip");
                     if (!returnDate) {
                       try {
-                        const dep = parseISO(effectiveDepartureDate);
+                        const dep = parseISO(departureDate);
                         setReturnDate(format(addDays(dep, 3), "yyyy-MM-dd"));
                       } catch {
                         setReturnDate(format(addDays(new Date(), 3), "yyyy-MM-dd"));
@@ -362,9 +356,9 @@ export function HeroSection() {
                   <span>DEPARTURE DATE</span>
                 </Label>
                 <DatePicker
-                  value={effectiveDepartureDate}
+                  value={departureDate}
                   onChange={handleDepartureDateChange}
-                  minDate={portTodayYmd ?? new Date()}
+                  minDate={new Date()}
                   placeholder="Departure date"
                   className="border-input bg-muted/40 hover:bg-muted/60 text-foreground h-11 w-full rounded-xl border px-3.5 text-xs font-bold shadow-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
                 />
@@ -380,7 +374,7 @@ export function HeroSection() {
                   <DatePicker
                     value={returnDate}
                     onChange={setReturnDate}
-                    minDate={effectiveDepartureDate || new Date()}
+                    minDate={departureDate || new Date()}
                     placeholder="Return date"
                     className="border-input bg-muted/40 hover:bg-muted/60 text-foreground h-11 w-full rounded-xl border px-3.5 text-xs font-bold shadow-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
                   />

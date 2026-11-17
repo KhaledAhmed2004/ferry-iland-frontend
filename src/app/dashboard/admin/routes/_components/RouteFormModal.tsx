@@ -115,7 +115,7 @@ function RouteFormModalDialog({
         };
 
         const res = await updateMutation.mutateAsync({
-          id: routeToEdit.id,
+          routeId: routeToEdit.id,
           payload
         });
 

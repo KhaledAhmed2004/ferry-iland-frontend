@@ -1,6 +1,6 @@
 import * as React from "react";
 import Link from "next/link";
-import { portZoneLabel, toWallTimeInput, wallTimeToDate } from "@/lib/port-time";
+import { format } from "date-fns";
 import {
   AlertTriangle,
   Clock,
@@ -42,6 +42,12 @@ const STATUS_OPTIONS: { value: OperatorScheduleStatus; label: string }[] = [
 
 type BundleFareKey = keyof IScheduleBundleFares;
 
+/** Same rule as the backend: no dedicated routes = any route; otherwise only those. */
+const isFerryAllowedOnRoute = (ferry: IFerry, routeId: string) => {
+  const dedicated = ferry.dedicatedRoutes ?? [];
+  return !routeId || dedicated.length === 0 || dedicated.some((r) => r.id === routeId);
+};
+
 /** Round trip / same day return fares per passenger. Empty = that option is not offered on this trip. */
 const BUNDLE_FARE_FIELDS: { key: BundleFareKey; label: string }[] = [
   { key: "adultRoundTripFare", label: "Round Trip · Adult ($)" },
@@ -55,6 +61,19 @@ const EMPTY_BUNDLE_FARES: Record<BundleFareKey, string> = {
   childRoundTripFare: "",
   adultSameDayFare: "",
   childSameDayFare: ""
+};
+
+/** The `datetime-local` input value (`YYYY-MM-DDTHH:mm`) for an instant. */
+const toDateTimeInput = (value: string | Date): string => {
+  const date = new Date(value);
+  return isNaN(date.getTime()) ? "" : format(date, "yyyy-MM-dd'T'HH:mm");
+};
+
+/** Arrival input value for a departure input value plus the trip length. */
+const arrivalFor = (departureInput: string, minutes: number): string | null => {
+  const departure = new Date(departureInput);
+  if (isNaN(departure.getTime())) return null;
+  return toDateTimeInput(new Date(departure.getTime() + minutes * 60 * 1000));
 };
 
 export interface ScheduleFormModalProps {
@@ -117,11 +136,8 @@ export function ScheduleFormModal({
     if (editingSchedule) {
       setRouteId(editingSchedule.routeId || "");
       setFerryId(editingSchedule.ferryId || "");
-      // The inputs show wall time at each port, never the operator's laptop zone (spec 0003, AC-6).
-      const depZone = editingSchedule.route?.departurePort?.timeZone;
-      const arrZone = editingSchedule.route?.destinationPort?.timeZone;
-      setDepartureDateTime(depZone ? toWallTimeInput(editingSchedule.departureTime, depZone) : "");
-      setArrivalDateTime(arrZone ? toWallTimeInput(editingSchedule.arrivalTime, arrZone) : "");
+      setDepartureDateTime(toDateTimeInput(editingSchedule.departureTime));
+      setArrivalDateTime(toDateTimeInput(editingSchedule.arrivalTime));
       setAdultFare(String(editingSchedule.adultFare));
       setChildFare(editingSchedule.childFare != null ? String(editingSchedule.childFare) : "");
       setStatus(editingSchedule.status || "ON_TIME");
@@ -165,6 +181,8 @@ export function ScheduleFormModal({
         const normalized = (f.status || "").toUpperCase();
         return normalized === "IN_SERVICE" || normalized === "IN SERVICE";
       })
+      // A ferry with dedicated routes may only sail those (no dedicated routes = any route).
+      .filter((f) => isFerryAllowedOnRoute(f, routeId))
       .map((f) => {
         const typeLabel = f.type ? f.type.replace("_", " ") : "Ferry";
         return {
@@ -172,39 +190,13 @@ export function ScheduleFormModal({
           label: `${f.name} • ${f.capacity} Seats (${typeLabel})`
         };
       });
-  }, [ferries]);
+  }, [ferries, routeId]);
 
   const selectedRoute = React.useMemo(() => {
     const targetId = isEditing ? editingSchedule?.routeId : routeId;
     return routes.find((r) => r.id === targetId);
   }, [routes, isEditing, editingSchedule?.routeId, routeId]);
 
-  // Departure is typed in the departure port's zone, arrival in the destination port's zone.
-  const departureZone = isEditing
-    ? editingSchedule?.route?.departurePort?.timeZone
-    : selectedRoute?.departurePort?.timeZone;
-  const arrivalZone = isEditing
-    ? editingSchedule?.route?.destinationPort?.timeZone
-    : selectedRoute?.destinationPort?.timeZone;
-  const departurePortName = isEditing
-    ? editingSchedule?.route?.departurePort?.name
-    : selectedRoute?.departurePort?.name;
-  const arrivalPortName = isEditing
-    ? editingSchedule?.route?.destinationPort?.name
-    : selectedRoute?.destinationPort?.name;
-
-  /** Arrival wall time at the destination port for a departure wall time plus the trip length. */
-  const arrivalFor = (
-    departureWall: string,
-    minutes: number,
-    fromZone: string | undefined,
-    toZone: string | undefined
-  ): string | null => {
-    if (!fromZone || !toZone) return null;
-    const departure = wallTimeToDate(departureWall, fromZone);
-    if (!departure) return null;
-    return toWallTimeInput(new Date(departure.getTime() + minutes * 60 * 1000), toZone);
-  };
 
   const selectedFerry = React.useMemo(() => {
     const targetId = isEditing ? editingSchedule?.ferryId : ferryId;
@@ -215,21 +207,19 @@ export function ScheduleFormModal({
   const handleDepartureChange = (value: string) => {
     setDepartureDateTime(value);
     if (value && selectedRoute?.durationMinutes) {
-      const arrival = arrivalFor(value, selectedRoute.durationMinutes, departureZone, arrivalZone);
+      const arrival = arrivalFor(value, selectedRoute.durationMinutes);
       if (arrival) setArrivalDateTime(arrival);
     }
   };
 
   const handleRouteChange = (val: string) => {
     setRouteId(val);
+    // Drop a ferry that is dedicated to other routes.
+    const currentFerry = ferries.find((f) => f.id === ferryId);
+    if (currentFerry && !isFerryAllowedOnRoute(currentFerry, val)) setFerryId("");
     const chosenRoute = routes.find((r) => r.id === val);
     if (departureDateTime && chosenRoute?.durationMinutes) {
-      const arrival = arrivalFor(
-        departureDateTime,
-        chosenRoute.durationMinutes,
-        chosenRoute.departurePort?.timeZone,
-        chosenRoute.destinationPort?.timeZone
-      );
+      const arrival = arrivalFor(departureDateTime, chosenRoute.durationMinutes);
       if (arrival) setArrivalDateTime(arrival);
     }
   };
@@ -242,10 +232,13 @@ export function ScheduleFormModal({
       return;
     }
 
-    // Compare the real moments at each port; the backend checks again (spec 0003, rule 8).
-    const depDate = departureZone ? wallTimeToDate(departureDateTime, departureZone) : null;
-    const arrDate = arrivalZone ? wallTimeToDate(arrivalDateTime, arrivalZone) : null;
-    if (depDate && arrDate && arrDate <= depDate) {
+    const depDate = new Date(departureDateTime);
+    const arrDate = new Date(arrivalDateTime);
+    if (isNaN(depDate.getTime()) || isNaN(arrDate.getTime())) {
+      toast.error("Please select valid departure and arrival times.");
+      return;
+    }
+    if (arrDate <= depDate) {
       toast.error("Arrival time must be later than departure time.");
       return;
     }
@@ -272,9 +265,8 @@ export function ScheduleFormModal({
       await onSubmitCreate({
         routeId,
         ferryId,
-        // Local wall times; the backend reads them in the route's port zones (spec 0003, AC-6).
-        departureTime: departureDateTime,
-        arrivalTime: arrivalDateTime,
+        departureTime: depDate.toISOString(),
+        arrivalTime: arrDate.toISOString(),
         adultFare: Number(adultFare) || 25,
         childFare: childFare ? Number(childFare) : undefined,
         ...bundleFarePayload()
@@ -282,8 +274,8 @@ export function ScheduleFormModal({
     } else if (editingSchedule) {
       await onSubmitUpdate({
         id: editingSchedule.id,
-        departureTime: departureDateTime,
-        arrivalTime: arrivalDateTime,
+        departureTime: depDate.toISOString(),
+        arrivalTime: arrDate.toISOString(),
         status,
         adultFare: Number(adultFare) || 25,
         childFare: childFare ? Number(childFare) : undefined,
@@ -435,7 +427,9 @@ export function ScheduleFormModal({
                         options={ferryOptions}
                         placeholder={
                           ferryOptions.length === 0
-                            ? "No in-service ferries available"
+                            ? routeId
+                              ? "No in-service ferry can sail this route"
+                              : "No in-service ferries available"
                             : "Select ferry..."
                         }
                       />
@@ -457,12 +451,6 @@ export function ScheduleFormModal({
                   required
                   className="text-xs h-9 font-mono"
                 />
-                {departureZone && (
-                  <p className="text-[10px] text-muted-foreground">
-                    Times are in {departurePortName ?? "the departure port"} local time (
-                    {portZoneLabel(new Date(), departureZone)})
-                  </p>
-                )}
               </div>
 
               {/* Arrival DateTime */}
@@ -483,12 +471,6 @@ export function ScheduleFormModal({
                   required
                   className="text-xs h-9 font-mono"
                 />
-                {arrivalZone && (
-                  <p className="text-[10px] text-muted-foreground">
-                    Times are in {arrivalPortName ?? "the arrival port"} local time (
-                    {portZoneLabel(new Date(), arrivalZone)})
-                  </p>
-                )}
               </div>
 
               {/* Live Status when Editing */}

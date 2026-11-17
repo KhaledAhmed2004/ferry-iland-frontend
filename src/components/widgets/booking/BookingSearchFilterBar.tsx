@@ -3,13 +3,12 @@
 import { useEffect, useMemo } from "react";
 import { addDays, format, isBefore, parseISO } from "date-fns";
 import { Anchor, ArrowLeftRight, ArrowRight, ArrowUpDown, Calendar, MapPin, Users } from "lucide-react";
-import { useQueryState, useQueryStates } from "nuqs";
+import { useQueryStates } from "nuqs";
 import { toast } from "sonner";
 
-import { bookingSearchParamsParsers, getTodayDateString } from "@/schemas/booking-params";
+import { bookingSearchParamsParsers } from "@/schemas/booking-params";
 import { cn } from "@/lib/utils";
 import { Button, Card, CardContent, DatePicker, Label } from "@/ui";
-import { searchDepartureDate, useIsClient, usePortToday } from "@/hooks/use-port-today";
 import { useConnectedPortsQuery } from "@/hooks/use-routes";
 import { getUniquePorts } from "@/data/ports";
 
@@ -22,15 +21,7 @@ export function BookingSearchFilterBar() {
   });
 
   const { data: connectedPorts = [], isLoading: isLoadingPorts } = useConnectedPortsQuery();
-  // Earliest searchable day is today at the chosen departure port (spec 0003, AC-10).
-  const portTodayYmd = usePortToday(params.from);
-  // The date the URL actually carries (null when absent), not the parser's browser today default,
-  // so an unset date follows the port's today (spec 0003, AC-10). "Now" is read in the browser only.
-  const [departureDateInUrl] = useQueryState("departureDate");
-  const isClient = useIsClient();
-  const departureDateValue = isClient
-    ? searchDepartureDate(departureDateInUrl ?? "", getTodayDateString(), portTodayYmd)
-    : (departureDateInUrl ?? "");
+  const departureDateValue = params.departureDate;
 
   const departureOptions: PortOption[] = useMemo(() => {
     if (connectedPorts && connectedPorts.length > 0) {
@@ -322,7 +313,7 @@ export function BookingSearchFilterBar() {
             <DatePicker
               value={departureDateValue}
               onChange={handleDepartureDateChange}
-              minDate={portTodayYmd ?? new Date()}
+              minDate={new Date()}
               placeholder="Departure date"
               className="border border-input bg-muted/40 hover:bg-muted/60 text-foreground h-11 w-full rounded-xl px-3.5 text-xs font-bold shadow-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
             />
@@ -338,7 +329,7 @@ export function BookingSearchFilterBar() {
               <DatePicker
                 value={params.returnDate || ""}
                 onChange={(val) => void setParams({ returnDate: val })}
-                minDate={departureDateValue || portTodayYmd || new Date()}
+                minDate={departureDateValue || new Date()}
                 placeholder="Return date"
                 className="border border-input bg-muted/40 hover:bg-muted/60 text-foreground h-11 w-full rounded-xl px-3.5 text-xs font-bold shadow-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
               />

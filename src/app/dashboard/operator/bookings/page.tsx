@@ -1,6 +1,8 @@
 "use client";
 
 import * as React from "react";
+
+import { CalendarClock } from "lucide-react";
 import {
   AlertCircle,
   CalendarCheck,
@@ -18,26 +20,29 @@ import {
   Users
 } from "lucide-react";
 import { format, isValid } from "date-fns";
-import { formatPortDate } from "@/lib/port-time";
 import { toast } from "sonner";
 
-import {
-  useDebounce,
-  useOperatorBookingsQuery,
-  useOperatorCheckInMutation
-} from "@/hooks";
-import type { IOperatorBookingItem } from "@/types";
-import { Badge, Button } from "@/ui";
+
+import { useDebounce, useOperatorBookingsQuery, useOperatorCheckInMutation } from "@/hooks";
+
 import {
   BookingDetailsModal,
+  BookingRequestsPanel,
+  BookingsViewSwitch,
   DashboardTableCard,
   StatCard,
   StatusBadge,
   TablePagination,
   TableToolbar,
+  type BookingsView,
   type TableColumn,
-  type TableToolbarTab
+  type TableToolbarTab,
+  MoveBookingDialog,
+  isMovableBooking,
+  type IMoveBookingTarget
 } from "@/widgets";
+import { Badge, Button } from "@/ui";
+import type { IOperatorBookingItem } from "@/types";
 
 const PAGE_SIZE_OPTIONS = [
   { value: "10", label: "10 per page" },
@@ -51,11 +56,14 @@ export default function OperatorBookingsPage() {
   const [searchTerm, setSearchTerm] = React.useState("");
   const debouncedSearch = useDebounce(searchTerm, 350);
 
+  // Spec 0004: change requests live on their own tab beside the bookings table.
+  const [view, setView] = React.useState<BookingsView>("bookings");
   const [activeTab, setActiveTab] = React.useState<BookingFilterTab>("all");
   const [page, setPage] = React.useState(1);
   const [pageSize, setPageSize] = React.useState(10);
   const [selectedBooking, setSelectedBooking] = React.useState<IOperatorBookingItem | null>(null);
   const [checkingInId, setCheckingInId] = React.useState<string | null>(null);
+  const [movingBooking, setMovingBooking] = React.useState<IMoveBookingTarget | null>(null);
 
   // Status mapping for the API query
   const statusParam = React.useMemo(() => {
@@ -171,20 +179,20 @@ export default function OperatorBookingsPage() {
               <button
                 type="button"
                 onClick={() => setSelectedBooking(item)}
-                className="font-mono text-xs font-bold text-foreground hover:text-emerald-600 dark:hover:text-emerald-400 hover:underline transition-colors text-left cursor-pointer"
+                className="text-foreground cursor-pointer text-left font-mono text-xs font-bold transition-colors hover:text-emerald-600 hover:underline dark:hover:text-emerald-400"
               >
                 {item.reference}
               </button>
               <button
                 type="button"
                 onClick={() => copyToClipboard(item.reference, "Reference")}
-                className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                className="text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
                 title="Copy Reference"
               >
                 <Copy className="h-3 w-3" />
               </button>
             </div>
-            <span className="text-[10px] text-muted-foreground font-mono">
+            <span className="text-muted-foreground font-mono text-[10px]">
               {formatDateSafe(item.createdAt)}
             </span>
           </div>
@@ -194,17 +202,15 @@ export default function OperatorBookingsPage() {
     {
       header: "PASSENGER",
       cell: (item) => (
-        <div className="space-y-0.5 max-w-[180px]">
-          <div className="font-bold text-foreground text-xs truncate">
-            {item.leadPassengerName}
-          </div>
-          <div className="text-[11px] text-muted-foreground truncate font-mono flex items-center gap-1">
-            <Mail className="h-3 w-3 text-muted-foreground shrink-0" />
+        <div className="max-w-[180px] space-y-0.5">
+          <div className="text-foreground truncate text-xs font-bold">{item.leadPassengerName}</div>
+          <div className="text-muted-foreground flex items-center gap-1 truncate font-mono text-[11px]">
+            <Mail className="text-muted-foreground h-3 w-3 shrink-0" />
             <span className="truncate">{item.leadPassengerEmail}</span>
           </div>
           {item.leadPassengerPhone && (
-            <div className="text-[10px] text-muted-foreground/80 truncate font-mono flex items-center gap-1">
-              <Phone className="h-2.5 w-2.5 text-muted-foreground shrink-0" />
+            <div className="text-muted-foreground/80 flex items-center gap-1 truncate font-mono text-[10px]">
+              <Phone className="text-muted-foreground h-2.5 w-2.5 shrink-0" />
               <span>{item.leadPassengerPhone}</span>
             </div>
           )}
@@ -218,12 +224,12 @@ export default function OperatorBookingsPage() {
         const dep = schedule?.route?.departurePort?.name || "Departure Port";
         const arr = schedule?.route?.destinationPort?.name || "Destination Jetty";
         return (
-          <div className="space-y-0.5 max-w-[190px]">
-            <div className="font-medium text-xs text-foreground flex items-center gap-1">
-              <MapPin className="h-3 w-3 text-emerald-600 dark:text-emerald-400 shrink-0" />
+          <div className="max-w-[190px] space-y-0.5">
+            <div className="text-foreground flex items-center gap-1 text-xs font-medium">
+              <MapPin className="h-3 w-3 shrink-0 text-emerald-600 dark:text-emerald-400" />
               <span className="truncate">{dep}</span>
             </div>
-            <div className="text-muted-foreground text-[11px] flex items-center gap-1 pl-3.5">
+            <div className="text-muted-foreground flex items-center gap-1 pl-3.5 text-[11px]">
               <span>➔</span>
               <span className="truncate">{arr}</span>
             </div>
@@ -238,13 +244,13 @@ export default function OperatorBookingsPage() {
         const ferryName = schedule?.ferry?.name || "Fleet Vessel";
         const ferryInfo = schedule?.ferry?.type;
         return (
-          <div className="space-y-0.5 max-w-[150px]">
-            <div className="font-semibold text-xs text-foreground truncate flex items-center gap-1">
-              <Ship className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+          <div className="max-w-[150px] space-y-0.5">
+            <div className="text-foreground flex items-center gap-1 truncate text-xs font-semibold">
+              <Ship className="h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
               <span className="truncate">{ferryName}</span>
             </div>
             {ferryInfo && (
-              <div className="text-[11px] text-muted-foreground font-mono truncate pl-4.5">
+              <div className="text-muted-foreground truncate pl-4.5 font-mono text-[11px]">
                 {ferryInfo}
               </div>
             )}
@@ -256,17 +262,15 @@ export default function OperatorBookingsPage() {
       header: "DEPARTURE",
       cell: (item) => {
         const time = item.schedule?.departureTime;
-        // Dock local time at the departure port (spec 0003, AC-7).
-        const zone = item.schedule?.route?.departurePort?.timeZone;
-        if (!time || !zone) return <span className="text-muted-foreground text-xs">—</span>;
+        if (!time) return <span className="text-muted-foreground text-xs">—</span>;
         return (
           <div className="space-y-0.5">
-            <div className="text-xs font-semibold text-foreground">
-              {formatPortDate(time, zone, "MMM dd, yyyy")}
+            <div className="text-foreground text-xs font-semibold">
+              {format(new Date(time), "MMM dd, yyyy")}
             </div>
-            <div className="text-[11px] text-muted-foreground font-mono flex items-center gap-1">
-              <Clock className="h-2.5 w-2.5 text-muted-foreground" />
-              <span>{formatPortDate(time, zone, "hh:mm a")}</span>
+            <div className="text-muted-foreground flex items-center gap-1 font-mono text-[11px]">
+              <Clock className="text-muted-foreground h-2.5 w-2.5" />
+              <span>{format(new Date(time), "hh:mm a")}</span>
             </div>
           </div>
         );
@@ -278,10 +282,10 @@ export default function OperatorBookingsPage() {
       headerClassName: "text-center",
       cell: (item) => (
         <div className="flex flex-col items-center justify-center">
-          <span className="font-bold text-xs text-foreground">
+          <span className="text-foreground text-xs font-bold">
             {item.adultsCount + item.childrenCount}
           </span>
-          <span className="text-[10px] text-muted-foreground">
+          <span className="text-muted-foreground text-[10px]">
             {item.adultsCount}A{item.childrenCount > 0 ? ` + ${item.childrenCount}C` : ""}
           </span>
         </div>
@@ -290,9 +294,9 @@ export default function OperatorBookingsPage() {
     {
       header: "AMOUNT",
       cell: (item) => (
-        <div className="font-black text-xs text-foreground">
+        <div className="text-foreground text-xs font-black">
           ${Number(item.totalAmount).toFixed(2)}
-          <span className="text-[10px] font-bold text-muted-foreground ml-0.5">
+          <span className="text-muted-foreground ml-0.5 text-[10px] font-bold">
             {item.currency || "USD"}
           </span>
         </div>
@@ -317,7 +321,7 @@ export default function OperatorBookingsPage() {
                 variant="outline"
                 disabled={isCheckingThis || checkInMutation.isPending}
                 onClick={() => handleCheckIn(item)}
-                className="h-7 gap-1 px-2.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800 cursor-pointer transition-colors"
+                className="h-7 cursor-pointer gap-1 border-emerald-300 px-2.5 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-400 dark:hover:bg-emerald-950/40"
                 title="Mark passenger as boarded"
               >
                 {isCheckingThis ? (
@@ -328,12 +332,33 @@ export default function OperatorBookingsPage() {
                 <span>Check In</span>
               </Button>
             )}
+            {isMovableBooking(item.status) && (
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() =>
+                  setMovingBooking({
+                    reference: item.reference,
+                    leadPassengerName: item.leadPassengerName,
+                    passengers: item.adultsCount + item.childrenCount,
+                    status: item.status,
+                    hasReturn: !!item.tripType && item.tripType !== "ONE_WAY"
+                  })
+                }
+                className="text-muted-foreground hover:text-foreground h-7 cursor-pointer gap-1 px-2 text-xs font-semibold"
+                title="Move to another trip"
+              >
+                <CalendarClock className="h-3.5 w-3.5" />
+                <span>Move</span>
+              </Button>
+            )}
             <Button
               type="button"
               size="sm"
               variant="ghost"
               onClick={() => setSelectedBooking(item)}
-              className="h-7 gap-1 px-2 text-xs font-semibold text-muted-foreground hover:text-foreground cursor-pointer"
+              className="text-muted-foreground hover:text-foreground h-7 cursor-pointer gap-1 px-2 text-xs font-semibold"
             >
               <Eye className="h-3.5 w-3.5" />
               <span>Details</span>
@@ -350,121 +375,132 @@ export default function OperatorBookingsPage() {
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div className="space-y-1">
           <div className="flex items-center gap-2.5">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+            <h1 className="text-foreground text-2xl font-bold tracking-tight sm:text-3xl">
               Passenger Bookings
             </h1>
             <Badge
               variant="outline"
-              className="font-mono text-xs font-bold text-emerald-600 dark:text-emerald-400 border-emerald-300/40 dark:border-emerald-800/60 bg-emerald-50 dark:bg-emerald-950/30"
+              className="border-emerald-300/40 bg-emerald-50 font-mono text-xs font-bold text-emerald-600 dark:border-emerald-800/60 dark:bg-emerald-950/30 dark:text-emerald-400"
             >
               {totalCount} Total
             </Badge>
           </div>
           <p className="text-muted-foreground text-xs sm:text-sm">
-            Live reservation manifest, ticket verification, and passenger check-in for your ferry routes.
+            Live reservation manifest, ticket verification, and passenger check-in for your ferry
+            routes.
           </p>
         </div>
+        <BookingsViewSwitch value={view} onChange={setView} />
       </div>
 
-      {/* KPI Metric Summary Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          title="Total Bookings"
-          value={totalCount}
-          description="Assigned to fleet"
-          icon={CalendarCheck}
-          variant="emerald"
-        />
-
-        <StatCard
-          title="Confirmed"
-          value={`${confirmedCount} Ready`}
-          description="Awaiting check-in"
-          icon={CheckCircle2}
-          variant="emerald"
-          colorValue
-        />
-
-        <StatCard
-          title="Checked In"
-          value={`${checkedInCount} Boarded`}
-          description="Passes verified"
-          icon={Ticket}
-          variant="blue"
-          colorValue
-        />
-
-        <StatCard
-          title="Cancelled"
-          value={`${cancelledCount} Cancelled`}
-          description="Seats restored"
-          icon={AlertCircle}
-          variant="rose"
-          colorValue
-        />
-      </div>
-
-      {/* Reusable Toolbar: Search Input on left + Filter Tabs on right */}
-      <TableToolbar
-        searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
-        searchPlaceholder="Search passenger, reference, route..."
-        activeTab={activeTab}
-        onTabChange={(tab) => setActiveTab(tab as BookingFilterTab)}
-        tabs={filterTabs}
-      />
-
-      {/* Bookings Data Table Card */}
-      {isError ? (
-        <div className="rounded-2xl border border-destructive/20 bg-destructive/10 p-8 text-center space-y-4">
-          <AlertCircle className="mx-auto h-10 w-10 text-destructive" />
-          <h2 className="text-lg font-bold text-foreground">Failed to Load Operator Bookings</h2>
-          <p className="text-sm text-muted-foreground max-w-md mx-auto">
-            {error?.message || "Could not retrieve bookings from the live server. Please verify your connection."}
-          </p>
-          <Button onClick={() => refetch()} variant="outline" className="gap-2">
-            <RefreshCw className="h-4 w-4" /> Try Again
-          </Button>
-        </div>
-      ) : isLoading ? (
-        <div className="h-96 rounded-2xl border border-border/60 bg-muted/20 animate-pulse flex flex-col items-center justify-center gap-3">
-          <Loader2 className="h-8 w-8 animate-spin text-emerald-600 dark:text-emerald-400" />
-          <span className="text-xs font-medium text-muted-foreground">
-            Retrieving live passenger bookings...
-          </span>
-        </div>
+      {view === "requests" ? (
+        <BookingRequestsPanel accent="emerald" />
       ) : (
-        <div className="space-y-4">
-          <DashboardTableCard
-            title="Passenger Manifest"
-            columns={bookingColumns}
-            data={bookings}
-            keyExtractor={(item) => item.id}
-            emptyMessage={
-              searchTerm
-                ? `No bookings matched your search query "${searchTerm}".`
-                : activeTab !== "all"
-                ? `No ${activeTab.replace("-", " ")} bookings found for your fleet.`
-                : "No customer bookings have been recorded for your fleet yet."
-            }
+        <>
+          {/* KPI Metric Summary Cards */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <StatCard
+              title="Total Bookings"
+              value={totalCount}
+              description="Assigned to fleet"
+              icon={CalendarCheck}
+              variant="emerald"
+            />
+
+            <StatCard
+              title="Confirmed"
+              value={`${confirmedCount} Ready`}
+              description="Awaiting check-in"
+              icon={CheckCircle2}
+              variant="emerald"
+              colorValue
+            />
+
+            <StatCard
+              title="Checked In"
+              value={`${checkedInCount} Boarded`}
+              description="Passes verified"
+              icon={Ticket}
+              variant="blue"
+              colorValue
+            />
+
+            <StatCard
+              title="Cancelled"
+              value={`${cancelledCount} Cancelled`}
+              description="Seats restored"
+              icon={AlertCircle}
+              variant="rose"
+              colorValue
+            />
+          </div>
+
+          {/* Reusable Toolbar: Search Input on left + Filter Tabs on right */}
+          <TableToolbar
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+            searchPlaceholder="Search passenger, reference, route..."
+            activeTab={activeTab}
+            onTabChange={(tab) => setActiveTab(tab as BookingFilterTab)}
+            tabs={filterTabs}
           />
 
-          {/* Reusable Pagination Controls */}
-          <TablePagination
-            page={currentPage}
-            totalPages={totalPages}
-            totalCount={totalCount}
-            pageSize={pageSize}
-            onPageChange={setPage}
-            onPageSizeChange={(newSize) => {
-              setPageSize(newSize);
-              setPage(1);
-            }}
-            pageSizeOptions={PAGE_SIZE_OPTIONS}
-            itemName="bookings"
-            isLoading={isFetching}
-          />
-        </div>
+          {/* Bookings Data Table Card */}
+          {isError ? (
+            <div className="border-destructive/20 bg-destructive/10 space-y-4 rounded-2xl border p-8 text-center">
+              <AlertCircle className="text-destructive mx-auto h-10 w-10" />
+              <h2 className="text-foreground text-lg font-bold">
+                Failed to Load Operator Bookings
+              </h2>
+              <p className="text-muted-foreground mx-auto max-w-md text-sm">
+                {error?.message ||
+                  "Could not retrieve bookings from the live server. Please verify your connection."}
+              </p>
+              <Button onClick={() => refetch()} variant="outline" className="gap-2">
+                <RefreshCw className="h-4 w-4" /> Try Again
+              </Button>
+            </div>
+          ) : isLoading ? (
+            <div className="border-border/60 bg-muted/20 flex h-96 animate-pulse flex-col items-center justify-center gap-3 rounded-2xl border">
+              <Loader2 className="h-8 w-8 animate-spin text-emerald-600 dark:text-emerald-400" />
+              <span className="text-muted-foreground text-xs font-medium">
+                Retrieving live passenger bookings...
+              </span>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <DashboardTableCard
+                title="Passenger Manifest"
+                columns={bookingColumns}
+                data={bookings}
+                keyExtractor={(item) => item.id}
+                emptyMessage={
+                  searchTerm
+                    ? `No bookings matched your search query "${searchTerm}".`
+                    : activeTab !== "all"
+                      ? `No ${activeTab.replace("-", " ")} bookings found for your fleet.`
+                      : "No customer bookings have been recorded for your fleet yet."
+                }
+              />
+
+              {/* Reusable Pagination Controls */}
+              <TablePagination
+                page={currentPage}
+                totalPages={totalPages}
+                totalCount={totalCount}
+                pageSize={pageSize}
+                onPageChange={setPage}
+                onPageSizeChange={(newSize) => {
+                  setPageSize(newSize);
+                  setPage(1);
+                }}
+                pageSizeOptions={PAGE_SIZE_OPTIONS}
+                itemName="bookings"
+                isLoading={isFetching}
+              />
+            </div>
+          )}
+        </>
       )}
 
       {/* Comprehensive Booking Details Modal */}
@@ -480,6 +516,18 @@ export default function OperatorBookingsPage() {
           refetch();
         }}
       />
+
+      {/* Spec 0004: move a booking to another trip (AC-18) */}
+      {movingBooking && (
+        <MoveBookingDialog
+          key={movingBooking.reference}
+          booking={movingBooking}
+          accent="emerald"
+          onOpenChange={(open) => {
+            if (!open) setMovingBooking(null);
+          }}
+        />
+      )}
     </div>
   );
 }

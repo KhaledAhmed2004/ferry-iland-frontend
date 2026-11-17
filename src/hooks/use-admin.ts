@@ -8,6 +8,11 @@ import type {
   IAdminBookingsResponseData,
   IAdminPaymentsFilterParams,
   IAdminPaymentsResponseData,
+  IAdminPayoutBookingsResponseData,
+  IAdminPayoutsResponseData,
+  IAdminRangeParams,
+  IAdminRefundsFilterParams,
+  IAdminRefundsResponseData,
   IAdminProviderDetail,
   IAdminProviderItem,
   IPlatformSettings,
@@ -16,7 +21,7 @@ import type {
   ProviderFilterParams
 } from "@/types";
 
-import { del, get, patch, post } from "@/lib/api";
+import { api, del, get, patch, post } from "@/lib/api";
 import { fetchAllPages } from "@/lib/fetch-all-pages";
 
 /**
@@ -280,49 +285,132 @@ export function useUpdatePaymentSettingsMutation() {
   });
 }
 
-/**
- * 9. Query: Fetch Paginated & Filtered Admin Platform Payments & Revenue Overview
- */
+/** Spec 0006: drops empty values so the query string carries only real filters. */
+const cleanParams = (params: object = {}) =>
+  Object.fromEntries(
+    Object.entries(params).filter(
+      ([, value]) => value !== undefined && value !== null && value !== "" && value !== "ALL"
+    )
+  ) as Record<string, string | number>;
+
+/** Spec 0006, AC-1, AC-2: payments with filter aware summary cards. */
 export function useAdminPaymentsQuery(params?: IAdminPaymentsFilterParams) {
   return useQuery({
     queryKey: adminKeys.paymentList(params),
-    queryFn: async ({ signal }) => {
-      const cleanParams: Record<string, string | number> = {};
-      if (params?.search && params.search.trim()) {
-        cleanParams.search = params.search.trim();
-      }
-      if (params?.status && params.status !== "ALL" && params.status !== "all" && params.status.trim()) {
-        cleanParams.status = params.status.toUpperCase();
-      }
-      if (params?.page) cleanParams.page = params.page;
-      if (params?.limit) cleanParams.limit = params.limit;
-      if (params?.sortBy) cleanParams.sortBy = params.sortBy;
-      if (params?.sortOrder) cleanParams.sortOrder = params.sortOrder;
-
-      const response = await get<ApiResponse<IAdminPaymentsResponseData>>("/admin/payments", {
-        params: cleanParams,
-        signal
-      });
-
-      return (
-        response.data ?? {
-          overview: {
-            totalBookingValue: 0,
-            commission: 0,
-            providerAmount: 0,
-            commissionRate: 10
-          },
-          meta: {
-            page: params?.page ?? 1,
-            limit: params?.limit ?? 10,
-            total: 0,
-            totalPages: 1
-          },
-          data: []
-        }
-      );
-    },
-    staleTime: 1000 * 30, // 30 seconds
+    // Spec 0006: callers pass no params while the date range is invalid.
+    enabled: params !== undefined,
+    queryFn: async ({ signal }) =>
+      (await get<ApiResponse<IAdminPaymentsResponseData>>("/admin/payments", { params: cleanParams(params), signal }))
+        .data as IAdminPaymentsResponseData,
+    staleTime: 1000 * 30,
     placeholderData: (previousData) => previousData
+  });
+}
+
+/** Spec 0006, AC-3, AC-4: every refund, with `canRetry` from the server. */
+export function useAdminRefundsQuery(params?: IAdminRefundsFilterParams) {
+  return useQuery({
+    queryKey: [...adminKeys.payments(), "refunds", params] as const,
+    // Spec 0006: callers pass no params while the date range is invalid.
+    enabled: params !== undefined,
+    queryFn: async ({ signal }) =>
+      (await get<ApiResponse<IAdminRefundsResponseData>>("/admin/payments/refunds", { params: cleanParams(params), signal }))
+        .data as IAdminRefundsResponseData,
+    staleTime: 1000 * 30,
+    placeholderData: (previousData) => previousData
+  });
+}
+
+/** Spec 0006, AC-5: earned net per operator for sailed trips in the range. */
+export function useAdminPayoutsQuery(params?: IAdminRangeParams) {
+  return useQuery({
+    queryKey: [...adminKeys.payments(), "payouts", params] as const,
+    // Spec 0006: callers pass no params while the date range is invalid.
+    enabled: params !== undefined,
+    queryFn: async ({ signal }) =>
+      (await get<ApiResponse<IAdminPayoutsResponseData>>("/admin/payments/payouts", { params: cleanParams(params), signal }))
+        .data as IAdminPayoutsResponseData,
+    staleTime: 1000 * 30,
+    placeholderData: (previousData) => previousData
+  });
+}
+
+/** Spec 0006, AC-7: the bookings behind one operator's payout row. */
+export function useAdminPayoutBookingsQuery(
+  operatorId: string | null,
+  params?: { from?: string; to?: string; page?: number; limit?: number }
+) {
+  return useQuery({
+    queryKey: [...adminKeys.payments(), "payout-bookings", operatorId, params] as const,
+    enabled: !!operatorId,
+    queryFn: async ({ signal }) =>
+      (
+        await get<ApiResponse<IAdminPayoutBookingsResponseData>>(
+          `/admin/payments/payouts/${operatorId}/bookings`,
+          { params: cleanParams(params), signal }
+        )
+      ).data as IAdminPayoutBookingsResponseData,
+    staleTime: 1000 * 30
+  });
+}
+
+/** Spec 0006, AC-8: downloads a tab as CSV with the current filters (all rows, not one page). */
+export async function downloadAdminCsv(path: string, params: object, fallbackName: string) {
+  const response = await api.get<Blob>(path, {
+    params: { ...cleanParams(params), format: "csv", page: undefined, limit: undefined },
+    responseType: "blob"
+  });
+  const disposition = String(response.headers["content-disposition"] ?? "");
+  const name = /filename="([^"]+)"/.exec(disposition)?.[1] ?? fallbackName;
+  const url = URL.createObjectURL(response.data);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = name;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+/** What POST /refunds/:id/retry returns (spec 0004, AC-21). */
+export interface IRetriedRefund {
+  id: string;
+  paymentId: string;
+  amountCents: number;
+  reason: string;
+  status: "PENDING" | "SUCCEEDED" | "FAILED";
+  failureMessage: string | null;
+}
+
+/**
+ * Spec 0004 (AC-21): an admin sends a refund Stripe rejected once more. The backend writes a new
+ * refund with its own idempotency key; the failed one stays as the record of the attempt.
+ */
+export function useRetryRefundMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (refundId: string) =>
+      await post<ApiResponse<IRetriedRefund>>(`/refunds/${refundId}/retry`, {}),
+    onSuccess: async (response) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: adminKeys.bookings() }),
+        queryClient.invalidateQueries({ queryKey: adminKeys.payments() }),
+        queryClient.invalidateQueries({ queryKey: ["bookings"] })
+      ]);
+      const status = response?.data?.status;
+      if (status === "FAILED") {
+        toast.error("Stripe rejected the refund again", {
+          description: response?.data?.failureMessage ?? "Check the payment in Stripe before trying again."
+        });
+      } else {
+        toast.success(status === "SUCCEEDED" ? "Refund sent" : "Refund sent, waiting for Stripe", {
+          description: "The customer's booking page will show the new refund state."
+        });
+      }
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Could not retry this refund.");
+    }
   });
 }

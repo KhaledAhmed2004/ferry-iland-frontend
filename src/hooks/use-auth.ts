@@ -1,17 +1,26 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import { get, post } from "@/lib/api";
+import { get, post, refreshAccessToken } from "@/lib/api";
+import { cookie } from "@/lib/cookie-client";
 
 import { useAuth } from "@/providers/AuthProvider";
 
-import type { ApiResponse, AuthUser, LoginCredentials, SignupCredentials } from "@/types";
+import type {
+  ApiResponse,
+  AuthUser,
+  LoginCredentials,
+  SignupCredentials,
+  ForgotPasswordPayload,
+  ResetPasswordPayload
+} from "@/types";
 
 export { useAuth };
 
 interface LoginApiResult {
   accessToken: string;
   refreshToken?: string;
+  sessionId?: string;
   user?: AuthUser;
 }
 
@@ -26,7 +35,11 @@ export function useLoginMutation() {
     },
     onSuccess: (response) => {
       if (response.data?.accessToken) {
+        if (response.data.sessionId) {
+          cookie.set("sessionId", response.data.sessionId);
+        }
         login(response.data.accessToken, response.data.user);
+        queryClient.invalidateQueries({ queryKey: ["users", "me"] });
         queryClient.invalidateQueries({ queryKey: ["user", "profile"] });
         toast.success(response.message || "Welcome back! Login successful.");
       }
@@ -54,7 +67,10 @@ export function useSignupMutation() {
       return response;
     },
     onSuccess: (response) => {
-      toast.success(response.message || "Account registered successfully! Please check your email for verification.");
+      toast.success(
+        response.message ||
+          "Account registered successfully! Please check your email for verification."
+      );
     },
     onError: (error: Error) => {
       toast.error(error.message || "Failed to create account");
@@ -63,15 +79,15 @@ export function useSignupMutation() {
 }
 
 export function useUserProfileQuery(enabled = true) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
 
   return useQuery({
-    queryKey: ["user", "profile"],
+    queryKey: ["users", "me"],
     queryFn: async () => {
-      const response = await get<ApiResponse<AuthUser>>("/user/profile");
+      const response = await get<ApiResponse<AuthUser>>("/users/me");
       return response.data;
     },
-    enabled: isAuthenticated && enabled,
+    enabled: !isLoading && isAuthenticated && enabled,
     staleTime: 1000 * 60 * 5
   });
 }
@@ -80,7 +96,7 @@ export function useVerifyEmailMutation() {
   return useMutation({
     mutationFn: async (payload: { email: string; otp: string }) => {
       const response = await post<ApiResponse<{ id: string; email: string; status: string }>>(
-        "/auth/verify-email",
+        "/auth/email/verify",
         {
           email: payload.email.trim().toLowerCase(),
           otp: payload.otp.trim()
@@ -100,9 +116,12 @@ export function useVerifyEmailMutation() {
 export function useResendVerificationMutation() {
   return useMutation({
     mutationFn: async (payload: { email: string }) => {
-      const response = await post<ApiResponse<null>>("/auth/verify-email/resend", {
-        email: payload.email.trim().toLowerCase()
-      });
+      const response = await post<ApiResponse<{ cooldownSeconds?: number; expiresInSeconds?: number } | null>>(
+        "/auth/email/resend-otp",
+        {
+          email: payload.email.trim().toLowerCase()
+        }
+      );
       return response;
     },
     onSuccess: (response) => {
@@ -110,6 +129,85 @@ export function useResendVerificationMutation() {
     },
     onError: (error: Error) => {
       toast.error(error.message || "Failed to resend verification code");
+    }
+  });
+}
+
+/**
+ * Mutation: Refresh current access token using rotational refresh token / session
+ * POST /api/v1/auth/refresh
+ */
+export function useRefreshTokenMutation() {
+  const { login } = useAuth();
+  return useMutation({
+    mutationFn: async () => {
+      return await refreshAccessToken();
+    },
+    onSuccess: (newToken) => {
+      if (newToken) {
+        login(newToken);
+        toast.success("Session refreshed successfully");
+      }
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Session expired. Please sign in again.");
+    }
+  });
+}
+
+/**
+ * Mutation: Request password reset link / token via email
+ * POST /api/v1/auth/forgot-password
+ */
+export function useForgotPasswordMutation() {
+  return useMutation({
+    mutationFn: async (payload: ForgotPasswordPayload) => {
+      const response = await post<ApiResponse<null>>("/auth/forgot-password", {
+        email: payload.email.trim().toLowerCase()
+      });
+      return response;
+    },
+    onSuccess: (response) => {
+      toast.success(
+        response.message ||
+          "If an account with this email exists, password reset instructions have been sent."
+      );
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to process password reset request");
+    }
+  });
+}
+
+/**
+ * Mutation: Reset password using valid verification token
+ * POST /api/v1/auth/reset-password
+ */
+export function useResetPasswordMutation() {
+  return useMutation({
+    mutationFn: async (payload: ResetPasswordPayload) => {
+      const cleanToken = payload.token.trim();
+      const response = await post<ApiResponse<null>>(
+        "/auth/reset-password",
+        {
+          token: cleanToken,
+          newPassword: payload.newPassword,
+          confirmPassword: payload.confirmPassword,
+          email: payload.email?.trim().toLowerCase()
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${cleanToken}`
+          }
+        }
+      );
+      return response;
+    },
+    onSuccess: (response) => {
+      toast.success(response.message || "Password reset successfully! You can now log in.");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to reset password. Please verify your token.");
     }
   });
 }

@@ -126,7 +126,7 @@ export default function AdminRoutesPage() {
   const handleToggleStatus = React.useCallback(
     (route: IRoute) => {
       updateMutation.mutate({
-        id: route.id,
+        routeId: route.id,
         payload: { status: route.status === "ACTIVE" ? "INACTIVE" : "ACTIVE" }
       });
     },

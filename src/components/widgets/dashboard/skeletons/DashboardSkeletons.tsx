@@ -68,7 +68,7 @@ export function ChartCardSkeleton({ title }: { title?: string }) {
       aria-label={title ? `Loading ${title}` : "Loading chart"}
     >
       {title ? (
-        <h3 className="text-foreground text-base font-bold tracking-tight">{title}</h3>
+        <h3 className="text-foreground leading-none font-semibold">{title}</h3>
       ) : (
         <Skeleton className="h-5 w-40" />
       )}

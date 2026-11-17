@@ -54,7 +54,7 @@ export function BookingsVolumeChart({
   const totalPax = data.reduce((acc, d) => acc + d.passengers, 0);
 
   return (
-    <Card className={cn("gap-4", className)}>
+    <Card className={cn("border-border/80 gap-4 shadow-xs", className)}>
       <CardHeader>
         <div className="flex flex-wrap items-center gap-2">
           <CardTitle>Bookings Volume</CardTitle>

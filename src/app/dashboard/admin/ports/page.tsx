@@ -51,7 +51,6 @@ import {
 } from "@/ui";
 import type { IPort } from "@/types";
 
-import { TimeZoneCombobox } from "./_components/TimeZoneCombobox";
 
 const STATUS_SELECT_OPTIONS = [
   { value: "ACTIVE", label: "Active (Operational)" },
@@ -85,7 +84,6 @@ export function AdminPortsView() {
 
   // Form Fields
   const [formName, setFormName] = React.useState("");
-  const [formTimeZone, setFormTimeZone] = React.useState("");
   const [formStatus, setFormStatus] = React.useState<"ACTIVE" | "INACTIVE">("ACTIVE");
   const [errorText, setErrorText] = React.useState("");
 
@@ -310,7 +308,6 @@ export function AdminPortsView() {
   const handleOpenAdd = () => {
     setEditingPort(null);
     setFormName("");
-    setFormTimeZone("");
     setFormStatus("ACTIVE");
     setErrorText("");
     setIsModalOpen(true);
@@ -320,7 +317,6 @@ export function AdminPortsView() {
   const handleOpenEdit = (port: IPort) => {
     setEditingPort(port);
     setFormName(port.name);
-    setFormTimeZone(port.timeZone);
     setFormStatus(port.isActive ? "ACTIVE" : "INACTIVE");
     setErrorText("");
     setIsModalOpen(true);
@@ -333,14 +329,9 @@ export function AdminPortsView() {
       setErrorText("Port name is required");
       return;
     }
-    if (!formTimeZone) {
-      setErrorText("Time zone is required");
-      return;
-    }
 
     const payload = {
       name: formName.trim(),
-      timeZone: formTimeZone,
       isActive: formStatus === "ACTIVE"
     };
 
@@ -666,24 +657,6 @@ export function AdminPortsView() {
                 className="h-9 text-xs"
               />
               {errorText && <p className="text-[11px] font-medium text-rose-500">{errorText}</p>}
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="port-time-zone" className="text-xs font-semibold">
-                Time Zone <span className="text-rose-500">*</span>
-              </Label>
-              <TimeZoneCombobox
-                id="port-time-zone"
-                value={formTimeZone}
-                onChange={(zone) => {
-                  setFormTimeZone(zone);
-                  if (errorText) setErrorText("");
-                }}
-              />
-              <p className="text-muted-foreground text-[11px]">
-                Trip times at this port are shown in this zone. It cannot change while upcoming
-                trips use the port.
-              </p>
             </div>
 
             <div className="space-y-1.5">

@@ -1,8 +1,8 @@
 "use client";
 
-import { formatCalendarDate } from "@/lib/port-time";
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { format, parseISO } from "date-fns";
 import { useQueryStates } from "nuqs";
 import { AlertCircle, ArrowRight, Calendar, RefreshCw, Ship } from "lucide-react";
 
@@ -35,10 +35,10 @@ export function BookingResultsList() {
   const isMissingReturnDate = params.tripType === "round-trip" && !params.returnDate;
   const { data, isLoading, isError, error, refetch } = useTripsSearchQuery(searchParams);
 
-  // The search date is a calendar day at the departure port; show it without a day shift (spec 0003).
+  // The search date is a calendar day (YYYY-MM-DD); parseISO reads it as local midnight, so no day shift.
   const formattedDate = useMemo(() => {
     try {
-      return formatCalendarDate(params.departureDate);
+      return format(parseISO(params.departureDate), "EEE d MMM yyyy");
     } catch {
       return params.departureDate;
     }
@@ -326,7 +326,7 @@ export function BookingResultsList() {
             <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="text-sm">
                 <div className="font-bold">
-                  {tripTypeLabel} · {selectedOutbound.departureTime} out, {selectedReturn.departureTime} back
+                  {tripTypeLabel} · {format(new Date(selectedOutbound.departureAt), "hh:mm a")} out, {format(new Date(selectedReturn.departureAt), "hh:mm a")} back
                 </div>
                 <div className="text-muted-foreground text-xs">
                   Total ${selectedOutbound.fareQuote?.totalPrice ?? "-"} for {adults + children}{" "}

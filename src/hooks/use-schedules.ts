@@ -37,6 +37,7 @@ export function useOperatorSchedulesQuery(params?: IScheduleFilterParams) {
       if (params?.routeId && params.routeId !== "ALL" && params.routeId.trim()) {
         cleanParams.routeId = params.routeId;
       }
+      if (params?.timeframe) cleanParams.timeframe = params.timeframe;
       if (params?.page) cleanParams.page = params.page;
       if (params?.limit) cleanParams.limit = params.limit;
 

@@ -1,7 +1,7 @@
 "use client";
 
-import { formatPortDate, formatPortTime, portZoneLabel } from "@/lib/port-time";
-import { use } from "react";
+import { format } from "date-fns";
+import { use, useState } from "react";
 import Link from "next/link";
 import {
   AlertCircle,
@@ -11,7 +11,6 @@ import {
   Download,
   Info,
   MapPin,
-  Printer,
   Sailboat,
   ShieldCheck,
   Ship,
@@ -19,8 +18,10 @@ import {
   User
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
+import { toast } from "sonner";
 
 import { useDigitalPassQuery } from "@/hooks/use-tickets";
+import { boardingStatusLabel, downloadBoardingPasses } from "@/lib/boarding-pass";
 import { AnimatedSection, Badge, Button, Card } from "@/ui";
 import { ReturnLegCard } from "@/widgets";
 
@@ -32,6 +33,19 @@ export default function ETicketPage({ params }: ETicketPageProps) {
   const { bookingRef } = use(params);
 
   const { data: pass, isLoading, isError, error } = useDigitalPassQuery(bookingRef);
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const handleDownload = async () => {
+    if (!pass) return;
+    setIsDownloading(true);
+    try {
+      await downloadBoardingPasses([pass]);
+    } catch {
+      toast.error("Could not download the boarding pass. Please try again.");
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -66,19 +80,19 @@ export default function ETicketPage({ params }: ETicketPageProps) {
     );
   }
 
-  // Dock local times at each port; the pass is kept, so it names the zone (spec 0003, AC-5).
   const trip = pass.trip;
   const formattedDate = trip?.departureTime
-    ? formatPortDate(trip.departureTime, trip.departureTimeZone, "EEE, d MMM yyyy")
+    ? format(new Date(trip.departureTime), "EEE, d MMM yyyy")
     : "Scheduled Departure";
   const departureTimeDisplay = trip?.departureTime
-    ? `${formatPortTime(trip.departureTime, trip.departureTimeZone)} ${portZoneLabel(trip.departureTime, trip.departureTimeZone)} (local time)`
+    ? format(new Date(trip.departureTime), "h:mm a")
     : "TBD";
   const arrivalTimeDisplay = trip?.arrivalTime
-    ? `${formatPortTime(trip.arrivalTime, trip.arrivalTimeZone)} ${portZoneLabel(trip.arrivalTime, trip.arrivalTimeZone)} (local time)`
+    ? format(new Date(trip.arrivalTime), "h:mm a")
     : "TBD";
 
-  const qrPayload = pass.qrCodePayload || `https://islandhop.com/tickets/${pass.ticketNumber || bookingRef}`;
+  // Same payload the operator gate scanner parses (src/lib/boarding-pass.tsx).
+  const qrPayload = pass.qrCodePayload || `PASS:${pass.ticketNumber}:${pass.bookingReference}`;
 
   return (
     <div className="dark:bg-background flex min-h-screen flex-col items-center justify-center bg-[#F8FAFC] px-4 py-20">
@@ -87,7 +101,7 @@ export default function ETicketPage({ params }: ETicketPageProps) {
         whileInView={{ opacity: 1, scale: 1 }}
         className="flex w-full max-w-md flex-col items-center"
       >
-        {/* Top Back and Print Actions */}
+        {/* Top Back and Download Actions */}
         <div className="mb-6 flex w-full items-center justify-between">
           <Button variant="ghost" size="sm" asChild className="text-xs font-semibold">
             <Link href={`/manage-booking/${pass.bookingReference}`}>
@@ -100,11 +114,12 @@ export default function ETicketPage({ params }: ETicketPageProps) {
               variant="outline"
               size="sm"
               className="h-8 rounded-lg gap-1.5 text-xs font-semibold"
-              onClick={() => window.print()}
-              title="Print Boarding Pass"
+              onClick={handleDownload}
+              disabled={isDownloading}
+              title="Download boarding pass (PNG)"
             >
-              <Printer className="h-3.5 w-3.5" />
-              <span>Print</span>
+              <Download className="h-3.5 w-3.5" />
+              <span>{isDownloading ? "Preparing..." : "Download"}</span>
             </Button>
           </div>
         </div>
@@ -122,7 +137,7 @@ export default function ETicketPage({ params }: ETicketPageProps) {
           <div className="bg-[#002244] p-6 text-white dark:bg-[#00172e]">
             <div className="flex items-center justify-between">
               <span className="rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 px-3 py-1 text-[10px] font-bold tracking-widest uppercase">
-                {pass.boardingStatus || "CONFIRMED"}
+                {boardingStatusLabel(pass.boardingStatus)}
               </span>
               <span className="font-mono text-xs font-semibold text-white/80">
                 Ref: {pass.bookingReference}

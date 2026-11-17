@@ -1,6 +1,6 @@
 "use client";
 
-import { formatPortDate, formatPortDateTime, formatPortTime } from "@/lib/port-time";
+import { format } from "date-fns";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
@@ -26,6 +26,7 @@ import {
 import { useQueryStates } from "nuqs";
 
 import { cn } from "@/lib/utils";
+import { formatCents } from "@/lib/payment";
 import { BOOKING_STATUS_OPTIONS, manageBookingsParsers } from "@/schemas/manage-bookings-params";
 import { bookingTripTypeLabel } from "@/schemas/booking-params";
 import { useDebounce } from "@/hooks/use-debounce";
@@ -301,20 +302,17 @@ export function ManageBookingsTable() {
                       const operatorName = b.schedule?.route?.operator?.companyName || "Ferry Operator";
                       const ferryName = b.schedule?.ferry?.name || "Vessel";
 
-                      // Dock local date and times at each port (spec 0003, AC-4).
-                      const depZone = b.schedule?.route?.departurePort?.timeZone;
-                      const arrZone = b.schedule?.route?.destinationPort?.timeZone;
                       const departureDateFormatted =
-                        b.schedule?.departureTime && depZone
-                          ? formatPortDate(b.schedule.departureTime, depZone, "EEE, d MMM yyyy")
+                        b.schedule?.departureTime
+                          ? format(new Date(b.schedule.departureTime), "EEE, d MMM yyyy")
                           : "Scheduled";
                       const departureTimeFormatted =
-                        b.schedule?.departureTime && depZone
-                          ? formatPortTime(b.schedule.departureTime, depZone)
+                        b.schedule?.departureTime
+                          ? format(new Date(b.schedule.departureTime), "h:mm a")
                           : "TBD";
                       const arrivalTimeFormatted =
-                        b.schedule?.arrivalTime && arrZone
-                          ? formatPortTime(b.schedule.arrivalTime, arrZone)
+                        b.schedule?.arrivalTime
+                          ? format(new Date(b.schedule.arrivalTime), "h:mm a")
                           : "";
 
                       const passengerCount =
@@ -354,11 +352,7 @@ export function ManageBookingsTable() {
                               {b.returnSchedule && (
                                 <div className="text-primary text-[11px] font-semibold">
                                   {bookingTripTypeLabel(b.tripType)} &bull; back{" "}
-                                  {formatPortDateTime(
-                                    b.returnSchedule.departureTime,
-                                    b.returnSchedule.route.departurePort.timeZone,
-                                    { datePattern: "d MMM" }
-                                  )}
+                                  {format(new Date(b.returnSchedule.departureTime), "d MMM, h:mm a")}
                                 </div>
                               )}
                             </div>
@@ -444,7 +438,11 @@ export function ManageBookingsTable() {
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    disabled={b.status === "CANCELLED" || cancelBookingMutation.isPending}
+                                    // Spec 0004: only what the backend allows right now.
+                                    disabled={
+                                      b.cancellation?.mode !== "SELF_CANCEL" ||
+                                      cancelBookingMutation.isPending
+                                    }
                                     onClick={() => {
                                       setSelectedBookingToCancel(b);
                                       setIsCancelDialogOpen(true);
@@ -456,7 +454,15 @@ export function ManageBookingsTable() {
                                   </Button>
                                 </TooltipTrigger>
                                 <TooltipContent className="text-xs">
-                                  {b.status === "CANCELLED" ? "Already Cancelled" : "Cancel Booking"}
+                                  {b.status === "CANCELLED"
+                                    ? "Already Cancelled"
+                                    : b.cancellation?.mode === "SELF_CANCEL"
+                                      ? (b.cancellation.refundCents ?? 0) > 0
+                                        ? `Cancel & get ${formatCents(b.cancellation.refundCents)} refund`
+                                        : "Cancel Booking"
+                                      : b.cancellation?.mode === "REQUEST"
+                                        ? "Less than 24h to departure: open the booking for options"
+                                        : "Cannot be cancelled online"}
                                 </TooltipContent>
                               </Tooltip>
 

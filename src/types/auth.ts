@@ -36,7 +36,19 @@ export interface SignupCredentials {
 export interface AuthResponseData {
   accessToken: string;
   refreshToken?: string;
+  sessionId?: string;
   user?: AuthUser;
+}
+
+export interface ForgotPasswordPayload {
+  email: string;
+}
+
+export interface ResetPasswordPayload {
+  token: string;
+  newPassword: string;
+  confirmPassword?: string;
+  email?: string;
 }
 
 export interface AuthContextType {

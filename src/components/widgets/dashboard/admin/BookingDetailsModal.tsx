@@ -44,6 +44,7 @@ import {
 import { StatusBadge } from "../index";
 import { useCancelBookingMutation } from "@/hooks/use-bookings";
 import { formatCents, paymentProviderLabel, paymentStatusLabel } from "@/lib/payment";
+import { BookingRefundsList } from "./BookingRefundsList";
 
 export interface BookingDetailsModalProps {
   booking: IAdminBookingItem | null;
@@ -52,6 +53,8 @@ export interface BookingDetailsModalProps {
   onBookingCancelled?: () => void;
   onCheckIn?: (booking: IAdminBookingItem) => void;
   isCheckingIn?: boolean;
+  /** Admin pages: show "Retry refund" on a failed refund (spec 0004, AC-21). */
+  canRetryRefunds?: boolean;
 }
 
 export function BookingDetailsModal({
@@ -60,7 +63,8 @@ export function BookingDetailsModal({
   onOpenChange,
   onBookingCancelled,
   onCheckIn,
-  isCheckingIn
+  isCheckingIn,
+  canRetryRefunds = false
 }: BookingDetailsModalProps) {
   const [showCancelConfirm, setShowCancelConfirm] = React.useState(false);
   const [copiedKey, setCopiedKey] = React.useState<string | null>(null);
@@ -445,6 +449,13 @@ export function BookingDetailsModal({
               </div>
             </div>
 
+            {/* Refunds, with the admin retry on a failed one (spec 0004, AC-18, AC-21) */}
+            <BookingRefundsList
+              refunds={payment?.refunds ?? []}
+              currency={paymentCurrency}
+              canRetry={canRetryRefunds}
+            />
+
             {/* Issued E-Tickets List */}
             {booking.tickets && booking.tickets.length > 0 && (
               <div className="space-y-2.5">
@@ -546,7 +557,11 @@ export function BookingDetailsModal({
                 variant="destructive"
                 size="sm"
                 onClick={() => setShowCancelConfirm(true)}
-                disabled={cancelMutation.isPending}
+                // A checked in or expired booking cannot be cancelled (spec 0004, 409 BOARDED).
+                disabled={
+                  cancelMutation.isPending ||
+                  (booking.status !== "PENDING" && booking.status !== "CONFIRMED")
+                }
                 className="gap-1.5 text-xs font-semibold cursor-pointer"
               >
                 <Ban className="h-3.5 w-3.5" />

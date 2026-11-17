@@ -63,7 +63,7 @@ export function RevenueAnalyticsChart({
   const totalRev = data.reduce((acc, d) => acc + d.revenue, 0);
 
   return (
-    <Card className={cn("gap-4", className)}>
+    <Card className={cn("border-border/80 gap-4 shadow-xs", className)}>
       <CardHeader>
         <div className="flex flex-wrap items-center gap-2">
           <CardTitle>Revenue Analytics</CardTitle>
@@ -73,9 +73,12 @@ export function RevenueAnalyticsChart({
               title="Change vs the previous period"
               className={cn(
                 "gap-1 px-2 text-[10px]",
-                changePercent > 0 && "border-emerald-200 bg-emerald-50 text-emerald-700",
-                changePercent < 0 && "border-rose-200 bg-rose-50 text-rose-700",
-                changePercent === 0 && "border-blue-200 bg-blue-50 text-blue-700"
+                changePercent > 0 &&
+                  "border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+                changePercent < 0 &&
+                  "border-rose-500/20 bg-rose-500/10 text-rose-600 dark:text-rose-400",
+                changePercent === 0 &&
+                  "border-blue-500/20 bg-blue-500/10 text-blue-600 dark:text-blue-400"
               )}
             >
               {changePercent > 0 ? (

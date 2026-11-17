@@ -158,3 +158,45 @@ export function useUpdateUserStatusMutation() {
     }
   });
 }
+
+/**
+ * 5. Mutation: Change Password for Authenticated User
+ * PATCH /api/v1/user/me/password
+ */
+export function useChangePasswordMutation() {
+  return useMutation({
+    mutationFn: async (payload: {
+      currentPassword?: string;
+      oldPassword?: string;
+      newPassword: string;
+    }) => {
+      return await patch<ApiResponse<{ message: string }>>("/users/me/password", payload);
+    }
+  });
+}
+
+/**
+ * 6. Mutation: Update Current User Profile
+ * PATCH /api/v1/users/me
+ */
+export function useUpdateProfileMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (payload: {
+      name?: string;
+      email?: string;
+      phoneNumber?: string;
+      phone?: string;
+      companyName?: string;
+      contactPersonName?: string;
+      profilePicture?: string;
+    }) => {
+      return await patch<ApiResponse<unknown>>("/users/me", payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users", "me"] });
+      queryClient.invalidateQueries({ queryKey: ["user", "profile"] });
+    }
+  });
+}

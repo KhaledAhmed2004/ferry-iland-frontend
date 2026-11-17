@@ -9,6 +9,10 @@ interface AdminKpiGridProps {
   isLoading: boolean;
 }
 
+// Same 24px inner padding as the other dashboard cards (Card adds py-6 on top of CardContent p-5).
+const KPI_GRID_CLASS =
+  "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 [&>[data-slot=card]]:py-0 [&>[data-slot=card]>[data-slot=card-content]]:p-6";
+
 const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
 
 /**
@@ -40,7 +44,7 @@ export function trendProps(
 
 export function AdminKpiGrid({ analytics, isLoading }: AdminKpiGridProps) {
   if (isLoading) {
-    return <StatCardGridSkeleton count={4} />;
+    return <StatCardGridSkeleton count={4} className={KPI_GRID_CLASS} />;
   }
 
   const previous = previousPeriodPhrase(analytics?.period);
@@ -73,7 +77,7 @@ export function AdminKpiGrid({ analytics, isLoading }: AdminKpiGridProps) {
   const fleetTotal = analytics?.breakdowns?.fleet?.total ?? analytics?.kpis?.fleet?.total ?? 0;
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div className={KPI_GRID_CLASS}>
       <StatCard
         label="PLATFORM EARNINGS"
         value={formatDollars(platformEarnings)}
@@ -92,14 +96,16 @@ export function AdminKpiGrid({ analytics, isLoading }: AdminKpiGridProps) {
         label="PASSENGERS"
         value={passengers.toLocaleString()}
         icon={Users}
-        variant="indigo"
+        variant="blue"
+        iconColorClasses="bg-sky-500/10 text-sky-600 dark:text-sky-400"
         {...trendProps(passengersGrowth, previous, "passengers")}
       />
       <StatCard
         label="ACTIVE OPERATORS"
         value={activeOperators.toLocaleString()}
         icon={Ship}
-        variant="purple"
+        variant="default"
+        iconColorClasses="bg-muted text-muted-foreground"
         comparisonText={`${plural(fleetTotal, "ferry", "ferries")} on the platform`}
       />
     </div>

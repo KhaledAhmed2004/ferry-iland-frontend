@@ -8,6 +8,7 @@ import {
   Building2,
   CalendarCheck,
   CircleDollarSign,
+  FileText,
   HelpCircle,
   LayoutDashboard,
   LogOut,
@@ -68,6 +69,11 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     name: "FAQ Management",
     href: "/dashboard/admin/faqs",
     icon: HelpCircle
+  },
+  {
+    name: "Legal Documents",
+    href: "/dashboard/admin/legal",
+    icon: FileText
   },
   {
     name: "Settings",

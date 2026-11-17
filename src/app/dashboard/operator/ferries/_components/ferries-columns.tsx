@@ -102,11 +102,9 @@ export function getAmenityStyle(name: string): string {
   return "bg-slate-100 text-slate-700 dark:bg-slate-800/70 dark:text-slate-300 border-slate-200 dark:border-slate-700/60";
 }
 
+/** The ferry's real amenities; empty when the operator listed none (no invented defaults). */
 export function getFerryAmenities(ferry: IFerry): string[] {
-  if (Array.isArray(ferry.amenities) && ferry.amenities.length > 0) {
-    return ferry.amenities;
-  }
-  return ["Air Conditioned", "Life Jackets Provided", "Luggage Assistance"];
+  return Array.isArray(ferry.amenities) ? ferry.amenities : [];
 }
 
 export function getFerryImage(ferry: IFerry): string {
@@ -138,8 +136,6 @@ export function formatFerryStatus(status: VesselStatus | string): string {
       return "In Service";
     case "MAINTENANCE":
       return "Maintenance";
-    case "OUT_OF_SERVICE":
-      return "Out of Service";
     default:
       return status;
   }
@@ -223,6 +219,18 @@ export function getFerryColumns({
                   Added {new Date(item.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                 </div>
               ) : null}
+              {item.dedicatedRoutes && item.dedicatedRoutes.length > 0 && (
+                <div
+                  className="mt-0.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-400"
+                  title={item.dedicatedRoutes
+                    .map((r) => `${r.departurePort.name} → ${r.destinationPort.name}`)
+                    .join("\n")}
+                >
+                  {item.dedicatedRoutes.length === 1
+                    ? `${item.dedicatedRoutes[0].departurePort.name} → ${item.dedicatedRoutes[0].destinationPort.name}`
+                    : `Dedicated to ${item.dedicatedRoutes.length} routes`}
+                </div>
+              )}
             </div>
           </div>
         );
@@ -252,7 +260,7 @@ export function getFerryColumns({
         const amenities = getFerryAmenities(item);
         if (amenities.length === 0) {
           return (
-            <span className="text-muted-foreground text-[11px] italic">Standard transfer</span>
+            <span className="text-muted-foreground text-[11px]">None listed</span>
           );
         }
 

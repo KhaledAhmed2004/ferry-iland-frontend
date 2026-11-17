@@ -51,7 +51,7 @@ export function BookingStatusDonutChart({
   if (total === 0) return null;
 
   return (
-    <Card className={cn("flex flex-col gap-4", className)}>
+    <Card className={cn("border-border/80 flex flex-col gap-4 shadow-xs", className)}>
       <CardHeader>
         <CardTitle>Booking Status Mix</CardTitle>
         <CardDescription>

@@ -319,7 +319,7 @@ export function DataTable<T>({
         </div>
       )}
 
-      <div className="relative overflow-hidden rounded-lg border" aria-busy={isLoading || isRefreshing}>
+      <div className="bg-card border-border/80 relative overflow-hidden rounded-xl border shadow-xs" aria-busy={isLoading || isRefreshing}>
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (

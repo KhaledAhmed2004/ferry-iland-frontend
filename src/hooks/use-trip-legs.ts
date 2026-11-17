@@ -3,7 +3,7 @@
 import { parseAsString, useQueryState } from "nuqs";
 
 import { useTripDetailsQuery } from "@/hooks/use-trips";
-import { formatCalendarDate, formatPortDate, formatPortTime, portLocalDate } from "@/lib/port-time";
+import { format, parseISO } from "date-fns";
 import {
   TRIP_TYPE_LABELS,
   isReturnTripType,
@@ -52,30 +52,30 @@ export function useTripLegs(outboundTrip: ITripDetail | null | undefined) {
   };
 }
 
-/** "8:30 AM" at the port (spec 0003). */
-export const formatTripTime = (iso: string | null | undefined, timeZone: string) =>
-  iso ? formatPortTime(iso, timeZone) : "TBD";
+/** "8:30 AM". */
+export const formatTripTime = (iso: string | null | undefined) =>
+  iso ? format(new Date(iso), "h:mm a") : "TBD";
 
-/** "Tue, 10 Nov 2026" at the port (spec 0003). */
-export const formatTripDate = (iso: string | null | undefined, timeZone: string) =>
-  iso ? formatPortDate(iso, timeZone, "EEE, d MMM yyyy") : "";
+/** "Tue, 10 Nov 2026". */
+export const formatTripDate = (iso: string | null | undefined) =>
+  iso ? format(new Date(iso), "EEE, d MMM yyyy") : "";
 
 /**
- * Wizard header date and times for the outbound trip, all at the trip's own ports (spec 0003).
+ * Wizard header date and times for the outbound trip.
  * Before the trip loads, the searched date (a calendar day) is shown without a day shift.
  */
 export function tripDateDisplay(trip: ITripDetail | null | undefined, searchedDate: string) {
   if (trip?.departureTime) {
     return {
-      effectiveDate: portLocalDate(trip.departureTime, trip.departureTimeZone),
-      formattedDate: formatTripDate(trip.departureTime, trip.departureTimeZone),
-      depTimeDisplay: formatTripTime(trip.departureTime, trip.departureTimeZone),
-      arrTimeDisplay: formatTripTime(trip.arrivalTime, trip.arrivalTimeZone),
+      effectiveDate: format(new Date(trip.departureTime), "yyyy-MM-dd"),
+      formattedDate: formatTripDate(trip.departureTime),
+      depTimeDisplay: formatTripTime(trip.departureTime),
+      arrTimeDisplay: formatTripTime(trip.arrivalTime),
     };
   }
   let formattedDate = searchedDate;
   try {
-    if (searchedDate) formattedDate = formatCalendarDate(searchedDate, "EEE, d MMM yyyy");
+    if (searchedDate) formattedDate = format(parseISO(searchedDate), "EEE, d MMM yyyy");
   } catch {
     formattedDate = searchedDate;
   }

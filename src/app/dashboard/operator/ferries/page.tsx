@@ -64,8 +64,7 @@ const FERRY_TYPE_OPTIONS = [
 const FERRY_STATUS_OPTIONS = [
   { value: "ALL", label: "All Statuses" },
   { value: "IN_SERVICE", label: "In Service" },
-  { value: "MAINTENANCE", label: "Maintenance" },
-  { value: "OUT_OF_SERVICE", label: "Out of Service" }
+  { value: "MAINTENANCE", label: "Maintenance" }
 ];
 
 const PAGE_SIZE_OPTIONS = [
@@ -88,7 +87,7 @@ export default function OperatorFerriesPage() {
   // Bulk action state
   const [isBulkOperating, setIsBulkOperating] = React.useState(false);
   const [bulkActionType, setBulkActionType] = React.useState<
-    "in_service" | "maintenance" | "out_of_service" | "delete" | null
+    "in_service" | "maintenance" | "delete" | null
   >(null);
   const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = React.useState(false);
 
@@ -184,7 +183,8 @@ export default function OperatorFerriesPage() {
     const res = await createMutation.mutateAsync(payload);
     if (res?.data) {
       const createdFerry = res.data;
-      setLocalFerries((prev) => [createdFerry, ...prev]);
+      // The mutation already put it in the list cache; don't add it twice.
+      setLocalFerries((prev) => [createdFerry, ...prev.filter((f) => f.id !== createdFerry.id)]);
     }
     await refetch();
     setIsAddModalOpen(false);
@@ -221,12 +221,7 @@ export default function OperatorFerriesPage() {
     if (selectedFerryIds.size === 0 || isBulkOperating) return;
     const ids = Array.from(selectedFerryIds);
     setIsBulkOperating(true);
-    const actionKey =
-      status === "IN_SERVICE"
-        ? "in_service"
-        : status === "MAINTENANCE"
-          ? "maintenance"
-          : "out_of_service";
+    const actionKey = status === "IN_SERVICE" ? "in_service" : "maintenance";
     setBulkActionType(actionKey);
 
     const statusLabel = formatFerryStatus(status);

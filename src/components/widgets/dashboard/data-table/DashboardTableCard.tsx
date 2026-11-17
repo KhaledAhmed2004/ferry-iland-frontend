@@ -45,9 +45,7 @@ export function StatusBadge({ status, className, ...props }: StatusBadgeProps) {
     normalizedStatus === "canceled" ||
     normalizedStatus === "expired" ||
     normalizedStatus === "failed" ||
-    normalizedStatus === "rejected" ||
-    normalizedStatus === "out of service" ||
-    normalizedStatus === "out_of_service"
+    normalizedStatus === "rejected"
   ) {
     colorClasses =
       "bg-rose-50 text-rose-700 border-rose-200/80 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800/60";

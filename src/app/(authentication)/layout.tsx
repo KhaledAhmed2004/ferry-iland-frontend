@@ -60,10 +60,10 @@ export default function AuthenticationLayout({ children }: { children: ReactNode
 
         {/* Footer Legal & Support Links */}
         <div className="text-muted-foreground mt-8 flex flex-wrap items-center justify-center gap-6 text-xs">
-          <Link href="/privacy" className="hover:text-foreground transition-colors">
+          <Link href="/legal/privacy-policy" className="hover:text-foreground transition-colors">
             Privacy Policy
           </Link>
-          <Link href="/terms" className="hover:text-foreground transition-colors">
+          <Link href="/legal/terms-of-service" className="hover:text-foreground transition-colors">
             Terms of Service
           </Link>
           <Link href="/help" className="hover:text-foreground transition-colors">

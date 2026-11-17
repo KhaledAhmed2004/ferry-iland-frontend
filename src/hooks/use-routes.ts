@@ -28,7 +28,7 @@ export const routeKeys = {
   list: (params?: IRouteFilterParams) => [...routeKeys.lists(), params] as const,
   popular: (params?: IPopularRoutesParams) => [...routeKeys.all, "popular", params] as const,
   details: () => [...routeKeys.all, "detail"] as const,
-  detail: (id: string) => [...routeKeys.details(), id] as const,
+  detail: (routeId: string) => [...routeKeys.details(), routeId] as const,
   ports: ["ports"] as const,
   connectedPorts: ["routes", "connected-ports"] as const,
   adminPorts: (params?: Record<string, unknown>) => ["admin", "ports", params] as const
@@ -147,13 +147,16 @@ export function useUpdateRouteMutation() {
 
   return useMutation({
     mutationFn: async ({
+      routeId,
       id,
       payload
     }: {
-      id: string;
+      routeId?: string;
+      id?: string;
       payload: IUpdateRoutePayload;
     }) => {
-      return await patch<ApiResponse<IRoute>>(`/routes/${id}`, payload);
+      const targetId = routeId || id;
+      return await patch<ApiResponse<IRoute>>(`/routes/${targetId}`, payload);
     },
     onSuccess: async (response) => {
       if (response.data) {
@@ -188,8 +191,8 @@ export function useDeleteRouteMutation() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (id: string) => {
-      return await del<ApiResponse<null>>(`/routes/${id}`);
+    mutationFn: async (routeId: string) => {
+      return await del<ApiResponse<null>>(`/routes/${routeId}`);
     },
     onSuccess: async (response, deletedId) => {
       queryClient.setQueriesData<{ routes: IRoute[]; pagination?: unknown }>(
@@ -282,7 +285,7 @@ export function useConnectedPortsQuery() {
   return useQuery({
     queryKey: routeKeys.connectedPorts,
     queryFn: async ({ signal }) => {
-      const response = await get<ApiResponse<IConnectedPort[]>>("/routes/ports", {
+      const response = await get<ApiResponse<IConnectedPort[]>>("/routes/connected-ports", {
         signal
       });
       return response.data ?? [];

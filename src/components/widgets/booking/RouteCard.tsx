@@ -2,9 +2,9 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { format } from "date-fns";
 import { ArrowRight, Clock, Ship } from "lucide-react";
 
-import { formatPortDate, formatPortTime, portLocalDate, portToday } from "@/lib/port-time";
 import type { IPopularJourney } from "@/types";
 import { Button, Card, CardContent } from "@/ui";
 
@@ -38,34 +38,30 @@ interface RouteCardProps {
 }
 
 /**
- * "Today, 2:30 PM" · "Tomorrow, 9:00 AM" · "Mon 10 Nov, 9:00 AM", all at the departure port,
- * so "today" is the port's today, not the viewer's (spec 0003, AC-13).
+ * "Today, 2:30 PM" · "Tomorrow, 9:00 AM" · "Mon 10 Nov, 9:00 AM".
  */
-function formatNextDeparture(iso: string, timeZone: string): string {
-  const time = formatPortTime(iso, timeZone);
-  const day = portLocalDate(iso, timeZone);
+function formatNextDeparture(iso: string): string {
+  const date = new Date(iso);
+  const time = format(date, "h:mm a");
+  const day = format(date, "yyyy-MM-dd");
   const now = new Date();
-  if (day === portToday(timeZone, now)) return `Today, ${time}`;
-  if (day === portToday(timeZone, new Date(now.getTime() + 24 * 60 * 60 * 1000))) {
+  if (day === format(now, "yyyy-MM-dd")) return `Today, ${time}`;
+  if (day === format(new Date(now.getTime() + 24 * 60 * 60 * 1000), "yyyy-MM-dd")) {
     return `Tomorrow, ${time}`;
   }
-  return `${formatPortDate(iso, timeZone)}, ${time}`;
+  return `${format(date, "EEE d MMM")}, ${time}`;
 }
 
 export function RouteCard({ route }: RouteCardProps) {
-  const portZone = route.departurePort?.timeZone;
-  const nextDepartureLabel =
-    route.nextDepartureTime && portZone
-      ? formatNextDeparture(route.nextDepartureTime, portZone)
-      : "No trips scheduled";
+  const nextDepartureLabel = route.nextDepartureTime
+    ? formatNextDeparture(route.nextDepartureTime)
+    : "No trips scheduled";
 
-  // Open the trip search on the departure port's local day of the next sailing (spec 0003).
-  const searchDate =
-    route.nextDepartureTime && portZone
-      ? portLocalDate(route.nextDepartureTime, portZone)
-      : portZone
-        ? portToday(portZone)
-        : new Date().toISOString().slice(0, 10);
+  // Open the trip search on the day of the next sailing.
+  const searchDate = format(
+    route.nextDepartureTime ? new Date(route.nextDepartureTime) : new Date(),
+    "yyyy-MM-dd"
+  );
   const fromVal = route.departurePort?.name || route.from;
   const toVal = route.destinationPort?.name || route.to;
   const targetUrl = `/ferries?from=${encodeURIComponent(fromVal)}&to=${encodeURIComponent(
